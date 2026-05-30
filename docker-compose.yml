@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: unplan-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: unplan
+      POSTGRES_USER: unplan
+      POSTGRES_PASSWORD: unplan
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

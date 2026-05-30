@@ -1,5 +1,4 @@
 ---
-
 name: Bug Report
 about: 버그 발생 시 사용하는 템플릿입니다.
 title: "[Bug] "

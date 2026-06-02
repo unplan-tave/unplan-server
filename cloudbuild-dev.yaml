@@ -1,0 +1,26 @@
+version: '1.0'
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        gcloud run deploy unplan-server-dev \
+          --source . \
+          --region asia-northeast3 \
+          --allow-unauthenticated \
+          --set-env-vars "SPRING_PROFILES_ACTIVE=dev" \
+          --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
+          --set-env-vars "SPRING_DATASOURCE_USERNAME=$$DB_USERNAME" \
+          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD"
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_db_username/versions/latest
+      env: 'DB_USERNAME'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_db_password/versions/latest
+      env: 'DB_PASSWORD'

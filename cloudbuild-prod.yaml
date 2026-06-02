@@ -1,0 +1,17 @@
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - unplan-server-prod
+      - --source
+      - .
+      - --region
+      - asia-northeast3
+      - --allow-unauthenticated
+      - --set-env-vars
+      - 'SPRING_PROFILES_ACTIVE=prod,SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_prod?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory,SPRING_DATASOURCE_USERNAME=unplan,SPRING_DATASOURCE_PASSWORD=unplan'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

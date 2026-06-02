@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: unplan-postgres
+    environment:
+      POSTGRES_DB: unplan
+      POSTGRES_USER: unplan
+      POSTGRES_PASSWORD: unplan
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: unplan-app
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/unplan
+      SPRING_DATASOURCE_USERNAME: unplan
+      SPRING_DATASOURCE_PASSWORD: unplan
+
+volumes:
+  postgres_data:

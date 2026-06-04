@@ -1,4 +1,4 @@
-package com.unplan.unplanserver.domain.jwt;
+package com.unplan.unplanserver.domain.jwt.entity;
 
 import jakarta.persistence.*;
 

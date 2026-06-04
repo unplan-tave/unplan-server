@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.member.entity;
 
+import com.unplan.unplanserver.domain.member.enums.Gender;
 import com.unplan.unplanserver.domain.member.enums.Provider;
 import com.unplan.unplanserver.domain.member.enums.TransportType;
 import jakarta.persistence.*;
@@ -24,7 +25,7 @@ public class Member {
     private String oauthId;
 
     @Enumerated(EnumType.STRING)
-    private String gender;
+    private Gender gender;
 
     @Enumerated(EnumType.STRING)
     private Provider provider;

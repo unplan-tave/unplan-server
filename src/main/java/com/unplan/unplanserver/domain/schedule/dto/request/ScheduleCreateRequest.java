@@ -1,0 +1,53 @@
+package com.unplan.unplanserver.domain.schedule.dto.request;
+
+import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.domain.schedule.enums.RemindSoundType;
+import com.unplan.unplanserver.domain.schedule.enums.RemindType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Getter
+@NoArgsConstructor
+public class ScheduleCreateRequest {
+
+    @NotBlank
+    private String title;
+
+    @NotNull
+    private ConditionTag conditionTag;
+
+    private List<String> personalTags;
+    private String date;
+    private String startTime;
+    private String endTime;
+    private Integer estimatedTime;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
+    private String memo;
+
+    @NotNull
+    private Boolean isRemindOn;
+
+    private Integer remindMinutes;
+    private RemindType remindType;
+    private RemindSoundType remindSoundType;
+    private RecurrenceRequest recurrence;
+
+    @Getter
+    @NoArgsConstructor
+    public static class RecurrenceRequest {
+        @NotNull
+        private String freq;
+        @NotNull
+        private Integer interval;
+        private String byDay;
+        private String byMonthDay;
+        @NotNull
+        private String until;
+    }
+}

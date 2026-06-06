@@ -21,7 +21,7 @@ public class Schedule {
     @Column(name = "schedule_id")
     private Long scheduleId;
 
-    // Member 엔티티가 아직 없어 임시로 Long 사용. 추후 @ManyToOne으로 교체 예정
+    // Member 엔티티 미완성으로 임시 Long 사용. 추후 @ManyToOne으로 교체 예정
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 

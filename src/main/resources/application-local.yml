@@ -13,3 +13,7 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+
+swagger:
+  server-url: http://localhost:8080
+  description: Local Server

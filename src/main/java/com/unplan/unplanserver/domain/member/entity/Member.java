@@ -2,6 +2,7 @@ package com.unplan.unplanserver.domain.member.entity;
 
 import com.unplan.unplanserver.domain.member.enums.Gender;
 import com.unplan.unplanserver.domain.member.enums.Provider;
+import com.unplan.unplanserver.domain.member.enums.Role;
 import com.unplan.unplanserver.domain.member.enums.TransportType;
 import jakarta.persistence.*;
 import jakarta.persistence.Id;
@@ -25,7 +26,10 @@ public class Member {
     private String oauthId;
 
     @Enumerated(EnumType.STRING)
-    private Gender gender;
+    private Role role;
+
+//    @Enumerated(EnumType.STRING)
+//    private Gender gender;
 
     @Enumerated(EnumType.STRING)
     private Provider provider;
@@ -35,14 +39,14 @@ public class Member {
 
     private String email;
 
-    private LocalDate birth;
+//    private LocalDate birth;
 
     @Column(name = "target_sleep_time")
     private int targetSleepTime;    // 분단위로 저장?
 
-    @Column(name = "transport_type")
-    @Enumerated(EnumType.STRING)
-    private TransportType transportType;
+//    @Column(name = "transport_type")
+//    @Enumerated(EnumType.STRING)
+//    private TransportType transportType;
 
     @Column(name = "created_at")
     @CreatedDate

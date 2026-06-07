@@ -1,9 +1,8 @@
 package com.unplan.unplanserver.domain.member.entity;
 
-import com.unplan.unplanserver.domain.member.enums.Gender;
+import com.unplan.unplanserver.domain.auth.dto.KakaoUserInfoResponseDto;
 import com.unplan.unplanserver.domain.member.enums.Provider;
 import com.unplan.unplanserver.domain.member.enums.Role;
-import com.unplan.unplanserver.domain.member.enums.TransportType;
 import jakarta.persistence.*;
 import jakarta.persistence.Id;
 import lombok.*;
@@ -23,7 +22,7 @@ public class Member {
     private String name;
 
     @Column(name = "oauth_id")
-    private String oauthId;
+    private Long oauthId;
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -58,4 +57,18 @@ public class Member {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public static Member fromKakao(KakaoUserInfoResponseDto userInfo){
+        Member member = new Member();
+        member.oauthId = userInfo.getId();
+        member.role = Role.USER;
+        member.provider = Provider.KAKAO;
+        if (!userInfo.getKakaoAccount().getProfileNicknameNeedsAgreement()) {
+            member.nickname = userInfo.getKakaoAccount().getProfile().getNickname();
+        }
+        if(!userInfo.getKakaoAccount().getEmailNeedsAgreement()){
+            member.email = userInfo.getKakaoAccount().getEmail();
+        }
+        return member;
+    }
 }

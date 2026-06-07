@@ -1,11 +1,15 @@
 package com.unplan.unplanserver.domain.jwt.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "refresh")
+@AllArgsConstructor
+@NoArgsConstructor
 public class Refresh {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,4 +29,13 @@ public class Refresh {
 
     @Column(name = "expires_at", updatable = false)
     private LocalDateTime expiresAt;
+
+    public static Refresh of(Long memberId, String token, String deviceId, LocalDateTime expiresAt) {
+        Refresh refresh = new Refresh();
+        refresh.memberId = memberId;
+        refresh.token = token;
+        refresh.deviceId = deviceId;
+        refresh.expiresAt = expiresAt;
+        return refresh;
+    }
 }

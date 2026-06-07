@@ -29,7 +29,7 @@ public class JwtUtil {
         this.refreshExpiration = refreshExpiration;  // 30일
     }
 
-    public String createJwt(Long memberId, Boolean isAccess){
+    public String createJwt(Long memberId, String role, Boolean isAccess){
         long now = System.currentTimeMillis();
         long expiry = isAccess ? accessExpiration : refreshExpiration;
         String type = isAccess ? "access" : "refresh";
@@ -37,6 +37,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .subject(memberId.toString())
                 .claim("type", type)
+                .claim("role", role)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + expiry))
                 .signWith(secretKey)
@@ -76,5 +77,13 @@ public class JwtUtil {
                         .getPayload()
                         .getSubject()
         );
+    }
+    public String getRole(String token){
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("role", String.class);
     }
 }

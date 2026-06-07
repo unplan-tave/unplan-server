@@ -13,6 +13,8 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @AllArgsConstructor
 public class AuthService {
@@ -45,7 +47,9 @@ public class AuthService {
         String accessToken = jwtUtil.createJwt(memberId, role, true);
         String refreshToken = jwtUtil.createJwt(memberId, role, false);
 
-        Refresh refresh = Refresh.of(memberId, refreshToken, requestDto.deviceId(), jwtUtil.getExpiration(refreshToken));
+        LocalDateTime createdAt = jwtUtil.getIssuedAt(refreshToken);
+        LocalDateTime expiresAt = jwtUtil.getExpiration(refreshToken);
+        Refresh refresh = Refresh.of(memberId, refreshToken, requestDto.deviceId(), createdAt, expiresAt);
         refreshRepository.save(refresh);
 
         return new SocialLoginResponseDto(accessToken, refreshToken, isNewMember);

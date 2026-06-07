@@ -30,11 +30,12 @@ public class Refresh {
     @Column(name = "expires_at", updatable = false)
     private LocalDateTime expiresAt;
 
-    public static Refresh of(Long memberId, String token, String deviceId, LocalDateTime expiresAt) {
+    public static Refresh of(Long memberId, String token, String deviceId, LocalDateTime createdAt, LocalDateTime expiresAt) {
         Refresh refresh = new Refresh();
         refresh.memberId = memberId;
         refresh.token = token;
         refresh.deviceId = deviceId;
+        refresh.createdAt = createdAt;
         refresh.expiresAt = expiresAt;
         return refresh;
     }

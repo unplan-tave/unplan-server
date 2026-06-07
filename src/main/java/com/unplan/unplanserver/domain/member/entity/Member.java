@@ -7,11 +7,13 @@ import jakarta.persistence.*;
 import jakarta.persistence.Id;
 import lombok.*;
 import org.springframework.data.annotation.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.*;
 @Entity
 @Table(name = "member")
 @Getter
+@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 public class Member {
     @Id

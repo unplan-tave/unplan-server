@@ -101,4 +101,16 @@ public class JwtUtil {
                 .toLocalDateTime();
 
     }
+
+    public LocalDateTime getIssuedAt(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getIssuedAt()
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
+    }
 }

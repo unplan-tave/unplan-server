@@ -16,6 +16,7 @@ public class KakaoUserInfoResponseDto {
         private Boolean profileNicknameNeedsAgreement;
         private Profile profile;
 
+        private Boolean hasEmail;
         private Boolean emailNeedsAgreement;
         private Boolean isEmailValid;
         private Boolean isEmailVerified;

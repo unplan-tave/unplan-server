@@ -50,11 +50,14 @@ public class MemoService {
     // 메모 삭제
     @Transactional
     public void deleteMemos(Long memberId, MemoRequest.Delete request) {
-        List<Long> requestedIds = request.dailyMemoIds();
 
-        List<Memo> existingMemos = memoRepository.findAllByDailyMemoIdInAndMemberId(requestedIds, memberId);
+        List<Long> uniqueRequestedIds = request.dailyMemoIds().stream()
+                .distinct()
+                .toList();
 
-        if (existingMemos.size() != requestedIds.size()) {
+        List<Memo> existingMemos = memoRepository.findAllByDailyMemoIdInAndMemberId(uniqueRequestedIds, memberId);
+
+        if (existingMemos.size() != uniqueRequestedIds.size()) {
             throw new CustomException(ErrorCode.MEMO_NOT_FOUND);
         }
 

@@ -57,4 +57,11 @@ public class RecoverService {
 
         return RecoverResponse.UpdateMethods.from(memberId, savedEntities);
     }
+
+    @Transactional(readOnly = true)
+    public RecoverResponse.GetMethods getMethods(Long memberId) {
+        List<RecoverEntity> recoverEntities = recoverRepository.findByMemberId(memberId);
+
+        return RecoverResponse.GetMethods.from(recoverEntities);
+    }
 }

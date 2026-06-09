@@ -28,4 +28,24 @@ public class RecoverResponse {
             return new UpdateMethods(memberId, defaultMethods, customMethods);
         }
     }
+
+    public record GetMethods(
+            List<RecoveryMethodType> defaultMethods,
+            List<String> customMethods
+    ) {
+        public static GetMethods from(List<RecoverEntity> recoverEntities) {
+
+            List<RecoveryMethodType> defaultMethods = recoverEntities.stream()
+                    .map(RecoverEntity::getDefaultMethod)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            List<String> customMethods = recoverEntities.stream()
+                    .map(RecoverEntity::getCustomMethod)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            return new GetMethods(defaultMethods, customMethods);
+        }
+    }
 }

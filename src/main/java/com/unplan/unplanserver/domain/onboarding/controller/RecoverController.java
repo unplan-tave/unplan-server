@@ -37,4 +37,19 @@ public class RecoverController {
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @Operation(
+            summary = "컨디션 회복 방법 조회",
+            description = "회원이 설정한 기본 회복 방법과 직접 입력한 회복 방법을 조회합니다."
+    )
+    @GetMapping("/recovery-methods")
+    public ResponseEntity<ApiResponse<RecoverResponse.GetMethods>> getRecoveryMethods(
+            // @AuthenticationPrincipal Long memberId
+    ) {
+        Long memberId = 1L;
+
+        RecoverResponse.GetMethods response = recoverService.getMethods(memberId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

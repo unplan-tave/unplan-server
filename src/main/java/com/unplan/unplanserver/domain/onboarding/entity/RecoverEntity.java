@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "recover_entity")
+@Table(
+        name = "recover_entity",
+        indexes = @Index(name = "idx_recover_member_id", columnList = "member_id")
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -24,7 +27,6 @@ public class RecoverEntity {
     @Column(name = "default_method")
     private RecoveryMethodType defaultMethod;
 
-    @Lob
-    @Column(name = "custom_method")
+    @Column(name = "custom_method", length = 255)
     private String customMethod;
 }

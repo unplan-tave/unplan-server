@@ -9,9 +9,8 @@ import tools.jackson.databind.ObjectMapper;
 @Configuration
 @RequiredArgsConstructor
 public class WebClientConfig {
-
     @Bean
-    public WebClient webClient(ObjectMapper objectMapper) {
+    public WebClient webClient() {
         return WebClient.builder()
                 .defaultHeader("Content-Type", "application/json")
                 .build();

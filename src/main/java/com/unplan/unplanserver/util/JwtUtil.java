@@ -45,28 +45,22 @@ public class JwtUtil {
                 .signWith(secretKey)
                 .compact();
     }
-    public Boolean isValid(String token, Boolean isAccess) {
-        try {
+    public Claims parseClaims(String token, Boolean isAccess){
+        try{
             Claims claims = Jwts.parser()
-                    .verifyWith(secretKey)  // parser의 검증방식과 키 지정
+                    .verifyWith(secretKey)
                     .build()
-                    .parseSignedClaims(token)   //만료시간검증은 자동
+                    .parseSignedClaims(token)
                     .getPayload();
 
             String type = claims.get("type", String.class);
-            if (type == null) return false;
-            if (isAccess && !"access".equals(type)) return false;
-            if (!isAccess && !"refresh".equals(type)) return false;
+            if(type == null)    return null;
+            if(isAccess && !"access".equals(type))  return null;
+            if(!isAccess && !"refresh".equals(type)) return null;
 
-            return true;
-        }
-        catch (ExpiredJwtException e){
-            //만료된 토큰
-            return false;
-        }
-        catch(JwtException | IllegalArgumentException e){
-            // 위조된 토큰(JwtException)이거나 토큰이 null이거나 빈문자열일때
-            return false;
+            return claims;
+        }catch (JwtException | IllegalArgumentException e){
+            throw new ExpiredJwtException(null, null, "만료된 토큰");
         }
     }
     // JWT에서 memberId 추출
@@ -80,34 +74,20 @@ public class JwtUtil {
                         .getSubject()
         );
     }
-    public String getRole(String token){
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .get("role", String.class);
+    public String getRole(Claims claims){
+        return claims.get("role", String.class);
     }
 
-    public LocalDateTime getExpiration(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
+    public LocalDateTime getExpiration(Claims claims) {
+        return claims
                 .getExpiration()
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDateTime();
-
     }
 
-    public LocalDateTime getIssuedAt(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
+    public LocalDateTime getIssuedAt(Claims claims) {
+        return claims
                 .getIssuedAt()
                 .toInstant()
                 .atZone(ZoneId.systemDefault())

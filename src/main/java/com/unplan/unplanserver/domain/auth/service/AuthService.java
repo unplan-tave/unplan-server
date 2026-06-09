@@ -9,6 +9,7 @@ import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
 import com.unplan.unplanserver.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,8 +48,9 @@ public class AuthService {
         String accessToken = jwtUtil.createJwt(memberId, role, true);
         String refreshToken = jwtUtil.createJwt(memberId, role, false);
 
-        LocalDateTime createdAt = jwtUtil.getIssuedAt(refreshToken);
-        LocalDateTime expiresAt = jwtUtil.getExpiration(refreshToken);
+        Claims claims = jwtUtil.parseClaims(refreshToken, false);
+        LocalDateTime createdAt = jwtUtil.getIssuedAt(claims);
+        LocalDateTime expiresAt = jwtUtil.getExpiration(claims);
         Refresh refresh = Refresh.of(memberId, refreshToken, requestDto.deviceId(), createdAt, expiresAt);
         refreshRepository.save(refresh);
 

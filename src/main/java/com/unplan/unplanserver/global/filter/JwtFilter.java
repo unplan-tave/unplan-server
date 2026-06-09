@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.global.filter;
 
 import com.unplan.unplanserver.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,14 +28,16 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String token = resolveToken(request);
 
-        if (token != null && jwtUtil.isValid(token, true)) {
-            Long memberId = jwtUtil.getMemberId(token);
-            String role = jwtUtil.getRole(token);
-
-            // Spring Security에 인증 정보 등록
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(memberId, null, List.of(new SimpleGrantedAuthority(role)));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (token != null) {
+            Claims claims = jwtUtil.parseClaims(token, true);
+            if(claims != null){
+                Long memberId = Long.parseLong(claims.getSubject());
+                String role = claims.get("role", String.class);
+                // Spring Security에 인증 정보 등록
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(memberId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);

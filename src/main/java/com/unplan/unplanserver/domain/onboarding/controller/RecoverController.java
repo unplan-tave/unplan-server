@@ -1,0 +1,40 @@
+package com.unplan.unplanserver.domain.onboarding.controller;
+
+import com.unplan.unplanserver.domain.onboarding.dto.request.RecoverRequest;
+import com.unplan.unplanserver.domain.onboarding.dto.response.RecoverResponse;
+import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
+import com.unplan.unplanserver.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@Tag(name = "Recovery Methods", description = "컨디션 회복 방법 설정 API")
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/member-settings")
+public class RecoverController {
+
+    private final RecoverService recoverService;
+
+    @Operation(
+            summary = "컨디션 회복 방법 설정 저장 및 전체 수정",
+            description = "처음 온보딩 입력 시에도 사용 가능하며, 기존 설정이 있으면 요청값으로 전체 교체합니다.<br>" +
+                    "defaultMethods에는 NAP, MUSIC, WALK, STRETCHING, FOOD 중 선택한 값을 넣어 주세요.<br>" +
+                    "직접 입력값이 없으면 customMethods는 빈 배열 []로 보내 주세요."
+    )
+    @PutMapping("/recovery-methods")
+    public ResponseEntity<ApiResponse<RecoverResponse.UpdateMethods>> updateRecoveryMethods(
+            // @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody RecoverRequest.UpdateMethods request
+    ) {
+        Long memberId = 1L;
+
+        RecoverResponse.UpdateMethods response =
+                recoverService.updateMethods(memberId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+}

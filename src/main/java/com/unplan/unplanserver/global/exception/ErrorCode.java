@@ -18,7 +18,10 @@ public enum ErrorCode {
 
     // --- [메모 관련 에러] ---
     MEMO_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMO_404", "존재하지 않는 메모가 포함되어 있습니다."),
-    MEMO_COUNT_EXCEEDED(HttpStatus.BAD_REQUEST, "MEMO_COUNT_EXCEEDED", "날짜별 메모는 최대 5개까지만 입력 가능합니다.");
+    MEMO_COUNT_EXCEEDED(HttpStatus.BAD_REQUEST, "MEMO_COUNT_EXCEEDED", "날짜별 메모는 최대 5개까지만 입력 가능합니다."),
+
+    // --- [온보딩 관련 에러] ---
+    RECOVER_METHOD_REQUIRED(HttpStatus.BAD_REQUEST,"RECOVER_400","최소 1개 이상의 회복 방법을 선택해야 합니다.");
 
     private final HttpStatus status;
     private final String code;

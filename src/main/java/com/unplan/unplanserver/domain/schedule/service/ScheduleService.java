@@ -2,6 +2,8 @@ package com.unplan.unplanserver.domain.schedule.service;
 
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -56,5 +59,20 @@ public class ScheduleService {
                 .estimatedTime(saved.getEstimatedTime())
                 .isQueue(saved.getIsQueue())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScheduleGetResponse> getSchedulesByDate(Long memberId, LocalDate date) {
+        return scheduleRepository.findByMemberIdAndDate(memberId, date)
+                .stream()
+                .map(ScheduleGetResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ScheduleDetailResponse getScheduleDetail(Long memberId, Long scheduleId) {
+        Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
+                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+        return ScheduleDetailResponse.from(schedule);
     }
 }

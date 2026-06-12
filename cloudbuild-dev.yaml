@@ -9,9 +9,9 @@ steps:
           --region asia-northeast3 \
           --allow-unauthenticated \
           --set-env-vars "SPRING_PROFILES_ACTIVE=dev" \
-          --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
-          --set-env-vars "SPRING_DATASOURCE_USERNAME=$$DB_USERNAME" \
-          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD" \
+          --set-env-vars "DEVELOP_DB_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
+          --set-env-vars "DEVELOP_DB_USERNAME=$$DB_USERNAME" \
+          --set-env-vars "DEVELOP_DB_PASSWORD=$$DB_PASSWORD" \
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
           --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000"

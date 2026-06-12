@@ -23,7 +23,7 @@ public class SleepConditionService {
     private final SleepConditionRepository sleepConditionRepository;
 
     @Transactional
-    public SleepConditionResponse.UpdateConditions updateSleepCondition(
+    public SleepConditionResponse updateSleepCondition(
             Long memberId,
             SleepConditionRequest.UpdateConditions request
     ) {
@@ -52,14 +52,14 @@ public class SleepConditionService {
                                 .build()
                 ));
 
-        return SleepConditionResponse.UpdateConditions.from(sleepCondition);
+        return SleepConditionResponse.from(sleepCondition);
     }
 
-    public SleepConditionResponse.GetConditions getSleepCondition(Long memberId) {
+    public SleepConditionResponse getSleepCondition(Long memberId) {
         SleepCondition sleepCondition = sleepConditionRepository.findByMemberId(memberId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_REQUEST));
+                .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_CONDITION_NOT_FOUND));
 
-        return SleepConditionResponse.GetConditions.from(sleepCondition);
+        return SleepConditionResponse.from(sleepCondition);
     }
 
     private void validateSleepUnit(SleepConditionRequest.UpdateConditions request) {

@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Onboarding", description = "온보딩 설정 API")
@@ -31,10 +32,9 @@ public class OnboardingController {
     )
     @PutMapping("/recovery-methods")
     public ResponseEntity<ApiResponse<RecoverResponse.UpdateMethods>> updateRecoveryMethods(
-            // @AuthenticationPrincipal Long memberId,
+            @AuthenticationPrincipal Long memberId,
             @Valid @RequestBody RecoverRequest.UpdateMethods request
     ) {
-        Long memberId = 1L;
 
         RecoverResponse.UpdateMethods response =
                 recoverService.updateMethods(memberId, request);
@@ -48,9 +48,8 @@ public class OnboardingController {
     )
     @GetMapping("/recovery-methods")
     public ResponseEntity<ApiResponse<RecoverResponse.GetMethods>> getRecoveryMethods(
-            // @AuthenticationPrincipal Long memberId
+            @AuthenticationPrincipal Long memberId
     ) {
-        Long memberId = 1L;
 
         RecoverResponse.GetMethods response = recoverService.getMethods(memberId);
 
@@ -62,13 +61,12 @@ public class OnboardingController {
             description = "수면 시간별 컨디션 기준을 설정합니다. 모든 값은 30분 단위이며, 과다 기준값은 720분으로 고정됩니다."
     )
     @PutMapping("/sleep-conditions")
-    public ResponseEntity<ApiResponse<SleepConditionResponse.UpdateConditions>> updateSleepConditions(
-            // @AuthenticationPrincipal Long memberId,
+    public ResponseEntity<ApiResponse<SleepConditionResponse>> updateSleepConditions(
+            @AuthenticationPrincipal Long memberId,
             @Valid @RequestBody SleepConditionRequest.UpdateConditions request
     ) {
-        Long memberId = 1L;
 
-        SleepConditionResponse.UpdateConditions response =
+        SleepConditionResponse response =
                 sleepConditionService.updateSleepCondition(memberId, request);
 
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -79,12 +77,11 @@ public class OnboardingController {
             description = "회원이 설정한 수면 시간별 컨디션 기준을 조회합니다."
     )
     @GetMapping("/sleep-conditions")
-    public ResponseEntity<ApiResponse<SleepConditionResponse.GetConditions>> getSleepConditions(
-            // @AuthenticationPrincipal Long memberId
+    public ResponseEntity<ApiResponse<SleepConditionResponse>> getSleepConditions(
+            @AuthenticationPrincipal Long memberId
     ) {
-        Long memberId = 1L;
 
-        SleepConditionResponse.GetConditions response =
+        SleepConditionResponse response =
                 sleepConditionService.getSleepCondition(memberId);
 
         return ResponseEntity.ok(ApiResponse.success(response));

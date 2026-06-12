@@ -5,44 +5,22 @@ import com.unplan.unplanserver.domain.onboarding.enums.SleepConditionType;
 
 import java.util.List;
 
-public class SleepConditionResponse {
-
-    public record UpdateConditions(
-            Long memberId,
-            Integer targetDuration,
-            List<Condition> conditions
-    ) {
-        public static UpdateConditions from(SleepCondition sleepCondition) {
-            return new UpdateConditions(
-                    sleepCondition.getMemberId(),
-                    sleepCondition.getTargetDuration(),
-                    List.of(
-                            new Condition(SleepConditionType.DANGER, sleepCondition.getDangerThreshold()),
-                            new Condition(SleepConditionType.LACK, sleepCondition.getLackThreshold()),
-                            new Condition(SleepConditionType.OPTIMAL, sleepCondition.getOptimalThreshold()),
-                            new Condition(SleepConditionType.EXCESS, sleepCondition.getExcessThreshold())
-                    )
-            );
-        }
-    }
-
-    public record GetConditions(
-            Long memberId,
-            Integer targetDuration,
-            List<Condition> conditions
-    ) {
-        public static GetConditions from(SleepCondition sleepCondition) {
-            return new GetConditions(
-                    sleepCondition.getMemberId(),
-                    sleepCondition.getTargetDuration(),
-                    List.of(
-                            new Condition(SleepConditionType.DANGER, sleepCondition.getDangerThreshold()),
-                            new Condition(SleepConditionType.LACK, sleepCondition.getLackThreshold()),
-                            new Condition(SleepConditionType.OPTIMAL, sleepCondition.getOptimalThreshold()),
-                            new Condition(SleepConditionType.EXCESS, sleepCondition.getExcessThreshold())
-                    )
-            );
-        }
+public record SleepConditionResponse(
+        Long memberId,
+        Integer targetDuration,
+        List<Condition> conditions
+) {
+    public static SleepConditionResponse from(SleepCondition sleepCondition) {
+        return new SleepConditionResponse(
+                sleepCondition.getMemberId(),
+                sleepCondition.getTargetDuration(),
+                List.of(
+                        new Condition(SleepConditionType.DANGER, sleepCondition.getDangerThreshold()),
+                        new Condition(SleepConditionType.LACK, sleepCondition.getLackThreshold()),
+                        new Condition(SleepConditionType.OPTIMAL, sleepCondition.getOptimalThreshold()),
+                        new Condition(SleepConditionType.EXCESS, sleepCondition.getExcessThreshold())
+                )
+        );
     }
 
     public record Condition(

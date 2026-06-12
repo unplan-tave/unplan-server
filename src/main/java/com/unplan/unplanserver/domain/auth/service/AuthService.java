@@ -30,8 +30,10 @@ public class AuthService {
         KakaoUserInfoResponseDto kakaoUserInfo = kakaoAuthClient.getUserInfo(requestDto.kakaoAccessToken());
         Long oauthId = kakaoUserInfo.getId();
         Member member = memberRepository.findByOauthId(oauthId).orElse(null);
+        Boolean isNewMember = false;
         // 이전에 로그인한적이 없으면
         if(member == null){
+            isNewMember = true;
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
             memberRepository.save(member);

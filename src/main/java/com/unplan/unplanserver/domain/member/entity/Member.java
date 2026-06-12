@@ -1,0 +1,76 @@
+package com.unplan.unplanserver.domain.member.entity;
+
+import com.unplan.unplanserver.domain.auth.dto.KakaoUserInfoResponseDto;
+import com.unplan.unplanserver.domain.member.enums.Provider;
+import com.unplan.unplanserver.domain.member.enums.Role;
+import jakarta.persistence.*;
+import jakarta.persistence.Id;
+import lombok.*;
+import org.springframework.data.annotation.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.*;
+@Entity
+@Table(name = "member")
+@Getter
+@EntityListeners(AuditingEntityListener.class)
+@NoArgsConstructor
+public class Member {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_id")
+    private Long memberId;
+
+    private String name;
+
+    @Column(name = "oauth_id")
+    private Long oauthId;
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+//    @Enumerated(EnumType.STRING)
+//    private Gender gender;
+
+    @Enumerated(EnumType.STRING)
+    private Provider provider;
+
+    @Column(nullable = false)
+    private String nickname;
+
+    private String email;
+
+//    private LocalDate birth;
+
+    @Column(name = "target_sleep_time")
+    private int targetSleepTime;    // 분단위로 저장?
+
+//    @Column(name = "transport_type")
+//    @Enumerated(EnumType.STRING)
+//    private TransportType transportType;
+
+    @Column(name = "created_at")
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    public static Member fromKakao(KakaoUserInfoResponseDto userInfo){
+        Member member = new Member();
+        member.oauthId = userInfo.getId();
+        member.role = Role.USER;
+        member.provider = Provider.KAKAO;
+        if (!userInfo.getKakaoAccount().getProfileNicknameNeedsAgreement()) {
+            member.nickname = userInfo.getKakaoAccount().getProfile().getNickname();
+        }
+        if(!userInfo.getKakaoAccount().getEmailNeedsAgreement()){
+            member.email = userInfo.getKakaoAccount().getEmail();
+        }
+        return member;
+    }
+}

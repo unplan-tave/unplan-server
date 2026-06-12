@@ -1,6 +1,6 @@
 package com.unplan.unplanserver.domain.onboarding.dto.response;
 
-import com.unplan.unplanserver.domain.onboarding.entity.RecoverEntity;
+import com.unplan.unplanserver.domain.onboarding.entity.Recover;
 import com.unplan.unplanserver.domain.onboarding.enums.RecoveryMethodType;
 
 import java.util.List;
@@ -13,15 +13,15 @@ public class RecoverResponse {
             List<RecoveryMethodType> defaultMethods,
             List<String> customMethods
     ) {
-        public static UpdateMethods from(Long memberId, List<RecoverEntity> recoverEntities) {
+        public static UpdateMethods from(Long memberId, List<Recover> recoverEntities) {
 
             List<RecoveryMethodType> defaultMethods = recoverEntities.stream()
-                    .map(RecoverEntity::getDefaultMethod)
+                    .map(Recover::getDefaultMethod)
                     .filter(Objects::nonNull)
                     .toList();
 
             List<String> customMethods = recoverEntities.stream()
-                    .map(RecoverEntity::getCustomMethod)
+                    .map(Recover::getCustomMethod)
                     .filter(Objects::nonNull)
                     .toList();
 
@@ -33,15 +33,15 @@ public class RecoverResponse {
             List<RecoveryMethodType> defaultMethods,
             List<String> customMethods
     ) {
-        public static GetMethods from(List<RecoverEntity> recoverEntities) {
+        public static GetMethods from(List<Recover> recoverEntities) {
 
             List<RecoveryMethodType> defaultMethods = recoverEntities.stream()
-                    .map(RecoverEntity::getDefaultMethod)
+                    .map(Recover::getDefaultMethod)
                     .filter(Objects::nonNull)
                     .toList();
 
             List<String> customMethods = recoverEntities.stream()
-                    .map(RecoverEntity::getCustomMethod)
+                    .map(Recover::getCustomMethod)
                     .filter(Objects::nonNull)
                     .toList();
 

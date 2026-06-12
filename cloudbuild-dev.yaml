@@ -11,8 +11,11 @@ steps:
           --set-env-vars "SPRING_PROFILES_ACTIVE=dev" \
           --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
           --set-env-vars "SPRING_DATASOURCE_USERNAME=$$DB_USERNAME" \
-          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD"
-    secretEnv: ['DB_USERNAME', 'DB_PASSWORD']
+          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD" \
+          --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
+          --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
+          --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000"
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET']
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -23,3 +26,5 @@ availableSecrets:
       env: 'DB_USERNAME'
     - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_db_password/versions/latest
       env: 'DB_PASSWORD'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_jwt_secret/versions/latest
+      env: 'JWT_SECRET'

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -28,17 +29,14 @@ public class AuthService {
     public SocialLoginResponseDto kakaoLogin(KakaoLoginRequestDto requestDto) {
         KakaoUserInfoResponseDto kakaoUserInfo = kakaoAuthClient.getUserInfo(requestDto.kakaoAccessToken());
         Long oauthId = kakaoUserInfo.getId();
-        Member member;
-        Boolean isNewMember = false;
+        Member member = memberRepository.findByOauthId(oauthId).orElse(null);
         // 이전에 로그인한적이 없으면
-        if(!memberRepository.existsByOauthId(oauthId)){
-            isNewMember = true;
+        if(member == null){
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
             memberRepository.save(member);
         }
         else{
-            member = memberRepository.findByOauthId(oauthId).orElseThrow(()-> new RuntimeException("회원을 찾을 수 없습니다"));
             //기존 refresh토큰 삭제, memberId와 deviceId로 찾으므로 중복로그인 허용
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }

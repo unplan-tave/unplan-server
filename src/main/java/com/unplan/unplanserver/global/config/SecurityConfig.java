@@ -33,8 +33,13 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // JWT라 세션 사용안함
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()  // 로그인은 누구나 가능
-                        .anyRequest().authenticated()  // 나머지는 JWT 필요
+                        .requestMatchers(
+                                "/auth/**", // 로그인은 누구나 가능
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+                        .anyRequest().authenticated() // 나머지는 JWT 필요
                 );
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()));

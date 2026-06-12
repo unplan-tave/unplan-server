@@ -13,7 +13,7 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class RecoverEntity {
+public class Recover {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

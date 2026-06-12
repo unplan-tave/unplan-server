@@ -2,7 +2,7 @@ package com.unplan.unplanserver.domain.onboarding.service;
 
 import com.unplan.unplanserver.domain.onboarding.dto.request.RecoverRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.response.RecoverResponse;
-import com.unplan.unplanserver.domain.onboarding.entity.RecoverEntity;
+import com.unplan.unplanserver.domain.onboarding.entity.Recover;
 import com.unplan.unplanserver.domain.onboarding.enums.RecoveryMethodType;
 import com.unplan.unplanserver.domain.onboarding.repository.RecoverRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
@@ -31,11 +31,11 @@ public class RecoverService {
 
         recoverRepository.deleteByMemberId(memberId);
 
-        List<RecoverEntity> recoverEntities = new ArrayList<>();
+        List<Recover> recoverEntities = new ArrayList<>();
 
         for (RecoveryMethodType method : request.defaultMethods()) {
             recoverEntities.add(
-                    RecoverEntity.builder()
+                    Recover.builder()
                             .memberId(memberId)
                             .defaultMethod(method)
                             .customMethod(null)
@@ -45,7 +45,7 @@ public class RecoverService {
 
         for (String customMethod : request.customMethods()) {
             recoverEntities.add(
-                    RecoverEntity.builder()
+                    Recover.builder()
                             .memberId(memberId)
                             .defaultMethod(null)
                             .customMethod(customMethod.trim())
@@ -53,14 +53,14 @@ public class RecoverService {
             );
         }
 
-        List<RecoverEntity> savedEntities = recoverRepository.saveAll(recoverEntities);
+        List<Recover> savedEntities = recoverRepository.saveAll(recoverEntities);
 
         return RecoverResponse.UpdateMethods.from(memberId, savedEntities);
     }
 
     @Transactional(readOnly = true)
     public RecoverResponse.GetMethods getMethods(Long memberId) {
-        List<RecoverEntity> recoverEntities = recoverRepository.findByMemberId(memberId);
+        List<Recover> recoverEntities = recoverRepository.findByMemberId(memberId);
 
         return RecoverResponse.GetMethods.from(recoverEntities);
     }

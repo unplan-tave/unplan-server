@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Onboarding", description = "온보딩 설정 API")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/member-settings")
+@RequestMapping("/member-settings")
 public class OnboardingController {
 
     private final RecoverService recoverService;

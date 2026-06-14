@@ -1,0 +1,27 @@
+package com.unplan.unplanserver.domain.onboarding.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+public class BiorhythmRequest {
+
+    @NotBlank
+    @Size(min = 24, max = 24)
+    @Pattern(regexp = "^[01]{24}$")
+    private String focusedTimeline;
+
+    @NotBlank
+    @Size(min = 24, max = 24)
+    @Pattern(regexp = "^[01]{24}$")
+    private String drowsyTimeline;
+
+    @NotBlank
+    @Size(min = 24, max = 24)
+    @Pattern(regexp = "^[01]{24}$")
+    private String sleepTimeline;
+}

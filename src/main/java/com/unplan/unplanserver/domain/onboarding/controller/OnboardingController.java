@@ -1,9 +1,12 @@
 package com.unplan.unplanserver.domain.onboarding.controller;
 
+import com.unplan.unplanserver.domain.onboarding.dto.request.BiorhythmRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.request.RecoverRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.request.SleepConditionRequest;
+import com.unplan.unplanserver.domain.onboarding.dto.response.BiorhythmResponse;
 import com.unplan.unplanserver.domain.onboarding.dto.response.RecoverResponse;
 import com.unplan.unplanserver.domain.onboarding.dto.response.SleepConditionResponse;
+import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.response.ApiResponse;
@@ -23,6 +26,7 @@ public class OnboardingController {
 
     private final RecoverService recoverService;
     private final SleepConditionService sleepConditionService;
+    private final BiorhythmService biorhythmService;
 
     @Operation(
             summary = "컨디션 회복 방법 설정 저장 및 전체 수정",
@@ -83,6 +87,37 @@ public class OnboardingController {
 
         SleepConditionResponse response =
                 sleepConditionService.getSleepCondition(memberId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "하루 활동 패턴 설정 저장 및 수정",
+            description = "집중 잘 되는 시간, 졸린 시간, 수면 시간을 24자리 문자열로 설정합니다. 수면 시간은 최소 한 칸 이상 필수이며, 중간에 끊길 수 없습니다."
+    )
+    @PutMapping("/biorhythms")
+    public ResponseEntity<ApiResponse<BiorhythmResponse.UpdateBiorhythm>> updateBiorhythm(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody BiorhythmRequest request
+    ) {
+
+        BiorhythmResponse.UpdateBiorhythm response =
+                biorhythmService.updateBiorhythm(memberId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "하루 활동 패턴 설정 조회",
+            description = "회원이 설정한 하루 활동 패턴을 조회합니다. 저장값이 없으면 000000000000000000000000으로 반환합니다."
+    )
+    @GetMapping("/biorhythms")
+    public ResponseEntity<ApiResponse<BiorhythmResponse.GetBiorhythm>> getBiorhythm(
+            @AuthenticationPrincipal Long memberId
+    ) {
+
+        BiorhythmResponse.GetBiorhythm response =
+                biorhythmService.getBiorhythm(memberId);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

@@ -24,24 +24,27 @@ public class BiorhythmService {
     ) {
         validateSleepTimeline(request.getSleepTimeline());
 
-        Biorhythm biorhythm = biorhythmRepository.findByMemberId(memberId)
-                .orElseGet(() -> Biorhythm.builder()
-                        .memberId(memberId)
-                        .focusedTimeline(request.getFocusedTimeline())
-                        .drowsyTimeline(request.getDrowsyTimeline())
-                        .sleepTimeline(request.getSleepTimeline())
-                        .build()
+        biorhythmRepository.findByMemberId(memberId)
+                .ifPresentOrElse(
+                        biorhythm -> biorhythm.update(
+                                request.getFocusedTimeline(),
+                                request.getDrowsyTimeline(),
+                                request.getSleepTimeline()
+                        ),
+                        () -> biorhythmRepository.save(Biorhythm.builder()
+                                .memberId(memberId)
+                                .focusedTimeline(request.getFocusedTimeline())
+                                .drowsyTimeline(request.getDrowsyTimeline())
+                                .sleepTimeline(request.getSleepTimeline())
+                                .build())
                 );
 
-        biorhythm.update(
+        return new BiorhythmResponse.UpdateBiorhythm(
+                memberId,
                 request.getFocusedTimeline(),
                 request.getDrowsyTimeline(),
                 request.getSleepTimeline()
         );
-
-        Biorhythm savedBiorhythm = biorhythmRepository.save(biorhythm);
-
-        return BiorhythmResponse.UpdateBiorhythm.from(savedBiorhythm);
     }
 
     public BiorhythmResponse.GetBiorhythm getBiorhythm(Long memberId) {
@@ -61,10 +64,14 @@ public class BiorhythmService {
     }
 
     private boolean isCircularContinuous(String timeline) {
+        if (timeline.chars().allMatch(value -> value == '1')) {
+            return true;
+        }
+
         int startCount = 0;
 
         for (int i = 0; i < timeline.length(); i++) {
-            char previous = timeline.charAt((i + 23) % 24);
+            char previous = timeline.charAt((i + timeline.length() - 1) % timeline.length());
             char current = timeline.charAt(i);
 
             if (previous == '0' && current == '1') {

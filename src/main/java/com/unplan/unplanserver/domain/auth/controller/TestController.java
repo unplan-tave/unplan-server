@@ -19,6 +19,6 @@ public class TestController {
         return ResponseEntity.ok(new SocialLoginResponseDto(
                 jwtUtil.createJwt(memberId, "USER", true),
                 "refreshToken이 아닙니다",
-                null));
+                false));
     }
 }

@@ -47,6 +47,9 @@ public class TransportService {
                 .map(Transport::getTransportType)
                 .toList();
 
-        return new TransportResponse(memberId, transportTypes);
+        return new TransportResponse(
+                memberId,
+                transportTypes
+        );
     }
 }

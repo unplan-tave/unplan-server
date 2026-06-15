@@ -3,12 +3,15 @@ package com.unplan.unplanserver.domain.onboarding.controller;
 import com.unplan.unplanserver.domain.onboarding.dto.request.BiorhythmRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.request.RecoverRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.request.SleepConditionRequest;
+import com.unplan.unplanserver.domain.onboarding.dto.request.TransportRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.response.BiorhythmResponse;
 import com.unplan.unplanserver.domain.onboarding.dto.response.RecoverResponse;
 import com.unplan.unplanserver.domain.onboarding.dto.response.SleepConditionResponse;
+import com.unplan.unplanserver.domain.onboarding.dto.response.TransportResponse;
 import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
+import com.unplan.unplanserver.domain.onboarding.service.TransportService;
 import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +30,7 @@ public class OnboardingController {
     private final RecoverService recoverService;
     private final SleepConditionService sleepConditionService;
     private final BiorhythmService biorhythmService;
+    private final TransportService transportService;
 
     @Operation(
             summary = "컨디션 회복 방법 설정 저장 및 전체 수정",
@@ -118,6 +122,39 @@ public class OnboardingController {
 
         BiorhythmResponse.GetBiorhythm response =
                 biorhythmService.getBiorhythm(memberId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "선호 이동 방식 설정 저장 및 수정",
+            description = "선호하는 이동 방식을 설정합니다.<br>" +
+                    "transportTypes에는 WALK, BICYCLE, PUBLIC_TRANSPORT, CAR 중 선택한 값을 넣어 주세요.<br>" +
+                    "아무것도 선택하지 않은 경우 transportTypes는 빈 배열 []로 보내 주세요."
+    )
+    @PutMapping("/transportations")
+    public ResponseEntity<ApiResponse<TransportResponse>> updateTransport(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody TransportRequest request
+    ) {
+
+        TransportResponse response =
+                transportService.updateTransport(memberId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "선호 이동 방식 조회",
+            description = "회원이 설정한 선호 이동 방식을 조회합니다. 저장값이 없으면 transportTypes는 빈 배열 []로 반환합니다."
+    )
+    @GetMapping("/transportations")
+    public ResponseEntity<ApiResponse<TransportResponse>> getTransport(
+            @AuthenticationPrincipal Long memberId
+    ) {
+
+        TransportResponse response =
+                transportService.getTransport(memberId);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

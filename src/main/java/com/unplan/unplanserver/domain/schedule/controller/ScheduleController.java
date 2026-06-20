@@ -5,6 +5,8 @@ import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
@@ -19,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @Tag(name = "Schedule CRUD", description = "일정 CRUD API")
@@ -54,7 +57,33 @@ public class ScheduleController {
     }
 
 
-@Operation(summary = "일정 상세 조회", description = "특정 일정의 상세 정보를 조회합니다.")
+    @Operation(summary = "일정 주별 조회", description = "선택한 날짜가 포함된 주(일~토)의 일정 목록을 조회합니다.")
+    @GetMapping("/weekly")
+    public ResponseEntity<ScheduleWeeklyResponse> getSchedulesByWeek(
+            @Parameter(description = "조회 기준 날짜 (yyyy-MM-dd)", example = "2026-06-20")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        Long memberId = 1L;
+
+        return ResponseEntity.ok(scheduleService.getSchedulesByWeek(memberId, date));
+    }
+
+    @Operation(summary = "일정 월별 조회", description = "해당 월의 캘린더 뷰 기준(첫째 주 일요일 ~ 마지막 주 토요일) 날짜별 일정 개수를 조회합니다.")
+    @GetMapping("/monthly")
+    public ResponseEntity<ScheduleMonthlyResponse> getSchedulesByMonth(
+            @Parameter(description = "조회할 년/월 (yyyy-MM)", example = "2026-06")
+            @RequestParam String month) {
+
+        Long memberId = 1L;
+
+        try {
+            return ResponseEntity.ok(scheduleService.getSchedulesByMonth(memberId, YearMonth.parse(month)));
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new CustomException(ErrorCode.INVALID_MONTH_FORMAT);
+        }
+    }
+
+    @Operation(summary = "일정 상세 조회", description = "특정 일정의 상세 정보를 조회합니다.")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> getScheduleDetail(
             @Parameter(description = "조회할 일정 ID", example = "1")

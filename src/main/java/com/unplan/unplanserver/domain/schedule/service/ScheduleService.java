@@ -5,6 +5,8 @@ import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
@@ -18,8 +20,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -122,4 +130,57 @@ public class ScheduleService {
         scheduleRepository.delete(schedule);
     }
 
+    @Transactional(readOnly = true)
+    public ScheduleWeeklyResponse getSchedulesByWeek(Long memberId, LocalDate date) {
+        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        LocalDate weekEnd = weekStart.plusDays(6);
+
+        List<Schedule> schedules = scheduleRepository.findByMemberIdAndDateBetween(memberId, weekStart, weekEnd);
+
+        Map<LocalDate, List<Schedule>> byDate = schedules.stream()
+                .collect(Collectors.groupingBy(Schedule::getDate));
+
+        List<ScheduleWeeklyResponse.DailySchedules> weeklySchedules = Stream.iterate(weekStart, d -> d.plusDays(1))
+                .limit(7)
+                .map(d -> ScheduleWeeklyResponse.DailySchedules.builder()
+                        .date(d.toString())
+                        .schedules(byDate.getOrDefault(d, List.of()).stream()
+                                .map(s -> ScheduleWeeklyResponse.ScheduleSummary.builder()
+                                        .scheduleId(s.getScheduleId())
+                                        .title(s.getTitle())
+                                        .build())
+                                .toList())
+                        .build())
+                .toList();
+
+        return ScheduleWeeklyResponse.builder()
+                .weeklySchedules(weeklySchedules)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ScheduleMonthlyResponse getSchedulesByMonth(Long memberId, YearMonth yearMonth) {
+        LocalDate firstDay = yearMonth.atDay(1);
+        LocalDate lastDay = yearMonth.atEndOfMonth();
+
+        LocalDate viewStart = firstDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        LocalDate viewEnd = lastDay.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+
+        List<Schedule> schedules = scheduleRepository.findByMemberIdAndDateBetween(memberId, viewStart, viewEnd);
+
+        List<ScheduleMonthlyResponse.DailyCount> dailyCounts = schedules.stream()
+                .collect(Collectors.groupingBy(Schedule::getDate, Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> ScheduleMonthlyResponse.DailyCount.builder()
+                        .date(e.getKey().toString())
+                        .count(e.getValue().intValue())
+                        .build())
+                .toList();
+
+        return ScheduleMonthlyResponse.builder()
+                .yearMonth(yearMonth.toString())
+                .schedules(dailyCounts)
+                .build();
+    }
 }

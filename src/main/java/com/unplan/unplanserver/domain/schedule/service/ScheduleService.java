@@ -5,17 +5,19 @@ import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
+import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
+import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
-import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
+import com.unplan.unplanserver.domain.schedule.repository.LocationInfoRepository;
+import com.unplan.unplanserver.domain.schedule.repository.RecurrenceRuleRepository;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -23,6 +25,8 @@ import java.util.List;
 public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
+    private final LocationInfoRepository locationInfoRepository;
+    private final RecurrenceRuleRepository recurrenceRuleRepository;
 
     @Transactional
     public ScheduleCreateResponse createSchedule(Long memberId, ScheduleCreateRequest request) {
@@ -33,9 +37,9 @@ public class ScheduleService {
                 .memberId(memberId)
                 .title(request.getTitle())
                 .conditionTag(request.getConditionTag())
-                .date(request.getDate() != null ? LocalDate.parse(request.getDate()) : null)
-                .startTime(request.getStartTime() != null ? LocalTime.parse(request.getStartTime()) : null)
-                .endTime(request.getEndTime() != null ? LocalTime.parse(request.getEndTime()) : null)
+                .date(request.getDate())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
                 .estimatedTime(request.getEstimatedTime())
                 .memo(request.getMemo())
                 .isRemindOn(request.getIsRemindOn())
@@ -50,7 +54,29 @@ public class ScheduleService {
 
         Schedule saved = scheduleRepository.save(schedule);
 
-        // 2. Response 반환
+        // 2. 위치 정보 저장
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            locationInfoRepository.save(LocationInfo.builder()
+                    .schedule(saved)
+                    .latitude(request.getLatitude())
+                    .longitude(request.getLongitude())
+                    .build());
+        }
+
+        // 3. 반복 설정 저장
+        if (request.getRecurrence() != null) {
+            ScheduleCreateRequest.RecurrenceRequest rec = request.getRecurrence();
+            recurrenceRuleRepository.save(RecurrenceRule.builder()
+                    .schedule(saved)
+                    .freq(rec.getFreq())
+                    .interval(rec.getInterval())
+                    .byDay(rec.getByDay())
+                    .byMonthDay(rec.getByMonthDay())
+                    .until(rec.getUntil())
+                    .build());
+        }
+
+        // 4. Response 반환
         return ScheduleCreateResponse.builder()
                 .scheduleId(saved.getScheduleId())
                 .title(saved.getTitle())
@@ -74,7 +100,8 @@ public class ScheduleService {
     public ScheduleDetailResponse getScheduleDetail(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
-        return ScheduleDetailResponse.from(schedule);
+        LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo);
     }
 
     @Transactional
@@ -82,7 +109,8 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
         schedule.update(request);
-        return ScheduleDetailResponse.from(schedule);
+        LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo);
     }
 
     @Transactional

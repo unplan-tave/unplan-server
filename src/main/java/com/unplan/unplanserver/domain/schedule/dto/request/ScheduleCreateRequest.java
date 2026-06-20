@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.schedule.dto.request;
 
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.RemindSoundType;
 import com.unplan.unplanserver.domain.schedule.enums.RemindType;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Getter
@@ -22,9 +25,9 @@ public class ScheduleCreateRequest {
     private ConditionTag conditionTag;
 
     private List<String> personalTags;
-    private String date;
-    private String startTime;
-    private String endTime;
+    private LocalDate date;
+    private LocalTime startTime;
+    private LocalTime endTime;
     private Integer estimatedTime;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -42,12 +45,12 @@ public class ScheduleCreateRequest {
     @NoArgsConstructor
     public static class RecurrenceRequest {
         @NotNull
-        private String freq;
+        private RecurrenceFreq freq;
         @NotNull
         private Integer interval;
         private String byDay;
         private String byMonthDay;
         @NotNull
-        private String until;
+        private LocalDate until;
     }
 }

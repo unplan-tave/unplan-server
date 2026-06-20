@@ -7,15 +7,18 @@ import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+
 @Getter
 @NoArgsConstructor
 public class ScheduleUpdateRequest {
 
     private String title;
     private ConditionTag conditionTag;
-    private String date;
-    private String startTime;
-    private String endTime;
+    private LocalDate date;
+    private LocalTime startTime;
+    private LocalTime endTime;
     private Integer estimatedTime;
     private String memo;
     private ScheduleStatus status;

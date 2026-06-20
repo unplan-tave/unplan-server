@@ -90,9 +90,9 @@ public class Schedule {
     public void update(ScheduleUpdateRequest request) {
         if (request.getTitle() != null) this.title = request.getTitle();
         if (request.getConditionTag() != null) this.conditionTag = request.getConditionTag();
-        if (request.getDate() != null) this.date = LocalDate.parse(request.getDate());
-        if (request.getStartTime() != null) this.startTime = LocalTime.parse(request.getStartTime());
-        if (request.getEndTime() != null) this.endTime = LocalTime.parse(request.getEndTime());
+        if (request.getDate() != null) this.date = request.getDate();
+        if (request.getStartTime() != null) this.startTime = request.getStartTime();
+        if (request.getEndTime() != null) this.endTime = request.getEndTime();
         if (request.getEstimatedTime() != null) this.estimatedTime = request.getEstimatedTime();
         if (request.getMemo() != null) this.memo = request.getMemo();
         if (request.getStatus() != null) this.status = request.getStatus();

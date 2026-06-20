@@ -14,8 +14,9 @@ steps:
           --set-env-vars "DEVELOP_DB_PASSWORD=$$DB_PASSWORD" \
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
-          --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000"
-    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET']
+          --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \
+          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID"
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID']
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -28,3 +29,5 @@ availableSecrets:
       env: 'DB_PASSWORD'
     - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_jwt_secret/versions/latest
       env: 'JWT_SECRET'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_google_client_id/versions/latest
+      env: 'GOOGLE_CLIENT_ID'

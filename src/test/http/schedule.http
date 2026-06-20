@@ -1,0 +1,18 @@
+### 일정 생성
+POST http://localhost:8080/api/schedule
+Content-Type: application/json
+
+{
+  "title": "테스트 일정",
+  "conditionTag": "CORE_TASK",
+  "date": "2026-06-12",
+  "startTime": "10:00",
+  "endTime": "11:00",
+  "isRemindOn": false
+}
+
+### 일정 조회
+GET http://localhost:8080/api/schedule?date=2026-06-12
+
+### 일정 상세 조회
+GET http://localhost:8080/api/schedule/2

@@ -16,7 +16,7 @@ steps:
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
           --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \
           --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID"
-    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', "GOOGLE_CLIENT_ID"]
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID']
 
 options:
   logging: CLOUD_LOGGING_ONLY

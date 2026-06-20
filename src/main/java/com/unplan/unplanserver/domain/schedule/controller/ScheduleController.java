@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.schedule.controller;
 
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
+import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
@@ -51,5 +52,27 @@ public class ScheduleController {
         Long memberId = 1L;
 
         return ResponseEntity.ok(scheduleService.getScheduleDetail(memberId, scheduleId));
+    }
+
+    @PatchMapping("/{scheduleId}")
+    public ResponseEntity<ScheduleDetailResponse> updateSchedule(
+            @PathVariable Long scheduleId,
+            @RequestBody ScheduleUpdateRequest request) {
+
+        // 임시 memberId (추후 JWT에서 추출 예정)
+        Long memberId = 1L;
+
+        return ResponseEntity.ok(scheduleService.updateSchedule(memberId, scheduleId, request));
+    }
+
+    @DeleteMapping("/{scheduleId}")
+    public ResponseEntity<Void> deleteSchedule(
+            @PathVariable Long scheduleId) {
+
+        // 임시 memberId (추후 JWT에서 추출 예정)
+        Long memberId = 1L;
+
+        scheduleService.deleteSchedule(memberId, scheduleId);
+        return ResponseEntity.noContent().build();
     }
 }

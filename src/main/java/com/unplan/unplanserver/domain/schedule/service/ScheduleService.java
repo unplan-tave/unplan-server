@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.schedule.service;
 
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
+import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
@@ -74,5 +75,20 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
         return ScheduleDetailResponse.from(schedule);
+    }
+
+    @Transactional
+    public ScheduleDetailResponse updateSchedule(Long memberId, Long scheduleId, ScheduleUpdateRequest request) {
+        Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
+                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+        schedule.update(request);
+        return ScheduleDetailResponse.from(schedule);
+    }
+
+    @Transactional
+    public void deleteSchedule(Long memberId, Long scheduleId) {
+        Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
+                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+        scheduleRepository.delete(schedule);
     }
 }

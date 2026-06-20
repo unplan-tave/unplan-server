@@ -40,4 +40,7 @@ public class RecurrenceRule {
 
     @Column(name = "until")
     private LocalDate until;
+
+    @Column(name = "count")
+    private Integer count;
 }

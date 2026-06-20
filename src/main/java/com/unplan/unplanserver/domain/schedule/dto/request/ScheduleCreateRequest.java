@@ -4,6 +4,7 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.RemindSoundType;
 import com.unplan.unplanserver.domain.schedule.enums.RemindType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -25,8 +26,14 @@ public class ScheduleCreateRequest {
     private ConditionTag conditionTag;
 
     private List<String> personalTags;
+
+    @Schema(example = "2026-06-20")
     private LocalDate date;
+
+    @Schema(example = "09:00")
     private LocalTime startTime;
+
+    @Schema(example = "10:00")
     private LocalTime endTime;
     private Integer estimatedTime;
     private BigDecimal latitude;
@@ -51,6 +58,9 @@ public class ScheduleCreateRequest {
         private String byDay;
         private String byMonthDay;
         @NotNull
+        @Schema(example = "2026-12-31")
         private LocalDate until;
+
+        private Integer count;
     }
 }

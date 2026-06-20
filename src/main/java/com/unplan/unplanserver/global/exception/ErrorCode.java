@@ -29,7 +29,11 @@ public enum ErrorCode {
     INVALID_SLEEP_ORDER(HttpStatus.BAD_REQUEST, "INVALID_SLEEP_ORDER", "각 구간의 시간 설정 순서가 올바르지 않습니다."),
     SLEEP_CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_CONDITION_404","수면 컨디션 설정을 찾을 수 없습니다."),
     SLEEP_REQUIRED(HttpStatus.BAD_REQUEST, "SLEEP_REQUIRED", "수면 시간은 최소 한 칸 이상 필수 입력해야 합니다."),
-    INVALID_SLEEP_PATTERN(HttpStatus.BAD_REQUEST, "INVALID_SLEEP_PATTERN", "수면 시간은 중간에 끊어서 입력할 수 없습니다.");
+    INVALID_SLEEP_PATTERN(HttpStatus.BAD_REQUEST, "INVALID_SLEEP_PATTERN", "수면 시간은 중간에 끊어서 입력할 수 없습니다."),
+
+    // --- [일정 관련 에러] ---
+    SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_NOT_FOUND", "존재하지 않는 일정입니다."),
+    INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)");
 
     private final HttpStatus status;
     private final String code;

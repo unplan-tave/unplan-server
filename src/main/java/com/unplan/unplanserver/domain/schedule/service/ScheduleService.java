@@ -7,12 +7,13 @@ import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailRespon
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
-import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.LocationInfoRepository;
 import com.unplan.unplanserver.domain.schedule.repository.RecurrenceRuleRepository;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +74,7 @@ public class ScheduleService {
                     .byDay(rec.getByDay())
                     .byMonthDay(rec.getByMonthDay())
                     .until(rec.getUntil())
+                    .count(rec.getCount())
                     .build());
         }
 
@@ -99,7 +101,7 @@ public class ScheduleService {
     @Transactional(readOnly = true)
     public ScheduleDetailResponse getScheduleDetail(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
-                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
         return ScheduleDetailResponse.from(schedule, locationInfo);
     }
@@ -107,7 +109,7 @@ public class ScheduleService {
     @Transactional
     public ScheduleDetailResponse updateSchedule(Long memberId, Long scheduleId, ScheduleUpdateRequest request) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
-                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         schedule.update(request);
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
         return ScheduleDetailResponse.from(schedule, locationInfo);
@@ -116,7 +118,8 @@ public class ScheduleService {
     @Transactional
     public void deleteSchedule(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
-                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         scheduleRepository.delete(schedule);
     }
+
 }

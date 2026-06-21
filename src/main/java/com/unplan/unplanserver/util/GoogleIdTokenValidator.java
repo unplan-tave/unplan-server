@@ -34,7 +34,6 @@ public class GoogleIdTokenValidator {
         this.verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
-        System.out.println("=============="+ googleClientId);
     }
     public GoogleUserInfoDto isValid(String googleIdToken) {
         try{

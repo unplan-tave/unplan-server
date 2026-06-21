@@ -1,6 +1,8 @@
 package com.unplan.unplanserver.util;
 
 
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -61,7 +63,7 @@ public class JwtUtil {
 
             return claims;
         }catch (JwtException | IllegalArgumentException e){
-            throw new ExpiredJwtException(null, null, "만료된 토큰");
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
     }
     // JWT에서 memberId 추출

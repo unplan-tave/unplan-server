@@ -3,6 +3,10 @@ spring:
     name: unplan-server
   profiles:
     default: local
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: false
 
 server:
   port: ${PORT:8080}
@@ -18,7 +22,6 @@ swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
   description: ${SWAGGER_DESCRIPTION:Local Server}
 
-jwt:
-  secret: ${JWT_SECRET}
-  access-expiration: ${JWT_ACCESS_EXPIRATION}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID}

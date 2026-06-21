@@ -14,10 +14,6 @@ spring:
         format_sql: false
     show-sql: false
 
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-    deserialization:
-      fail-on-unknown-properties: false
 
 jwt:
   secret: ${JWT_SECRET}
@@ -27,6 +23,3 @@ jwt:
 swagger:
   server-url: ${DEVELOP_SERVER_URL:https://unplan-server-dev-1032991906194.asia-northeast3.run.app}
   description: Dev Server
-
-google:
-  client-id: ${GOOGLE_CLIENT_ID}

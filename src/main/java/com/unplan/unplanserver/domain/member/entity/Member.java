@@ -77,7 +77,7 @@ public class Member {
     }
     public static Member fromGoogle(GoogleUserInfoDto userInfo){
         Member member = new Member();
-        member.oauthId = userInfo.getOauthId().toString();
+        member.oauthId = userInfo.getOauthId();
         member.role = Role.USER;
         member.provider = Provider.GOOGLE;
         member.nickname = userInfo.getNickname();

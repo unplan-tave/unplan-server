@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
@@ -26,11 +27,15 @@ public class GoogleIdTokenValidator {
     private String googleClientId;
     private static final HttpTransport transport = new NetHttpTransport();
     private static final JsonFactory jsonFactory = new GsonFactory();
+    private GoogleIdTokenVerifier verifier;
 
-    public GoogleUserInfoDto isValid(String googleIdToken) {
-        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
+    @PostConstruct
+    public void init() {
+        this.verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
+    }
+    public GoogleUserInfoDto isValid(String googleIdToken) {
         try{
             GoogleIdToken idToken = verifier.verify(googleIdToken);
             if(idToken != null){

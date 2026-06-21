@@ -55,7 +55,7 @@ public class AuthService {
         Boolean isNewMember = false;
         //회원가입
         if(member == null){
-            member = member.fromGoogle(googleUserInfoDto);
+            member = Member.fromGoogle(googleUserInfoDto);
             memberRepository.save(member);
             isNewMember = true;
         }
@@ -66,7 +66,7 @@ public class AuthService {
         // access, refresh 토큰 발급
         return issueTokens(member, requestDto.deviceId(), isNewMember);
     }
-    public SocialLoginResponseDto issueTokens(Member member, String deviceId, Boolean isNewUser){
+    private SocialLoginResponseDto issueTokens(Member member, String deviceId, Boolean isNewUser){
         Long memberId = member.getMemberId();
         String role = member.getRole().toString();
         String accessToken = jwtUtil.createJwt(memberId, role, true);

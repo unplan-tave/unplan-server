@@ -10,11 +10,11 @@ import com.unplan.unplanserver.domain.auth.dto.GoogleUserInfoDto;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
@@ -34,6 +34,7 @@ public class GoogleIdTokenValidator {
         this.verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
+        System.out.println("=============="+ googleClientId);
     }
     public GoogleUserInfoDto isValid(String googleIdToken) {
         try{

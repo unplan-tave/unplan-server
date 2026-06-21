@@ -32,7 +32,8 @@ dependencies {
     runtimeOnly ('io.jsonwebtoken:jjwt-jackson:0.13.0')
     // webclient
     implementation 'org.springframework.boot:spring-boot-starter-webflux'   // Kakao API 호출용
-
+    // google id token verifier
+    implementation("com.google.api-client:google-api-client:2.9.0")
 
     // GCP Cloud SQL
     implementation 'com.google.cloud.sql:postgres-socket-factory:1.28.4'

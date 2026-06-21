@@ -45,6 +45,7 @@ public class JwtUtil {
                 .signWith(secretKey)
                 .compact();
     }
+
     public Claims parseClaims(String token, Boolean isAccess){
         try{
             Claims claims = Jwts.parser()

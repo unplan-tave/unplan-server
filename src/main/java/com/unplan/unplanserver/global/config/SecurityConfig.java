@@ -34,7 +34,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // JWT라 세션 사용안함
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/auth/**", // 로그인은 누구나 가능
+                                "/auth/kakao", // 로그인은 누구나 가능
+                                "/auth/google",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"

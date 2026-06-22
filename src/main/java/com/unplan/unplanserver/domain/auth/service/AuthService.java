@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.util.GoogleIdTokenValidator;
 import com.unplan.unplanserver.util.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -79,5 +81,13 @@ public class AuthService {
         refreshRepository.save(refresh);
 
         return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
+    }
+
+    @Transactional
+    public void withdraw(Long memberId) {
+        refreshRepository.deleteByMemberId(memberId);
+        Member member = memberRepository.findByMemberId(memberId)
+                .orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        memberRepository.deleteById(memberId);
     }
 }

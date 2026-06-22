@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/kakao", // 로그인은 누구나 가능
                                 "/auth/google",
+                                "/auth/accessToken",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"

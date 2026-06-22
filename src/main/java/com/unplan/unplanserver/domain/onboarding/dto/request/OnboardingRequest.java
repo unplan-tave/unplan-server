@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record OnboardingRequest(
 
         @Valid

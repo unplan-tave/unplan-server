@@ -1,5 +1,7 @@
 package com.unplan.unplanserver.domain.onboarding.dto.request;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.unplan.unplanserver.domain.onboarding.enums.RecoveryMethodType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,6 +11,7 @@ import java.util.List;
 
 public class RecoverRequest {
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record UpdateMethods(
 
             @NotNull(message = "기본 회복 방법 리스트는 필수입니다.")

@@ -9,6 +9,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
@@ -20,10 +21,11 @@ import java.util.List;
 
 @Configuration
 @Profile("!prod")
+@RequiredArgsConstructor
 public class SwaggerConfig {
 
     private static final String SECURITY_SCHEME_NAME = "bearerAuth";
-
+    private final ObjectMapper objectMapper;
     @Bean
     public OpenAPI openAPI(
             @Value("${swagger.server-url}") String serverUrl,
@@ -52,9 +54,7 @@ public class SwaggerConfig {
 
 
     @Bean
-    public ModelResolver modelResolver() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+    public ModelResolver modelResolver(ObjectMapper objectMapper) {
         return new ModelResolver(objectMapper);
     }
 }

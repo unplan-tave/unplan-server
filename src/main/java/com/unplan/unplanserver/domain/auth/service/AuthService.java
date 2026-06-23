@@ -1,13 +1,12 @@
 package com.unplan.unplanserver.domain.auth.service;
 
-import com.unplan.unplanserver.domain.auth.dto.KakaoLoginRequestDto;
-import com.unplan.unplanserver.domain.auth.dto.KakaoUserInfoResponseDto;
-import com.unplan.unplanserver.domain.auth.dto.SocialLoginResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.*;
 import com.unplan.unplanserver.domain.auth.webclient.KakaoAuthClient;
 import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.util.GoogleIdTokenValidator;
 import com.unplan.unplanserver.util.JwtUtil;
 import io.jsonwebtoken.Claims;
 import lombok.AllArgsConstructor;
@@ -24,15 +23,16 @@ public class AuthService {
     private final KakaoAuthClient kakaoAuthClient;
     private final MemberRepository memberRepository;
     private final JwtUtil jwtUtil;
+    private final GoogleIdTokenValidator googleIdTokenValidator;
 
     @Transactional
     public SocialLoginResponseDto kakaoLogin(KakaoLoginRequestDto requestDto) {
         KakaoUserInfoResponseDto kakaoUserInfo = kakaoAuthClient.getUserInfo(requestDto.kakaoAccessToken());
-        Long oauthId = kakaoUserInfo.getId();
+        String oauthId = kakaoUserInfo.getId().toString();
         Member member = memberRepository.findByOauthId(oauthId).orElse(null);
         Boolean isNewMember = false;
         // 이전에 로그인한적이 없으면
-        if(member == null){
+        if (member == null){
             isNewMember = true;
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
@@ -43,6 +43,30 @@ public class AuthService {
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }
 
+        return issueTokens(member, requestDto.deviceId(), isNewMember);
+
+    }
+
+    @Transactional
+    public SocialLoginResponseDto googleLogin(GoogleLoginRequestDto requestDto) {
+        String googleIdToken = requestDto.googleIdToken();
+        GoogleUserInfoDto googleUserInfoDto = googleIdTokenValidator.isValid(googleIdToken);
+        Member member = memberRepository.findByOauthId(googleUserInfoDto.getOauthId()).orElse(null);
+        Boolean isNewMember = false;
+        //회원가입
+        if(member == null){
+            member = Member.fromGoogle(googleUserInfoDto);
+            memberRepository.save(member);
+            isNewMember = true;
+        }
+        // 로그인
+        else{
+            refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
+        }
+        // access, refresh 토큰 발급
+        return issueTokens(member, requestDto.deviceId(), isNewMember);
+    }
+    private SocialLoginResponseDto issueTokens(Member member, String deviceId, Boolean isNewUser){
         Long memberId = member.getMemberId();
         String role = member.getRole().toString();
         String accessToken = jwtUtil.createJwt(memberId, role, true);
@@ -51,10 +75,9 @@ public class AuthService {
         Claims claims = jwtUtil.parseClaims(refreshToken, false);
         LocalDateTime createdAt = jwtUtil.getIssuedAt(claims);
         LocalDateTime expiresAt = jwtUtil.getExpiration(claims);
-        Refresh refresh = Refresh.of(memberId, refreshToken, requestDto.deviceId(), createdAt, expiresAt);
+        Refresh refresh = Refresh.of(memberId, refreshToken, deviceId, createdAt, expiresAt);
         refreshRepository.save(refresh);
 
-        return new SocialLoginResponseDto(accessToken, refreshToken, isNewMember);
-
+        return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
     }
 }

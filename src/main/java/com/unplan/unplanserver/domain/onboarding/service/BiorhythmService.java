@@ -22,28 +22,28 @@ public class BiorhythmService {
             Long memberId,
             BiorhythmRequest request
     ) {
-        validateSleepTimeline(request.getSleepTimeline());
+        validateSleepTimeline(request.sleepTimeline());
 
         biorhythmRepository.findByMemberId(memberId)
                 .ifPresentOrElse(
                         biorhythm -> biorhythm.update(
-                                request.getFocusedTimeline(),
-                                request.getDrowsyTimeline(),
-                                request.getSleepTimeline()
+                                request.focusedTimeline(),
+                                request.drowsyTimeline(),
+                                request.sleepTimeline()
                         ),
                         () -> biorhythmRepository.save(Biorhythm.builder()
                                 .memberId(memberId)
-                                .focusedTimeline(request.getFocusedTimeline())
-                                .drowsyTimeline(request.getDrowsyTimeline())
-                                .sleepTimeline(request.getSleepTimeline())
+                                .focusedTimeline(request.focusedTimeline())
+                                .drowsyTimeline(request.drowsyTimeline())
+                                .sleepTimeline(request.sleepTimeline())
                                 .build())
                 );
 
         return new BiorhythmResponse.UpdateBiorhythm(
                 memberId,
-                request.getFocusedTimeline(),
-                request.getDrowsyTimeline(),
-                request.getSleepTimeline()
+                request.focusedTimeline(),
+                request.drowsyTimeline(),
+                request.sleepTimeline()
         );
     }
 

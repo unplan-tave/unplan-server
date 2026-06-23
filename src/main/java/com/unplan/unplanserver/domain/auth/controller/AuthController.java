@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.auth.controller;
 
+import com.unplan.unplanserver.domain.auth.dto.GoogleLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.KakaoLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.SocialLoginResponseDto;
 import com.unplan.unplanserver.domain.auth.service.AuthService;
@@ -21,5 +22,10 @@ public class AuthController {
     @PostMapping("/kakao")
     public ResponseEntity<SocialLoginResponseDto> kakaoLogin(@RequestBody @Valid KakaoLoginRequestDto requestDto){
         return ResponseEntity.ok(authService.kakaoLogin(requestDto));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<SocialLoginResponseDto> googleLogin(@RequestBody @Valid GoogleLoginRequestDto requestDto) {
+        return ResponseEntity.ok(authService.googleLogin(requestDto));
     }
 }

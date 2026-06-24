@@ -4,13 +4,18 @@ import com.unplan.unplanserver.domain.auth.dto.GoogleLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.KakaoLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.SocialLoginResponseDto;
 import com.unplan.unplanserver.domain.auth.service.AuthService;
+import com.unplan.unplanserver.domain.member.dto.LogoutRequestDto;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.http.HttpResponse;
 
 @RestController
 @RequestMapping("/auth")
@@ -30,6 +35,12 @@ public class AuthController {
     @PatchMapping("/withdraw")
     public ResponseEntity<Void> withdraw(@AuthenticationPrincipal @Valid Long memberId){
         authService.withdraw(memberId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal Long memberId, @RequestBody @Valid LogoutRequestDto requestDto){
+        authService.logout(memberId, requestDto.deviceId());
         return ResponseEntity.noContent().build();
     }
 }

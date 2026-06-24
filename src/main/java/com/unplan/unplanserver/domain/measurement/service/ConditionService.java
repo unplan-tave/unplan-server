@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.measurement.entity.Condition;
 import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +23,7 @@ public class ConditionService {
     @Transactional
     public ConditionResponse createCondition(Long memberId, ConditionRequest.ConditionCreate request) {
         Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
         Condition condition = new Condition(
                 member,
@@ -41,11 +43,7 @@ public class ConditionService {
             ConditionRequest.ConditionUpdate request
     ) {
         Condition condition = conditionRepository.findById(conditionId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 컨디션 기록입니다."));
-
-        if (!condition.getMember().getMemberId().equals(memberId)) {
-            throw new IllegalArgumentException("해당 기록에 대한 권한이 없습니다.");
-        }
+                .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
         condition.update(
                 condition.getConditionType(),
@@ -58,11 +56,7 @@ public class ConditionService {
     @Transactional
     public void deleteCondition(Long memberId, Long conditionId) {
         Condition condition = conditionRepository.findById(conditionId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 컨디션 기록입니다."));
-
-        if (!condition.getMember().getMemberId().equals(memberId)) {
-            throw new IllegalArgumentException("해당 기록에 대한 권한이 없습니다.");
-        }
+                .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
         conditionRepository.delete(condition);
     }

@@ -54,4 +54,16 @@ public class ConditionService {
 
         return ConditionResponse.from(condition);
     }
+
+    @Transactional
+    public void deleteCondition(Long memberId, Long conditionId) {
+        Condition condition = conditionRepository.findById(conditionId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 컨디션 기록입니다."));
+
+        if (!condition.getMember().getMemberId().equals(memberId)) {
+            throw new IllegalArgumentException("해당 기록에 대한 권한이 없습니다.");
+        }
+
+        conditionRepository.delete(condition);
+    }
 }

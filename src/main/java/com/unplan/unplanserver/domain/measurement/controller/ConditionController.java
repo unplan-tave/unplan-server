@@ -55,4 +55,19 @@ public class ConditionController {
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @Operation(
+            summary = "컨디션 삭제",
+            description = "기존에 입력한 Energy 또는 Focus 컨디션 기록을 삭제합니다."
+    )
+    @DeleteMapping("/{conditionId}")
+    public ResponseEntity<ApiResponse<Void>> deleteCondition(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long conditionId
+    ) {
+
+        conditionService.deleteCondition(memberId, conditionId);
+
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }

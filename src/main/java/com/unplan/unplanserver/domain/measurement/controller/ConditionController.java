@@ -1,6 +1,6 @@
 package com.unplan.unplanserver.domain.measurement.controller;
 
-import com.unplan.unplanserver.domain.measurement.dto.request.ConditionCreateRequest;
+import com.unplan.unplanserver.domain.measurement.dto.request.ConditionRequest;
 import com.unplan.unplanserver.domain.measurement.dto.response.ConditionResponse;
 import com.unplan.unplanserver.domain.measurement.service.ConditionService;
 import com.unplan.unplanserver.global.response.ApiResponse;
@@ -28,7 +28,7 @@ public class ConditionController {
     @PostMapping
     public ResponseEntity<ApiResponse<ConditionResponse>> createCondition(
             @AuthenticationPrincipal Long memberId,
-            @Valid @RequestBody ConditionCreateRequest request
+            @Valid @RequestBody ConditionRequest.ConditionCreate request
     ) {
 
         ConditionResponse response =
@@ -37,5 +37,22 @@ public class ConditionController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "컨디션 수정",
+            description = "기존에 입력한 Energy 또는 Focus 컨디션 점수를 수정합니다. 점수는 0~6 사이로 입력합니다."
+    )
+    @PatchMapping("/{conditionId}")
+    public ResponseEntity<ApiResponse<ConditionResponse>> updateCondition(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long conditionId,
+            @Valid @RequestBody ConditionRequest.ConditionUpdate request
+    ) {
+
+        ConditionResponse response =
+                conditionService.updateCondition(memberId, conditionId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

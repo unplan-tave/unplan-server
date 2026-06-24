@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
-        name = "conditions",
+        name = "condition",
         indexes = {
                 @Index(name = "idx_conditions_member_id", columnList = "member_id"),
                 @Index(name = "idx_conditions_created_at", columnList = "created_at")

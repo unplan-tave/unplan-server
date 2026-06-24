@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -28,6 +30,12 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<SocialLoginResponseDto> googleLogin(@RequestBody @Valid GoogleLoginRequestDto requestDto) {
         return ResponseEntity.ok(authService.googleLogin(requestDto));
+    }
+
+    @PatchMapping("/withdraw")
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Long memberId){
+        authService.withdraw(memberId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout")

@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.util.GoogleIdTokenValidator;
 import com.unplan.unplanserver.util.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -85,5 +87,13 @@ public class AuthService {
     @Transactional
     public void logout(Long memberId, String deviceId) {
         refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);
+    }
+
+    @Transactional
+    public void withdraw(Long memberId) {
+        refreshRepository.deleteByMemberId(memberId);
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        memberRepository.delete(member);
     }
 }

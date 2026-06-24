@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ConditionRepository extends JpaRepository<Condition, Long> {
 
@@ -13,5 +14,10 @@ public interface ConditionRepository extends JpaRepository<Condition, Long> {
             Member member,
             LocalDateTime start,
             LocalDateTime end
+    );
+
+    Optional<Condition> findByConditionIdAndMemberMemberId(
+            Long conditionId,
+            Long memberId
     );
 }

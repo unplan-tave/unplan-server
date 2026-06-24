@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
-        name = "condition",
+        name = "conditions",
         indexes = {
                 @Index(name = "idx_conditions_member_id", columnList = "member_id"),
                 @Index(name = "idx_conditions_created_at", columnList = "created_at")
@@ -46,8 +46,7 @@ public class Condition {
         this.createdAt = LocalDateTime.now();
     }
 
-    public void update(ConditionType conditionType, Integer score) {
-        this.conditionType = conditionType;
+    public void updateScore(Integer score) {
         this.score = score;
     }
 }

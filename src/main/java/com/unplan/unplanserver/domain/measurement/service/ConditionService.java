@@ -42,11 +42,10 @@ public class ConditionService {
             Long conditionId,
             ConditionRequest.ConditionUpdate request
     ) {
-        Condition condition = conditionRepository.findById(conditionId)
+        Condition condition = conditionRepository.findByConditionIdAndMemberMemberId(conditionId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
-        condition.update(
-                condition.getConditionType(),
+        condition.updateScore(
                 request.getScore()
         );
 
@@ -55,7 +54,7 @@ public class ConditionService {
 
     @Transactional
     public void deleteCondition(Long memberId, Long conditionId) {
-        Condition condition = conditionRepository.findById(conditionId)
+        Condition condition = conditionRepository.findByConditionIdAndMemberMemberId(conditionId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
         conditionRepository.delete(condition);

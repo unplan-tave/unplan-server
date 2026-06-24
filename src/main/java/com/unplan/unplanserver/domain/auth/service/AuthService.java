@@ -82,6 +82,7 @@ public class AuthService {
         return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
     }
 
+    @Transactional
     public void logout(Long memberId, String deviceId) {
         refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);
     }

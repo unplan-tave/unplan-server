@@ -92,8 +92,8 @@ public class AuthService {
     @Transactional
     public void withdraw(Long memberId) {
         refreshRepository.deleteByMemberId(memberId);
-        Member member = memberRepository.findByMemberId(memberId)
+        Member member = memberRepository.findById(memberId)
                 .orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-        memberRepository.deleteById(memberId);
+        memberRepository.delete(member);
     }
 }

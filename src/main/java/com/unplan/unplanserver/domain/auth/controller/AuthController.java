@@ -33,7 +33,7 @@ public class AuthController {
     }
 
     @PatchMapping("/withdraw")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal @Valid Long memberId){
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Long memberId){
         authService.withdraw(memberId);
         return ResponseEntity.noContent().build();
     }

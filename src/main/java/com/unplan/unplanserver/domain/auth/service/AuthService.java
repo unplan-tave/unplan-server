@@ -31,13 +31,14 @@ public class AuthService {
         String oauthId = kakaoUserInfo.getId().toString();
         Member member = memberRepository.findByOauthId(oauthId).orElse(null);
         Boolean isNewMember = false;
-        // 이전에 로그인한적이 없으면
+        // 회원가입
         if (member == null){
             isNewMember = true;
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
             memberRepository.save(member);
         }
+        //로그인
         else{
             //기존 refresh토큰 삭제, memberId와 deviceId로 찾으므로 중복로그인 허용
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
@@ -79,5 +80,10 @@ public class AuthService {
         refreshRepository.save(refresh);
 
         return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
+    }
+
+    @Transactional
+    public void logout(Long memberId, String deviceId) {
+        refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);
     }
 }

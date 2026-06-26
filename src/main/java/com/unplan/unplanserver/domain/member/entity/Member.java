@@ -2,6 +2,7 @@ package com.unplan.unplanserver.domain.member.entity;
 
 import com.unplan.unplanserver.domain.auth.dto.GoogleUserInfoDto;
 import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
+import com.unplan.unplanserver.domain.member.dto.UpdateProfileRequestDto;
 import com.unplan.unplanserver.domain.member.enums.Provider;
 import com.unplan.unplanserver.domain.member.enums.Role;
 import jakarta.persistence.*;
@@ -83,5 +84,24 @@ public class Member {
         member.nickname = userInfo.getNickname();
         member.email = userInfo.getEmail();
         return member;
+    }
+
+    public void updateProfile(UpdateProfileRequestDto requestDto) {
+        String name = requestDto.name();
+        if (notBlank(name)) {
+            this.name = name;
+        }
+        String nickname = requestDto.nickname();
+        if (notBlank(nickname)) {
+            this.nickname = nickname;
+        }
+        String email = requestDto.email();
+        if (notBlank(email)) {
+            this.email = email;
+        }
+    }
+
+    private boolean notBlank(String str) {
+        return str != null && !str.trim().isEmpty();
     }
 }

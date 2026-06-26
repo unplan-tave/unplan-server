@@ -17,9 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.Optional;
-
 @Service
 @AllArgsConstructor
 public class AuthService {
@@ -49,7 +46,7 @@ public class AuthService {
         }
 
         TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
-        return new SocialLoginResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken(), isNewMember);
+        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember);
 
     }
 
@@ -71,7 +68,7 @@ public class AuthService {
         }
         // access, refresh 토큰 발급
         TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
-        return new SocialLoginResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken(), isNewMember);
+        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember);
     }
     private TokenPair issueTokens(Member member, String deviceId){
         Long memberId = member.getMemberId();
@@ -103,20 +100,24 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenReissueResponseDto reissue(String deviceId, String refreshToken) {
+    public TokenReissueResponseDto reissue(String deviceId, String bearerToken) {
+        if (bearerToken == null || !bearerToken.startsWith("Bearer ") || bearerToken.length() <= 7) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+        String refreshToken = bearerToken.substring(7);
         Claims claims = jwtUtil.parseClaims(refreshToken, false);
         if (claims == null) {
             throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
         Long memberId = Long.parseLong(claims.getSubject());
-        boolean isValid = refreshRepository.existsByToken(refreshToken);
+        boolean isValid = refreshRepository.existsByMemberIdAndDeviceIdAndToken(memberId, deviceId, refreshToken);
         if(!isValid){
             throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
-        refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);  //refresh 토큰 삭제
+        refreshRepository.deleteByToken(refreshToken);  //refresh 토큰 삭제
         Member member = memberRepository.findById(memberId).orElseThrow(()-> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
         TokenPair tokenPair = issueTokens(member, deviceId);
-        return new TokenReissueResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken());
+        return new TokenReissueResponseDto(tokenPair.accessToken(), tokenPair.refreshToken());
     }
 }

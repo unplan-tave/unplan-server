@@ -44,7 +44,6 @@ public class AuthController {
 
     @PostMapping("/reissue")
     public ResponseEntity<TokenReissueResponseDto> reissue(@RequestHeader("Authorization") String bearerToken, @RequestBody @Valid TokenReissueRequestDto requestDto){
-        String refreshToken = bearerToken.substring(7);
-        return ResponseEntity.ok(authService.reissue(requestDto.deviceId(), refreshToken));
+        return ResponseEntity.ok(authService.reissue(requestDto.deviceId(), bearerToken));
     }
 }

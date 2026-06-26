@@ -5,11 +5,14 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Getter
+@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
         name = "sleeps",
@@ -40,7 +43,8 @@ public class Sleep {
     @Column(name = "is_nap", nullable = false)
     private Boolean nap;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public Sleep(
@@ -55,7 +59,6 @@ public class Sleep {
         this.bedTime = bedTime;
         this.wakeUpTime = wakeUpTime;
         this.nap = nap;
-        this.createdAt = LocalDateTime.now();
     }
 
     public void updateSleep(

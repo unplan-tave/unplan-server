@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 @Transactional(readOnly = true)
 public class SleepService {
 
+    private static final int MAX_NAP_DURATION_MINUTES = 180;
+
     private final SleepRepository sleepRepository;
     private final MemberRepository memberRepository;
 
@@ -31,7 +33,7 @@ public class SleepService {
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
 
-        Boolean isNap = request.durationMinutes() <= 180 && request.isNap();
+        Boolean isNap = request.durationMinutes() <= MAX_NAP_DURATION_MINUTES && request.isNap();
 
         Sleep sleep = new Sleep(
                 member,
@@ -52,16 +54,13 @@ public class SleepService {
             Long sleepId,
             SleepRequest.SleepUpdate request
     ) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-        Sleep sleep = sleepRepository.findBySleepIdAndMember(sleepId, member)
+        Sleep sleep = sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_NOT_FOUND));
 
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
 
-        Boolean isNap = request.durationMinutes() <= 180 && request.isNap();
+        Boolean isNap = request.durationMinutes() <= MAX_NAP_DURATION_MINUTES && request.isNap();
 
         sleep.updateSleep(
                 request.durationMinutes(),
@@ -76,10 +75,7 @@ public class SleepService {
     @Transactional
     public void deleteSleep(Long memberId, Long sleepId) {
 
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-        Sleep sleep = sleepRepository.findBySleepIdAndMember(sleepId, member)
+        Sleep sleep = sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_NOT_FOUND));
 
         sleepRepository.delete(sleep);

@@ -27,8 +27,8 @@ public class ConditionService {
 
         Condition condition = new Condition(
                 member,
-                request.getConditionType(),
-                request.getScore()
+                request.getBodyScore(),
+                request.getMindScore()
         );
 
         Condition savedCondition = conditionRepository.save(condition);
@@ -45,8 +45,9 @@ public class ConditionService {
         Condition condition = conditionRepository.findByConditionIdAndMemberMemberId(conditionId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
-        condition.updateScore(
-                request.getScore()
+        condition.updateScores(
+                request.getBodyScore(),
+                request.getMindScore()
         );
 
         return ConditionResponse.from(condition);

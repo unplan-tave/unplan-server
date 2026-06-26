@@ -23,7 +23,7 @@ public class ConditionController {
 
     @Operation(
             summary = "컨디션 입력",
-            description = "ENERGY 또는 FOCUS 컨디션 점수를 기록합니다. 점수는 0~6 사이로 입력합니다."
+            description = "신체(Energy) 점수와 정신(Focus) 점수를 한 세트로 기록합니다. 점수는 각각 0~6 사이로 입력합니다."
     )
     @PostMapping
     public ResponseEntity<ApiResponse<ConditionResponse>> createCondition(
@@ -41,7 +41,7 @@ public class ConditionController {
 
     @Operation(
             summary = "컨디션 수정",
-            description = "기존에 입력한 Energy 또는 Focus 컨디션 점수를 수정합니다. 점수는 0~6 사이로 입력합니다."
+            description = "기존에 입력한 신체(Energy) 점수와 정신(Focus) 점수를 수정합니다. 점수는 각각 0~6 사이로 입력합니다."
     )
     @PatchMapping("/{conditionId}")
     public ResponseEntity<ApiResponse<ConditionResponse>> updateCondition(
@@ -58,7 +58,7 @@ public class ConditionController {
 
     @Operation(
             summary = "컨디션 삭제",
-            description = "기존에 입력한 Energy 또는 Focus 컨디션 기록을 삭제합니다."
+            description = "기존에 입력한 컨디션 기록 세트를 삭제합니다."
     )
     @DeleteMapping("/{conditionId}")
     public ResponseEntity<ApiResponse<Void>> deleteCondition(

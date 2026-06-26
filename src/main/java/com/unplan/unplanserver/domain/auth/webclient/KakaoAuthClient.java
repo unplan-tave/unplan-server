@@ -1,6 +1,6 @@
 package com.unplan.unplanserver.domain.auth.webclient;
 
-import com.unplan.unplanserver.domain.auth.dto.KakaoUserInfoResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;

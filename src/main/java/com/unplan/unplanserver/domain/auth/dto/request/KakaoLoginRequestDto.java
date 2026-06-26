@@ -1,4 +1,4 @@
-package com.unplan.unplanserver.domain.auth.dto;
+package com.unplan.unplanserver.domain.auth.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 

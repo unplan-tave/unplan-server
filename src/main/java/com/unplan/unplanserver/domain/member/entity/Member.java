@@ -1,8 +1,7 @@
 package com.unplan.unplanserver.domain.member.entity;
 
-import com.unplan.unplanserver.domain.auth.dto.GoogleLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.GoogleUserInfoDto;
-import com.unplan.unplanserver.domain.auth.dto.KakaoUserInfoResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
 import com.unplan.unplanserver.domain.member.enums.Provider;
 import com.unplan.unplanserver.domain.member.enums.Role;
 import jakarta.persistence.*;

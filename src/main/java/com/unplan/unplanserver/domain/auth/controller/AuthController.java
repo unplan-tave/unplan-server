@@ -1,6 +1,10 @@
 package com.unplan.unplanserver.domain.auth.controller;
 
-import com.unplan.unplanserver.domain.auth.dto.*;
+import com.unplan.unplanserver.domain.auth.dto.request.GoogleLoginRequestDto;
+import com.unplan.unplanserver.domain.auth.dto.request.KakaoLoginRequestDto;
+import com.unplan.unplanserver.domain.auth.dto.request.TokenReissueRequestDto;
+import com.unplan.unplanserver.domain.auth.dto.response.SocialLoginResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.response.TokenReissueResponseDto;
 import com.unplan.unplanserver.domain.auth.service.AuthService;
 import com.unplan.unplanserver.domain.member.dto.LogoutRequestDto;
 import jakarta.validation.Valid;
@@ -11,7 +15,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 

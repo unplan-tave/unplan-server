@@ -1,6 +1,11 @@
 package com.unplan.unplanserver.domain.auth.service;
 
 import com.unplan.unplanserver.domain.auth.dto.*;
+import com.unplan.unplanserver.domain.auth.dto.request.GoogleLoginRequestDto;
+import com.unplan.unplanserver.domain.auth.dto.request.KakaoLoginRequestDto;
+import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.response.SocialLoginResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.response.TokenReissueResponseDto;
 import com.unplan.unplanserver.domain.auth.webclient.KakaoAuthClient;
 import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;

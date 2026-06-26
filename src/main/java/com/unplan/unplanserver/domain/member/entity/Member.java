@@ -8,6 +8,8 @@ import com.unplan.unplanserver.domain.member.enums.Role;
 import jakarta.persistence.*;
 import jakarta.persistence.Id;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -15,6 +17,8 @@ import java.time.*;
 @Entity
 @Table(name = "member")
 @Getter
+@SQLDelete(sql = "UPDATE member SET deleted_at = NOW() WHERE member_id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 public class Member {
@@ -43,9 +47,6 @@ public class Member {
     private String email;
 
 //    private LocalDate birth;
-
-    @Column(name = "target_sleep_time")
-    private int targetSleepTime;    // 분단위로 저장?
 
 //    @Column(name = "transport_type")
 //    @Enumerated(EnumType.STRING)

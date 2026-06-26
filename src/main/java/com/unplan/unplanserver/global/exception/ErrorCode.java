@@ -19,6 +19,7 @@ public enum ErrorCode {
     INVALID_KAKAO_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_KAKAO_TOKEN", "유효하지 않은 카카오 액세스 토큰입니다"),
     INVALID_GOOGLE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_GOOGLE_TOKEN", "유효하지 않은 구글 ID 토큰입니다"),
     GOOGLE_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "GOOGLE_SERVER_ERROR", "구글 서버와의 통신에 실패하였습니다"),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "유효하지 않은 토큰입니다"),
 
     // --- [메모 관련 에러] ---
     MEMO_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMO_404", "존재하지 않는 메모가 포함되어 있습니다."),
@@ -35,7 +36,11 @@ public enum ErrorCode {
 
     // --- [일정 관련 에러] ---
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_NOT_FOUND", "존재하지 않는 일정입니다."),
-    INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)");
+    INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)"),
+
+    // --- [컨디션 관련 에러] ---
+    CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),
+    SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다.");
 
     private final HttpStatus status;
     private final String code;

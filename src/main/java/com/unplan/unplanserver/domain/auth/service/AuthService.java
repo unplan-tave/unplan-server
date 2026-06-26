@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.util.GoogleIdTokenValidator;
 import com.unplan.unplanserver.util.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -31,13 +33,14 @@ public class AuthService {
         String oauthId = kakaoUserInfo.getId().toString();
         Member member = memberRepository.findByOauthId(oauthId).orElse(null);
         Boolean isNewMember = false;
-        // 이전에 로그인한적이 없으면
+        // 회원가입
         if (member == null){
             isNewMember = true;
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
             memberRepository.save(member);
         }
+        //로그인
         else{
             //기존 refresh토큰 삭제, memberId와 deviceId로 찾으므로 중복로그인 허용
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
@@ -79,5 +82,18 @@ public class AuthService {
         refreshRepository.save(refresh);
 
         return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
+    }
+
+    @Transactional
+    public void logout(Long memberId, String deviceId) {
+        refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);
+    }
+
+    @Transactional
+    public void withdraw(Long memberId) {
+        refreshRepository.deleteByMemberId(memberId);
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        memberRepository.delete(member);
     }
 }

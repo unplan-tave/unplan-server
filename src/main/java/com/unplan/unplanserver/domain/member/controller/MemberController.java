@@ -22,9 +22,6 @@ public class MemberController {
 
     @PatchMapping("/profile")
     public ResponseEntity<Void> updateProfile(@AuthenticationPrincipal Long memberId, @RequestBody @Valid UpdateProfileRequestDto requestDto) {
-        String name = requestDto.name();
-        String nickname = requestDto.nickname();
-        String email = requestDto.email();
         memberService.updateProfile(memberId, requestDto);
         return ResponseEntity.noContent().build();
     }

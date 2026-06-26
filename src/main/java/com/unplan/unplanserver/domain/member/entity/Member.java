@@ -88,16 +88,20 @@ public class Member {
 
     public void updateProfile(UpdateProfileRequestDto requestDto) {
         String name = requestDto.name();
-        if (name != null) {
+        if (notBlank(name)) {
             this.name = name;
         }
         String nickname = requestDto.nickname();
-        if (nickname != null) {
+        if (notBlank(nickname)) {
             this.nickname = nickname;
         }
         String email = requestDto.email();
-        if (email != null) {
+        if (notBlank(email)) {
             this.email = email;
         }
+    }
+
+    private boolean notBlank(String str) {
+        return str != null && !str.trim().isEmpty();
     }
 }

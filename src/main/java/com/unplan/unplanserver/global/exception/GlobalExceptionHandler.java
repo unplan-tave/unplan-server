@@ -37,7 +37,9 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
+        String message = e.getBindingResult().getAllErrors().stream()
+                .findFirst().map(error -> error.getDefaultMessage())
+                .orElse("입력값이 올바르지 않습니다");
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.fail(message));

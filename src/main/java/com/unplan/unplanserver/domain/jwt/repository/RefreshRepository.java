@@ -8,4 +8,10 @@ public interface RefreshRepository extends JpaRepository<Refresh, Long> {
     void deleteByMemberIdAndDeviceId(Long memberId, String s);
 
     void deleteByMemberId(Long memberId);
+
+    boolean existsByToken(String refreshToken);
+
+    boolean existsByMemberIdAndDeviceIdAndToken(Long memberId, String deviceId, String refreshToken);
+
+    void deleteByToken(String refreshToken);
 }

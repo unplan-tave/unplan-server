@@ -1,8 +1,6 @@
 package com.unplan.unplanserver.domain.auth.controller;
 
-import com.unplan.unplanserver.domain.auth.dto.GoogleLoginRequestDto;
-import com.unplan.unplanserver.domain.auth.dto.KakaoLoginRequestDto;
-import com.unplan.unplanserver.domain.auth.dto.SocialLoginResponseDto;
+import com.unplan.unplanserver.domain.auth.dto.*;
 import com.unplan.unplanserver.domain.auth.service.AuthService;
 import com.unplan.unplanserver.domain.member.dto.LogoutRequestDto;
 import jakarta.validation.Valid;
@@ -42,5 +40,10 @@ public class AuthController {
     public ResponseEntity<Void> logout(@AuthenticationPrincipal Long memberId, @RequestBody @Valid LogoutRequestDto requestDto){
         authService.logout(memberId, requestDto.deviceId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reissue")
+    public ResponseEntity<TokenReissueResponseDto> reissue(@RequestHeader("Authorization") String bearerToken, @RequestBody @Valid TokenReissueRequestDto requestDto){
+        return ResponseEntity.ok(authService.reissue(requestDto.deviceId(), bearerToken));
     }
 }

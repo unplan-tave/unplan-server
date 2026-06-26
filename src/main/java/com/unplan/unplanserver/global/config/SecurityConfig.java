@@ -37,6 +37,7 @@ public class SecurityConfig {
                                 "/auth/kakao", // 로그인은 누구나 가능
                                 "/auth/google",
                                 "/auth/accessToken",
+                                "/auth/reissue",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"

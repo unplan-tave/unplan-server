@@ -6,6 +6,7 @@ import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.global.common.TokenPair;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.util.GoogleIdTokenValidator;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.Optional;
 
 @Service
@@ -46,7 +48,8 @@ public class AuthService {
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }
 
-        return issueTokens(member, requestDto.deviceId(), isNewMember);
+        TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
+        return new SocialLoginResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken(), isNewMember);
 
     }
 
@@ -67,21 +70,23 @@ public class AuthService {
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }
         // access, refresh 토큰 발급
-        return issueTokens(member, requestDto.deviceId(), isNewMember);
+        TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
+        return new SocialLoginResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken(), isNewMember);
     }
-    private SocialLoginResponseDto issueTokens(Member member, String deviceId, Boolean isNewUser){
+    private TokenPair issueTokens(Member member, String deviceId){
         Long memberId = member.getMemberId();
         String role = member.getRole().toString();
         String accessToken = jwtUtil.createJwt(memberId, role, true);
         String refreshToken = jwtUtil.createJwt(memberId, role, false);
 
+        //refresh토큰 db에 저장
         Claims claims = jwtUtil.parseClaims(refreshToken, false);
         LocalDateTime createdAt = jwtUtil.getIssuedAt(claims);
         LocalDateTime expiresAt = jwtUtil.getExpiration(claims);
         Refresh refresh = Refresh.of(memberId, refreshToken, deviceId, createdAt, expiresAt);
         refreshRepository.save(refresh);
 
-        return new SocialLoginResponseDto(accessToken, refreshToken, isNewUser);
+        return new TokenPair(accessToken, refreshToken);
     }
 
     @Transactional
@@ -95,5 +100,19 @@ public class AuthService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
         memberRepository.delete(member);
+    }
+
+    @Transactional
+    public TokenReissueResponseDto reissue(String deviceId, String refreshToken) {
+        Claims claims = jwtUtil.parseClaims(refreshToken, false);
+        if (claims == null) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
+        Long memberId = Long.parseLong(claims.getSubject());
+        refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);  //refresh 토큰 삭제
+        Member member = memberRepository.findById(memberId).orElseThrow(()-> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        TokenPair tokenPair = issueTokens(member, deviceId);
+        return new TokenReissueResponseDto(tokenPair.getAccessToken(), tokenPair.getRefreshToken());
     }
 }

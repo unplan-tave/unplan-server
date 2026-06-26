@@ -48,9 +48,6 @@ public class Member {
 
 //    private LocalDate birth;
 
-    @Column(name = "target_sleep_time")
-    private int targetSleepTime;    // 분단위로 저장?
-
 //    @Column(name = "transport_type")
 //    @Enumerated(EnumType.STRING)
 //    private TransportType transportType;

@@ -1,7 +1,6 @@
 package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.unplan.unplanserver.domain.measurement.entity.Condition;
-import com.unplan.unplanserver.domain.measurement.enums.ConditionType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,15 +11,15 @@ import java.time.LocalDateTime;
 public class ConditionResponse {
 
     private Long conditionId;
-    private ConditionType conditionType;
-    private Integer score;
+    private Integer bodyScore;
+    private Integer mindScore;
     private LocalDateTime createdAt;
 
     public static ConditionResponse from(Condition condition) {
         return ConditionResponse.builder()
                 .conditionId(condition.getConditionId())
-                .conditionType(condition.getConditionType())
-                .score(condition.getScore())
+                .bodyScore(condition.getBodyScore())
+                .mindScore(condition.getMindScore())
                 .createdAt(condition.getCreatedAt())
                 .build();
     }

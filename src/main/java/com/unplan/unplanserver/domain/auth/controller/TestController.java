@@ -1,7 +1,6 @@
 package com.unplan.unplanserver.domain.auth.controller;
 
-import com.unplan.unplanserver.domain.auth.dto.SocialLoginResponseDto;
-import com.unplan.unplanserver.domain.auth.service.AuthService;
+import com.unplan.unplanserver.domain.auth.dto.response.SocialLoginResponseDto;
 import com.unplan.unplanserver.util.JwtUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Profile;

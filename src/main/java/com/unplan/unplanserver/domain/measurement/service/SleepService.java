@@ -70,4 +70,18 @@ public class SleepService {
 
         return SleepResponse.from(sleep);
     }
+
+    @Transactional
+    public void deleteSleep(Long memberId, Long sleepId) {
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+
+        Sleep sleep = sleepRepository.findBySleepIdAndMember(sleepId, member)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 수면 기록입니다."));
+
+        sleepRepository.delete(sleep);
+
+        // TODO: 수면 삭제 후 당일 수면 부족 패널티 및 종합 컨디션 점수 재계산 로직 연결
+    }
 }

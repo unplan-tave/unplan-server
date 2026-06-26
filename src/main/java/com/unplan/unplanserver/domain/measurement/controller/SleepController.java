@@ -71,4 +71,24 @@ public class SleepController {
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @Operation(
+            summary = "수면 삭제",
+            description = """
+                기존에 입력한 밤잠 또는 낮잠 수면 세션을 삭제합니다.<br>
+                삭제 대상은 sleepId로 구분합니다.<br><br>
+                
+                - 삭제 후 해당 날짜의 수면 부족 패널티 및 종합 컨디션 점수 재계산 수정 예정
+                """
+    )
+    @DeleteMapping("/{sleepId}")
+    public ResponseEntity<ApiResponse<Void>> deleteSleep(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long sleepId
+    ) {
+
+        sleepService.deleteSleep(memberId, sleepId);
+
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }

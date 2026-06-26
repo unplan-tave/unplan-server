@@ -109,6 +109,10 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
         Long memberId = Long.parseLong(claims.getSubject());
+        boolean isValid = refreshRepository.existsByToken(refreshToken);
+        if(!isValid){
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
         refreshRepository.deleteByMemberIdAndDeviceId(memberId, deviceId);  //refresh 토큰 삭제
         Member member = memberRepository.findById(memberId).orElseThrow(()-> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 

@@ -34,6 +34,10 @@ public class MemberService {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
         Member member = memberRepository.findById(memberId).orElseThrow(()->new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        Member duplicateEmailMember = memberRepository.findByEmail(requestDto.email()).orElse(null);
+        if (duplicateEmailMember != member) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
         member.updateProfile(requestDto);
     }
 }

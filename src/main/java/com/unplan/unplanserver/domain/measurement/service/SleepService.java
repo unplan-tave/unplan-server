@@ -3,6 +3,7 @@ package com.unplan.unplanserver.domain.measurement.service;
 import com.unplan.unplanserver.domain.measurement.dto.request.SleepRequest;
 import com.unplan.unplanserver.domain.measurement.dto.response.SleepResponse;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
+import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository; // 주입 추가
 import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
@@ -23,6 +24,7 @@ public class SleepService {
 
     private final SleepRepository sleepRepository;
     private final MemberRepository memberRepository;
+    private final ConditionRepository conditionRepository; // 💡 컨디션 레포지토리 주입
 
     @Transactional
     public SleepResponse createSleep(Long memberId, SleepRequest.SleepCreate request) {
@@ -32,6 +34,13 @@ public class SleepService {
 
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
+
+        boolean hasExistingCondition = conditionRepository.findAllByMemberAndMeasuredAtBetween(member, bedTime, request.wakeUpTime())
+                .stream().findAny().isPresent();
+
+        if (hasExistingCondition) {
+            throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
+        }
 
         Boolean isNap = (request.durationMinutes() <= MAX_NAP_DURATION_MINUTES) || request.isNap();
 
@@ -59,6 +68,13 @@ public class SleepService {
 
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
+
+        boolean hasExistingCondition = conditionRepository.findAllByMemberAndMeasuredAtBetween(sleep.getMember(), bedTime, request.wakeUpTime())
+                .stream().findAny().isPresent();
+
+        if (hasExistingCondition) {
+            throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
+        }
 
         Boolean isNap = (request.durationMinutes() <= MAX_NAP_DURATION_MINUTES) || request.isNap();
 

@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface ConditionRepository extends JpaRepository<Condition, Long> {
 
-    List<Condition> findAllByMemberAndCreatedAtBetween(
+    List<Condition> findAllByMemberAndMeasuredAtBetween(
             Member member,
             LocalDateTime start,
             LocalDateTime end

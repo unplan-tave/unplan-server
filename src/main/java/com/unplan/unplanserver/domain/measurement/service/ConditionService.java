@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -27,9 +25,7 @@ public class ConditionService {
     @Transactional
     public ConditionResponse createCondition(Long memberId, ConditionRequest.ConditionCreate request) {
 
-        LocalDateTime now = LocalDateTime.now();
-
-        if (sleepRepository.existsByMemberIdAndSleepTimeOverlap(memberId, now)) {
+        if (sleepRepository.existsByMemberIdAndSleepTimeOverlap(memberId, request.getDateTime())) {
             throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
         }
 
@@ -39,7 +35,8 @@ public class ConditionService {
         Condition condition = new Condition(
                 member,
                 request.getBodyScore(),
-                request.getMindScore()
+                request.getMindScore(),
+                request.getDateTime()
         );
 
         Condition savedCondition = conditionRepository.save(condition);
@@ -56,9 +53,14 @@ public class ConditionService {
         Condition condition = conditionRepository.findByConditionIdAndMemberMemberId(conditionId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
 
-        condition.updateScores(
+        if (sleepRepository.existsByMemberIdAndSleepTimeOverlap(memberId, request.getDateTime())) {
+            throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
+        }
+
+        condition.updateScoresAndDateTime(
                 request.getBodyScore(),
-                request.getMindScore()
+                request.getMindScore(),
+                request.getDateTime()
         );
 
         return ConditionResponse.from(condition);

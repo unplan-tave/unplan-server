@@ -13,14 +13,14 @@ public class ConditionResponse {
     private Long conditionId;
     private Integer bodyScore;
     private Integer mindScore;
-    private LocalDateTime createdAt;
+    private LocalDateTime dateTime;
 
     public static ConditionResponse from(Condition condition) {
         return ConditionResponse.builder()
                 .conditionId(condition.getConditionId())
                 .bodyScore(condition.getBodyScore())
                 .mindScore(condition.getMindScore())
-                .createdAt(condition.getCreatedAt())
+                .dateTime(condition.getMeasuredAt())
                 .build();
     }
 }

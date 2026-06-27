@@ -4,6 +4,7 @@ import com.unplan.unplanserver.domain.measurement.dto.request.ConditionRequest;
 import com.unplan.unplanserver.domain.measurement.dto.response.ConditionResponse;
 import com.unplan.unplanserver.domain.measurement.entity.Condition;
 import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
+import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
@@ -12,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,9 +22,17 @@ public class ConditionService {
 
     private final ConditionRepository conditionRepository;
     private final MemberRepository memberRepository;
+    private final SleepRepository sleepRepository;
 
     @Transactional
     public ConditionResponse createCondition(Long memberId, ConditionRequest.ConditionCreate request) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (sleepRepository.existsByMemberIdAndSleepTimeOverlap(memberId, now)) {
+            throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
+        }
+
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 

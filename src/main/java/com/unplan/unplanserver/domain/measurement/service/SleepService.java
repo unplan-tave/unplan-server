@@ -33,7 +33,7 @@ public class SleepService {
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
 
-        Boolean isNap = request.durationMinutes() <= MAX_NAP_DURATION_MINUTES && request.isNap();
+        Boolean isNap = (request.durationMinutes() <= MAX_NAP_DURATION_MINUTES) || request.isNap();
 
         Sleep sleep = new Sleep(
                 member,
@@ -60,7 +60,7 @@ public class SleepService {
         LocalDateTime bedTime = request.wakeUpTime()
                 .minusMinutes(request.durationMinutes());
 
-        Boolean isNap = request.durationMinutes() <= MAX_NAP_DURATION_MINUTES && request.isNap();
+        Boolean isNap = (request.durationMinutes() <= MAX_NAP_DURATION_MINUTES) || request.isNap();
 
         sleep.updateSleep(
                 request.durationMinutes(),

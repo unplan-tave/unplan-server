@@ -29,7 +29,6 @@ public class SleepController {
                     
                     - bed_time은 요청값으로 받지 않습니다.<br>
                     - 서버에서 wake_up_time - duration_minutes 값으로 bed_time을 자동 계산합니다.<br>
-                    - duration_minutes가 180분을 초과하면 낮잠으로 저장되지 않습니다.<br>
                     - created_at은 서버에서 자동 생성됩니다.
                     """
     )
@@ -55,7 +54,6 @@ public class SleepController {
                     
                     - bed_time은 요청값으로 받지 않습니다.<br>
                     - 서버에서 wake_up_time - duration_minutes 값으로 bed_time을 다시 계산합니다.<br>
-                    - duration_minutes가 180분을 초과하면 낮잠으로 저장되지 않습니다.<br>
                     - created_at은 최초 생성 시각이므로 수정해도 변경되지 않습니다.
                     """
     )

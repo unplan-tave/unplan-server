@@ -36,7 +36,8 @@ public enum ErrorCode {
 
     // --- [컨디션 관련 에러] ---
     CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),
-    SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다.");
+    SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다."),
+    SLEEP_TIME_OVERLAP(HttpStatus.BAD_REQUEST, "SLEEP_TIME_OVERLAP", "수면 시간대와 컨디션 시간이 겹칩니다.");
 
     private final HttpStatus status;
     private final String code;

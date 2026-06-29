@@ -1,8 +1,11 @@
 package com.unplan.unplanserver.domain.measurement.controller;
 
 import com.unplan.unplanserver.domain.measurement.dto.request.SleepRequest;
+import com.unplan.unplanserver.domain.measurement.dto.response.SleepGetApiResponse;
 import com.unplan.unplanserver.domain.measurement.dto.response.SleepResponse;
 import com.unplan.unplanserver.domain.measurement.service.SleepService;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,41 @@ import org.springframework.web.bind.annotation.*;
 public class SleepController {
 
     private final SleepService sleepService;
+
+    @Operation(
+            summary = "수면 조회",
+            description = """
+                    인증된 사용자의 수면 기록을 조회합니다.<br>
+                    본인의 수면 기록만 조회할 수 있습니다.<br><br>
+                    
+                    - bed_time은 wake_up_time과 duration_minutes를 기준으로 계산된 값입니다.<br>
+                    - is_nap이 true이면 낮잠, false이면 밤잠 기록입니다.
+                    """
+    )
+    @GetMapping("/{sleepId}")
+    public ResponseEntity<SleepGetApiResponse> getSleep(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long sleepId
+    ) {
+
+        try {
+            SleepResponse response =
+                    sleepService.getSleep(memberId, sleepId);
+
+            return ResponseEntity.ok(SleepGetApiResponse.success(response));
+        } catch (CustomException e) {
+            if (e.getErrorCode() != ErrorCode.SLEEP_NOT_FOUND) {
+                throw e;
+            }
+
+            return ResponseEntity
+                    .status(ErrorCode.SLEEP_NOT_FOUND.getStatus())
+                    .body(SleepGetApiResponse.fail(
+                            ErrorCode.SLEEP_NOT_FOUND.getCode(),
+                            "수면 기록을 찾을 수 없습니다."
+                    ));
+        }
+    }
 
     @Operation(
             summary = "수면 입력",

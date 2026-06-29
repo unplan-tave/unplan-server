@@ -26,6 +26,13 @@ public class SleepService {
     private final MemberRepository memberRepository;
     private final ConditionRepository conditionRepository;
 
+    public SleepResponse getSleep(Long memberId, Long sleepId) {
+        Sleep sleep = sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_NOT_FOUND));
+
+        return SleepResponse.from(sleep);
+    }
+
     @Transactional
     public SleepResponse createSleep(Long memberId, SleepRequest.SleepCreate request) {
 

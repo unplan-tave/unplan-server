@@ -34,6 +34,10 @@ public enum ErrorCode {
     SLEEP_REQUIRED(HttpStatus.BAD_REQUEST, "SLEEP_REQUIRED", "수면 시간은 최소 한 칸 이상 필수 입력해야 합니다."),
     INVALID_SLEEP_PATTERN(HttpStatus.BAD_REQUEST, "INVALID_SLEEP_PATTERN", "수면 시간은 중간에 끊어서 입력할 수 없습니다."),
 
+    // --- [일정 관련 에러] ---
+    SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_NOT_FOUND", "존재하지 않는 일정입니다."),
+    INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)"),
+
     // --- [컨디션 관련 에러] ---
     CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),
     SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다."),

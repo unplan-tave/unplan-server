@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -26,7 +27,7 @@ import java.util.List;
 
 @Tag(name = "Schedule CRUD", description = "일정 CRUD API")
 @RestController
-@RequestMapping("/api/schedule")
+@RequestMapping("/schedule")
 @RequiredArgsConstructor
 public class ScheduleController {
 
@@ -35,10 +36,8 @@ public class ScheduleController {
     @Operation(summary = "일정 생성", description = "새로운 일정을 생성합니다. 시작/종료 시간이 없으면 큐카드로 등록됩니다.")
     @PostMapping
     public ResponseEntity<ScheduleCreateResponse> createSchedule(
+            @AuthenticationPrincipal Long memberId,
             @RequestBody @Valid ScheduleCreateRequest request) {
-
-        // 임시 memberId (추후 JWT에서 추출 예정)
-        Long memberId = 1L;
 
         ScheduleCreateResponse response = scheduleService.createSchedule(memberId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -47,11 +46,9 @@ public class ScheduleController {
     @Operation(summary = "일정 일별 조회", description = "특정 날짜의 일정 목록을 조회합니다.")
     @GetMapping
     public ResponseEntity<List<ScheduleGetResponse>> getSchedulesByDate(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "조회할 날짜 (yyyy-MM-dd)", example = "2026-06-20")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-        // 임시 memberId (추후 JWT에서 추출 예정)
-        Long memberId = 1L;
 
         return ResponseEntity.ok(scheduleService.getSchedulesByDate(memberId, date));
     }
@@ -60,10 +57,9 @@ public class ScheduleController {
     @Operation(summary = "일정 주별 조회", description = "선택한 날짜가 포함된 주(일~토)의 일정 목록을 조회합니다.")
     @GetMapping("/weekly")
     public ResponseEntity<ScheduleWeeklyResponse> getSchedulesByWeek(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "조회 기준 날짜 (yyyy-MM-dd)", example = "2026-06-20")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-        Long memberId = 1L;
 
         return ResponseEntity.ok(scheduleService.getSchedulesByWeek(memberId, date));
     }
@@ -71,10 +67,9 @@ public class ScheduleController {
     @Operation(summary = "일정 월별 조회", description = "해당 월의 캘린더 뷰 기준(첫째 주 일요일 ~ 마지막 주 토요일) 날짜별 일정 개수를 조회합니다.")
     @GetMapping("/monthly")
     public ResponseEntity<ScheduleMonthlyResponse> getSchedulesByMonth(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "조회할 년/월 (yyyy-MM)", example = "2026-06")
             @RequestParam String month) {
-
-        Long memberId = 1L;
 
         try {
             return ResponseEntity.ok(scheduleService.getSchedulesByMonth(memberId, YearMonth.parse(month)));
@@ -86,11 +81,9 @@ public class ScheduleController {
     @Operation(summary = "일정 상세 조회", description = "특정 일정의 상세 정보를 조회합니다.")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> getScheduleDetail(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "조회할 일정 ID", example = "1")
             @PathVariable Long scheduleId) {
-
-        // 임시 memberId (추후 JWT에서 추출 예정)
-        Long memberId = 1L;
 
         return ResponseEntity.ok(scheduleService.getScheduleDetail(memberId, scheduleId));
     }
@@ -98,12 +91,10 @@ public class ScheduleController {
     @Operation(summary = "일정 수정", description = "특정 일정의 정보를 수정합니다. 전달한 필드만 업데이트됩니다.")
     @PatchMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> updateSchedule(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "수정할 일정 ID", example = "1")
             @PathVariable Long scheduleId,
             @RequestBody ScheduleUpdateRequest request) {
-
-        // 임시 memberId (추후 JWT에서 추출 예정)
-        Long memberId = 1L;
 
         return ResponseEntity.ok(scheduleService.updateSchedule(memberId, scheduleId, request));
     }
@@ -111,11 +102,9 @@ public class ScheduleController {
     @Operation(summary = "일정 삭제", description = "특정 일정을 삭제합니다.")
     @DeleteMapping("/{scheduleId}")
     public ResponseEntity<Void> deleteSchedule(
+            @AuthenticationPrincipal Long memberId,
             @Parameter(description = "삭제할 일정 ID", example = "1")
             @PathVariable Long scheduleId) {
-
-        // 임시 memberId (추후 JWT에서 추출 예정)
-        Long memberId = 1L;
 
         scheduleService.deleteSchedule(memberId, scheduleId);
         return ResponseEntity.noContent().build();

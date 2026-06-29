@@ -1,11 +1,11 @@
 package com.unplan.unplanserver.domain.member.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record GetProfileResponseDto(
         String name,
         String nickname,
         String email,
-        @NotBlank Boolean onboardingCompleted
+        @NotNull Boolean onboardingCompleted
 ) {
 }

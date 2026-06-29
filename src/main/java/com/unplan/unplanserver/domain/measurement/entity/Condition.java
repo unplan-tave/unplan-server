@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
         name = "conditions",
         indexes = {
                 @Index(name = "idx_conditions_member_id", columnList = "member_id"),
-                @Index(name = "idx_conditions_created_at", columnList = "created_at")
+                @Index(name = "idx_conditions_measured_at", columnList = "measured_at")
         }
 )
 public class Condition {
@@ -34,18 +34,19 @@ public class Condition {
     @Column(name = "mind_score", nullable = false)
     private Integer mindScore;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "measured_at", nullable = false)
+    private LocalDateTime measuredAt;
 
-    public Condition(Member member, Integer bodyScore, Integer mindScore) {
+    public Condition(Member member, Integer bodyScore, Integer mindScore, LocalDateTime measuredAt) {
         this.member = member;
         this.bodyScore = bodyScore;
         this.mindScore = mindScore;
-        this.createdAt = LocalDateTime.now();
+        this.measuredAt = measuredAt;
     }
 
-    public void updateScores(Integer bodyScore, Integer mindScore) {
+    public void updateScoresAndDateTime(Integer bodyScore, Integer mindScore, LocalDateTime measuredAt) {
         this.bodyScore = bodyScore;
         this.mindScore = mindScore;
+        this.measuredAt = measuredAt;
     }
 }

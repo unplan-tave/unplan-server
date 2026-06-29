@@ -37,6 +37,7 @@ public enum ErrorCode {
     // --- [일정 관련 에러] ---
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_NOT_FOUND", "존재하지 않는 일정입니다."),
     INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)"),
+    INVALID_RECURRENCE(HttpStatus.BAD_REQUEST, "INVALID_RECURRENCE", "반복 설정 형식이 올바르지 않습니다. by_month_day는 1~31 숫자, by_day는 요일(MON,TUE...) 또는 N번째 요일(2WED) 형식이어야 합니다."),
 
     // --- [컨디션 관련 에러] ---
     CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),

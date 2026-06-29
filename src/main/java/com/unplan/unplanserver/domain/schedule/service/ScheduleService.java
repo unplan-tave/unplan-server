@@ -10,6 +10,7 @@ import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyRespo
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
+import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.LocationInfoRepository;
 import com.unplan.unplanserver.domain.schedule.repository.RecurrenceRuleRepository;
@@ -17,6 +18,7 @@ import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScheduleService {
@@ -42,6 +45,11 @@ public class ScheduleService {
 
     @Transactional
     public ScheduleCreateResponse createSchedule(Long memberId, ScheduleCreateRequest request) {
+
+        // 0. 반복 설정 형식 검증 (잘못된 규칙이 저장되어 이후 조회를 깨뜨리는 것을 방지)
+        if (request.getRecurrence() != null) {
+            validateRecurrence(request.getRecurrence());
+        }
 
         // 1. Schedule 엔티티 생성
         // Request DTO에서 값을 꺼내서 Schedule entity를 만듦
@@ -196,6 +204,51 @@ public class ScheduleService {
     // 반복 일정 동적 확장 로직 (조회 범위 내 인스턴스만 계산)
     // ──────────────────────────────────────────────────────────────────────────
 
+    // 반복 규칙 형식 검증 — 잘못된 값이 저장되어 이후 조회 확장 시 예외를 일으키는 것을 차단
+    private void validateRecurrence(ScheduleCreateRequest.RecurrenceRequest rec) {
+        if (rec.getInterval() != null && rec.getInterval() < 1) {
+            throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+        }
+
+        // by_month_day: 1~31 정수 토큰만 허용 (예: "16", "1,17")
+        if (rec.getByMonthDay() != null && !rec.getByMonthDay().isBlank()) {
+            for (String token : rec.getByMonthDay().split(",")) {
+                token = token.trim();
+                if (token.isEmpty()) continue;
+                int day;
+                try {
+                    day = Integer.parseInt(token);
+                } catch (NumberFormatException e) {
+                    throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+                }
+                if (day < 1 || day > 31) {
+                    throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+                }
+            }
+        }
+
+        // by_day: 요일 토큰 (MONTHLY는 선행 숫자 N번째 허용, 예: "2WED")
+        if (rec.getByDay() != null && !rec.getByDay().isBlank()) {
+            boolean monthly = rec.getFreq() == RecurrenceFreq.MONTHLY;
+            for (String token : rec.getByDay().split(",")) {
+                token = token.trim();
+                if (token.isEmpty()) continue;
+                String dayPart = (monthly && Character.isDigit(token.charAt(0)))
+                        ? token.substring(1) : token;
+                if (!isValidWeekday(dayPart)) {
+                    throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+                }
+            }
+        }
+    }
+
+    private boolean isValidWeekday(String abbr) {
+        return switch (abbr.toUpperCase()) {
+            case "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" -> true;
+            default -> false;
+        };
+    }
+
     private List<Schedule> expandRecurringInstances(Long memberId, LocalDate rangeStart, LocalDate rangeEnd) {
         List<Schedule> originals = scheduleRepository.findByMemberIdAndIsRecurringTrue(memberId);
         if (originals.isEmpty()) return List.of();
@@ -210,26 +263,31 @@ public class ScheduleService {
             if (rule == null) continue;
             if (rule.getUntil() != null && rule.getUntil().isBefore(rangeStart)) continue;
 
-            for (LocalDate d : calculateInstancesInRange(original.getDate(), rule, rangeStart, rangeEnd)) {
-                expanded.add(Schedule.builder()
-                        .scheduleId(original.getScheduleId())
-                        .memberId(original.getMemberId())
-                        .title(original.getTitle())
-                        .conditionTag(original.getConditionTag())
-                        .date(d)
-                        .startTime(original.getStartTime())
-                        .endTime(original.getEndTime())
-                        .estimatedTime(original.getEstimatedTime())
-                        .memo(original.getMemo())
-                        .isRemindOn(original.getIsRemindOn())
-                        .remindMinutes(original.getRemindMinutes())
-                        .remindType(original.getRemindType())
-                        .remindSoundType(original.getRemindSoundType())
-                        .isQueue(original.getIsQueue())
-                        .isRecurring(true)
-                        .isConflict(false)
-                        .status(original.getStatus())
-                        .build());
+            // 규칙 하나가 깨져도(과거에 저장된 비정상 데이터 등) 전체 조회가 실패하지 않도록 방어
+            try {
+                for (LocalDate d : calculateInstancesInRange(original.getDate(), rule, rangeStart, rangeEnd)) {
+                    expanded.add(Schedule.builder()
+                            .scheduleId(original.getScheduleId())
+                            .memberId(original.getMemberId())
+                            .title(original.getTitle())
+                            .conditionTag(original.getConditionTag())
+                            .date(d)
+                            .startTime(original.getStartTime())
+                            .endTime(original.getEndTime())
+                            .estimatedTime(original.getEstimatedTime())
+                            .memo(original.getMemo())
+                            .isRemindOn(original.getIsRemindOn())
+                            .remindMinutes(original.getRemindMinutes())
+                            .remindType(original.getRemindType())
+                            .remindSoundType(original.getRemindSoundType())
+                            .isQueue(original.getIsQueue())
+                            .isRecurring(true)
+                            .isConflict(false)
+                            .status(original.getStatus())
+                            .build());
+                }
+            } catch (RuntimeException e) {
+                log.warn("반복 일정 확장 실패로 건너뜀 (scheduleId={}): {}", original.getScheduleId(), e.getMessage());
             }
         }
         return expanded;

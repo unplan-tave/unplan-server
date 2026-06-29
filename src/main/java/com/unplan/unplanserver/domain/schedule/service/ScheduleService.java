@@ -298,7 +298,9 @@ public class ScheduleService {
         LocalDate searchEnd = (rule.getUntil() != null && rule.getUntil().isBefore(rangeEnd))
                 ? rule.getUntil() : rangeEnd;
         int maxCount = rule.getCount() != null ? rule.getCount() : Integer.MAX_VALUE;
-        int interval = rule.getInterval() != null ? rule.getInterval() : 1;
+        // interval 이 0/음수면 plusDays/Weeks/Months/Years(0) 으로 커서가 멈춰 무한 루프가 된다.
+        // 생성 시 validateRecurrence 로 막지만, 레거시·비정상 데이터 방어를 위해 조회 경로에서도 1 이상으로 클램핑.
+        int interval = (rule.getInterval() != null && rule.getInterval() >= 1) ? rule.getInterval() : 1;
         int generated = 1; // 원본이 인스턴스 #1
 
         List<LocalDate> all = new ArrayList<>();

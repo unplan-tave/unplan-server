@@ -182,4 +182,25 @@ class RecurrenceCalculationTest {
         // 원본(#1) 이후: 06-19(금,#2), 06-22(월,#3), 06-26(금,#4), 06-29(월,#5)
         assertEquals(List.of(d("2026-06-19"), d("2026-06-22"), d("2026-06-26"), d("2026-06-29")), got);
     }
+
+    // ─────────────────────────── interval 0/음수 무한 루프 방어 (코드리뷰 critical) ───────────────────────────
+
+    @Test
+    @DisplayName("interval=0 — 무한 루프 없이 1로 클램핑되어 정상 종료")
+    void zeroIntervalNoInfiniteLoop() {
+        RecurrenceRule rule = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.DAILY).interval(0).build(); // count/until 없음 → 클램핑 안 하면 무한 루프
+        List<LocalDate> got = assertTimeoutPreemptively(java.time.Duration.ofSeconds(5),
+                () -> calc(d("2026-06-29"), rule, d("2026-06-30"), d("2026-07-02")));
+        assertEquals(List.of(d("2026-06-30"), d("2026-07-01"), d("2026-07-02")), got); // interval 1 처럼 동작
+    }
+
+    @Test
+    @DisplayName("interval=-3 — 음수도 1로 클램핑되어 정상 종료")
+    void negativeIntervalNoInfiniteLoop() {
+        RecurrenceRule rule = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.YEARLY).interval(-3).build();
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(5),
+                () -> calc(d("2024-06-29"), rule, d("2026-06-29"), d("2026-06-29")));
+    }
 }

@@ -270,36 +270,25 @@ public class ScheduleService {
                 }
             }
             case MONTHLY -> {
-                LocalDate cur = originalDate.plusMonths(interval).withDayOfMonth(1);
+                // 원본 달부터 시작하되 원본 날짜 이후 인스턴스만 채택 (다중 byMonthDay의 원본 달 누락 방지)
+                LocalDate cur = originalDate.withDayOfMonth(1);
                 while (!cur.isAfter(searchEnd) && generated < maxCount) {
-                    if (rule.getByDay() != null && !rule.getByDay().isBlank()) {
-                        String byDay = rule.getByDay();
-                        LocalDate occ;
-                        if (Character.isDigit(byDay.charAt(0))) {
-                            // "2WED" 형식: N번째 요일 직접 지정
-                            occ = parseNthWeekdayOfMonth(cur, byDay);
-                        } else {
-                            // "TUE" 형식: 원본 날짜 기준으로 몇 번째 요일인지 자동 계산
-                            DayOfWeek dow = toDayOfWeek(byDay);
-                            int nth = (originalDate.getDayOfMonth() - 1) / 7 + 1;
-                            occ = nthWeekdayInMonth(cur, nth, dow);
-                        }
-                        if (!occ.isAfter(searchEnd)) { all.add(occ); generated++; }
-                    } else {
-                        for (int day : parseByMonthDay(rule.getByMonthDay(), originalDate.getDayOfMonth())) {
-                            if (generated >= maxCount) break;
-                            LocalDate occ = cur.withDayOfMonth(Math.min(day, cur.lengthOfMonth()));
-                            if (!occ.isAfter(searchEnd)) { all.add(occ); generated++; }
+                    for (LocalDate occ : monthlyOccurrences(cur, originalDate, rule)) {
+                        if (generated >= maxCount) break;
+                        if (occ.isAfter(originalDate) && !occ.isAfter(searchEnd)) {
+                            all.add(occ);
+                            generated++;
                         }
                     }
                     cur = cur.plusMonths(interval);
                 }
             }
             case YEARLY -> {
-                LocalDate cur = originalDate.plusYears(interval);
-                while (!cur.isAfter(searchEnd) && generated < maxCount) {
+                // 매번 원본에서 계산해 윤년 2/29 드리프트 방지 (plusYears가 평년엔 2/28로 자동 보정)
+                for (int n = 1; generated < maxCount; n++) {
+                    LocalDate cur = originalDate.plusYears((long) interval * n);
+                    if (cur.isAfter(searchEnd)) break;
                     all.add(cur);
-                    cur = cur.plusYears(interval);
                     generated++;
                 }
             }
@@ -311,21 +300,53 @@ public class ScheduleService {
                 .toList();
     }
 
+    // monthBase가 속한 달 안에서 반복 규칙에 해당하는 날짜들을 계산.
+    // byMonthDay 클램핑으로 같은 말일에 겹치는 경우(예: "30,31" → 2월 28일) distinct로 중복 제거.
+    private List<LocalDate> monthlyOccurrences(LocalDate monthBase, LocalDate originalDate, RecurrenceRule rule) {
+        List<LocalDate> result = new ArrayList<>();
+        if (rule.getByDay() != null && !rule.getByDay().isBlank()) {
+            for (String token : rule.getByDay().split(",")) {
+                token = token.trim();
+                if (token.isEmpty()) continue;
+                if (Character.isDigit(token.charAt(0))) {
+                    // "2WED" 형식: N번째 요일 직접 지정
+                    result.add(parseNthWeekdayOfMonth(monthBase, token));
+                } else {
+                    // "TUE" 형식: 원본 날짜 기준으로 몇 번째 요일인지 자동 계산
+                    DayOfWeek dow = toDayOfWeek(token);
+                    int nth = (originalDate.getDayOfMonth() - 1) / 7 + 1;
+                    result.add(nthWeekdayInMonth(monthBase, nth, dow));
+                }
+            }
+        } else {
+            for (int day : parseByMonthDay(rule.getByMonthDay(), originalDate.getDayOfMonth())) {
+                // 해당 일자가 그 달에 없으면 말일로 당김 (lengthOfMonth가 윤년 자동 반영)
+                result.add(monthBase.withDayOfMonth(Math.min(day, monthBase.lengthOfMonth())));
+            }
+        }
+        return result.stream().distinct().sorted().toList();
+    }
+
     private List<DayOfWeek> parseByDayWeekly(String byDay, DayOfWeek defaultDay) {
         if (byDay == null || byDay.isBlank()) return List.of(defaultDay);
-        return Arrays.stream(byDay.split(","))
+        List<DayOfWeek> days = Arrays.stream(byDay.split(","))
                 .map(String::trim)
+                .filter(s -> !s.isEmpty()) // 끝/중복 콤마로 생기는 빈 토큰 방어
                 .map(this::toDayOfWeek)
                 .distinct()
                 .sorted(Comparator.comparingInt(DayOfWeek::getValue))
                 .toList();
+        return days.isEmpty() ? List.of(defaultDay) : days;
     }
 
     private List<Integer> parseByMonthDay(String byMonthDay, int defaultDay) {
         if (byMonthDay == null || byMonthDay.isBlank()) return List.of(defaultDay);
         return Arrays.stream(byMonthDay.split(","))
                 .map(String::trim)
+                .filter(s -> !s.isEmpty()) // 끝/중복 콤마로 생기는 빈 토큰 방어
                 .map(Integer::parseInt)
+                .filter(d -> d >= 1 && d <= 31) // 0·음수·32+ 같은 범위 밖 값 제거 (withDayOfMonth 예외 방지)
+                .distinct()
                 .sorted()
                 .toList();
     }

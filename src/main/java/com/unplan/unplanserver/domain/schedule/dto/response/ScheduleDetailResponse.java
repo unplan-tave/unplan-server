@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Builder
@@ -34,8 +35,9 @@ public class ScheduleDetailResponse {
     private Boolean isConflict;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    private List<String> personalTags;
 
-    public static ScheduleDetailResponse from(Schedule schedule, LocationInfo locationInfo) {
+    public static ScheduleDetailResponse from(Schedule schedule, LocationInfo locationInfo, List<String> personalTags) {
         return ScheduleDetailResponse.builder()
                 .scheduleId(schedule.getScheduleId())
                 .title(schedule.getTitle())
@@ -56,6 +58,7 @@ public class ScheduleDetailResponse {
                 .isConflict(schedule.getIsConflict())
                 .latitude(locationInfo != null ? locationInfo.getLatitude() : null)
                 .longitude(locationInfo != null ? locationInfo.getLongitude() : null)
+                .personalTags(personalTags)
                 .build();
     }
 }

@@ -7,6 +7,7 @@ import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailRespon
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.PersonalTagResponse;
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
@@ -42,6 +43,7 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final LocationInfoRepository locationInfoRepository;
     private final RecurrenceRuleRepository recurrenceRuleRepository;
+    private final TagService tagService;
 
     @Transactional
     public ScheduleCreateResponse createSchedule(Long memberId, ScheduleCreateRequest request) {
@@ -97,7 +99,10 @@ public class ScheduleService {
                     .build());
         }
 
-        // 4. Response 반환
+        // 4. 개인 태그 생성 및 연결 (TagService에 위임: find-or-create 후 조인 테이블 연결)
+        tagService.attachTags(saved, memberId, request.getPersonalTags());
+
+        // 5. Response 반환
         return ScheduleCreateResponse.builder()
                 .scheduleId(saved.getScheduleId())
                 .title(saved.getTitle())
@@ -123,7 +128,14 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo);
+        return ScheduleDetailResponse.from(schedule, locationInfo, tagService.getTagNamesBySchedule(schedule));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PersonalTagResponse> getPersonalTags(Long memberId) {
+        return tagService.getPersonalTags(memberId).stream()
+                .map(PersonalTagResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -132,7 +144,7 @@ public class ScheduleService {
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         schedule.update(request);
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo);
+        return ScheduleDetailResponse.from(schedule, locationInfo, tagService.getTagNamesBySchedule(schedule));
     }
 
     @Transactional

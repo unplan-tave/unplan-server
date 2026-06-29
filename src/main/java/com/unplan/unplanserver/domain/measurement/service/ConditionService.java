@@ -22,6 +22,13 @@ public class ConditionService {
     private final MemberRepository memberRepository;
     private final SleepRepository sleepRepository;
 
+    public ConditionResponse getCondition(Long memberId, Long conditionId) {
+        Condition condition = conditionRepository.findByConditionIdAndMemberMemberId(conditionId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_NOT_FOUND));
+
+        return ConditionResponse.from(condition);
+    }
+
     @Transactional
     public ConditionResponse createCondition(Long memberId, ConditionRequest.ConditionCreate request) {
 

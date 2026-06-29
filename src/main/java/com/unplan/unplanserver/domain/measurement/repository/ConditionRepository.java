@@ -26,4 +26,10 @@ public interface ConditionRepository extends JpaRepository<Condition, Long> {
             Long conditionId,
             Long memberId
     );
+
+    Optional<Condition> findTopByMemberMemberIdAndMeasuredAtBetweenOrderByMeasuredAtDesc(
+            Long memberId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }

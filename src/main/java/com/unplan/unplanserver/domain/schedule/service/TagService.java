@@ -28,26 +28,23 @@ public class TagService {
     /**
      * 일정 생성 시 호출. 태그 이름 목록을 받아 멤버 태그를 find-or-create 하고 일정에 연결한다.
      * - 공백/빈 토큰 제거, 같은 요청 내 중복 제거(대소문자 무시)
-     * - 이미 존재하는 태그면 재사용, 없으면 생성
+     * - 대소문자만 다른 기존 태그가 있으면 그 태그를 재사용(IgnoreCase), 없으면 생성
+     *
+     * @return 실제로 연결된 태그 이름 목록 (기존 태그 재사용 시 저장돼 있던 표기를 따른다)
      */
     @Transactional
-    public void attachTags(Schedule schedule, Long memberId, List<String> tagNames) {
-        if (tagNames == null || tagNames.isEmpty()) return;
+    public List<String> attachTags(Schedule schedule, Long memberId, List<String> tagNames) {
+        if (tagNames == null || tagNames.isEmpty()) return List.of();
 
-        // 같은 요청 안의 중복 태그 제거 (대소문자 무시, 입력 순서 유지)
-        Set<String> seen = new LinkedHashSet<>();
-        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>(); // 요청 내 대소문자 무시 중복 제거용
+        List<String> linked = new ArrayList<>();
         for (String raw : tagNames) {
             if (raw == null) continue;
             String name = raw.trim();
             if (name.isEmpty()) continue;
-            if (seen.add(name.toLowerCase())) {
-                normalized.add(name);
-            }
-        }
+            if (!seen.add(name.toLowerCase())) continue;
 
-        for (String name : normalized) {
-            PersonalTag tag = personalTagRepository.findByMemberIdAndName(memberId, name)
+            PersonalTag tag = personalTagRepository.findByMemberIdAndNameIgnoreCase(memberId, name)
                     .orElseGet(() -> personalTagRepository.save(PersonalTag.builder()
                             .memberId(memberId)
                             .name(name)
@@ -57,7 +54,15 @@ public class TagService {
                     .schedule(schedule)
                     .personalTag(tag)
                     .build());
+            linked.add(tag.getName());
         }
+        return linked;
+    }
+
+    /** 일정 삭제 시 해당 일정의 태그 연결을 모두 제거 (조인 행이 FK로 남는 것 방지) */
+    @Transactional
+    public void detachAll(Schedule schedule) {
+        schedulePersonalTagRepository.deleteBySchedule(schedule);
     }
 
     /** 개인 태그 검색 화면용 — 멤버가 가진 전체 태그 목록 */

@@ -8,7 +8,8 @@ import java.util.Optional;
 
 public interface PersonalTagRepository extends JpaRepository<PersonalTag, Long> {
 
-    Optional<PersonalTag> findByMemberIdAndName(Long memberId, String name);
+    // 대소문자만 다른 같은 태그가 중복 생성되지 않도록 IgnoreCase 로 조회
+    Optional<PersonalTag> findByMemberIdAndNameIgnoreCase(Long memberId, String name);
 
     List<PersonalTag> findByMemberIdOrderByName(Long memberId);
 }

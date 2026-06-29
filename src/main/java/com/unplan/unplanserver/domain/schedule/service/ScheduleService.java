@@ -100,7 +100,7 @@ public class ScheduleService {
         }
 
         // 4. 개인 태그 생성 및 연결 (TagService에 위임: find-or-create 후 조인 테이블 연결)
-        tagService.attachTags(saved, memberId, request.getPersonalTags());
+        List<String> linkedTags = tagService.attachTags(saved, memberId, request.getPersonalTags());
 
         // 5. Response 반환
         return ScheduleCreateResponse.builder()
@@ -111,6 +111,7 @@ public class ScheduleService {
                 .endTime(saved.getEndTime() != null ? saved.getEndTime().toString() : null)
                 .estimatedTime(saved.getEstimatedTime())
                 .isQueue(saved.getIsQueue())
+                .personalTags(linkedTags)
                 .build();
     }
 
@@ -151,6 +152,7 @@ public class ScheduleService {
     public void deleteSchedule(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
+        tagService.detachAll(schedule); // 조인 행(schedule_personal_tag)을 먼저 정리해 FK 위반 방지
         scheduleRepository.delete(schedule);
     }
 

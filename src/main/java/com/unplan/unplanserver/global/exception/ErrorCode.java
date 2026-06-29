@@ -20,6 +20,7 @@ public enum ErrorCode {
     INVALID_GOOGLE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_GOOGLE_TOKEN", "유효하지 않은 구글 ID 토큰입니다"),
     GOOGLE_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "GOOGLE_SERVER_ERROR", "구글 서버와의 통신에 실패하였습니다"),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "유효하지 않은 토큰입니다"),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다"),
 
     // --- [메모 관련 에러] ---
     MEMO_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMO_404", "존재하지 않는 메모가 포함되어 있습니다."),

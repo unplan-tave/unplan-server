@@ -63,6 +63,9 @@ public class Member {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "onboarding_completed")
+    private Boolean onboardingCompleted;
+
     public static Member fromKakao(KakaoUserInfoResponseDto userInfo){
         Member member = new Member();
         member.oauthId = userInfo.getId().toString();
@@ -74,6 +77,7 @@ public class Member {
         if(!userInfo.getKakaoAccount().getEmailNeedsAgreement()){
             member.email = userInfo.getKakaoAccount().getEmail();
         }
+        member.onboardingCompleted = false;
         return member;
     }
     public static Member fromGoogle(GoogleUserInfoDto userInfo){
@@ -83,6 +87,7 @@ public class Member {
         member.provider = Provider.GOOGLE;
         member.nickname = userInfo.getNickname();
         member.email = userInfo.getEmail();
+        member.onboardingCompleted = false;
         return member;
     }
 

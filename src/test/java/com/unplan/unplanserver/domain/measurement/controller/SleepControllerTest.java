@@ -60,9 +60,7 @@ class SleepControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.code").value("COMMON_200"))
-                .andExpect(jsonPath("$.message").value("수면 기록 조회가 완료되었습니다."))
-                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.message").value("요청 성공"))
                 .andExpect(jsonPath("$.data.sleepId").value(45))
                 .andExpect(jsonPath("$.data.durationMinutes").value(450))
                 .andExpect(jsonPath("$.data.bedTime").value("2026-06-23T23:00:00"))
@@ -83,9 +81,7 @@ class SleepControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("SLEEP_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("수면 기록을 찾을 수 없습니다."))
-                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 수면 기록입니다."))
                 .andExpect(jsonPath("$.data").value(nullValue()));
     }
 

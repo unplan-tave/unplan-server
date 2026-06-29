@@ -1,11 +1,8 @@
 package com.unplan.unplanserver.domain.measurement.controller;
 
 import com.unplan.unplanserver.domain.measurement.dto.request.SleepRequest;
-import com.unplan.unplanserver.domain.measurement.dto.response.SleepGetApiResponse;
 import com.unplan.unplanserver.domain.measurement.dto.response.SleepResponse;
 import com.unplan.unplanserver.domain.measurement.service.SleepService;
-import com.unplan.unplanserver.global.exception.CustomException;
-import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,28 +32,12 @@ public class SleepController {
                     """
     )
     @GetMapping("/{sleepId}")
-    public ResponseEntity<SleepGetApiResponse> getSleep(
+    public ResponseEntity<ApiResponse<SleepResponse>> getSleep(
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long sleepId
     ) {
-
-        try {
-            SleepResponse response =
-                    sleepService.getSleep(memberId, sleepId);
-
-            return ResponseEntity.ok(SleepGetApiResponse.success(response));
-        } catch (CustomException e) {
-            if (e.getErrorCode() != ErrorCode.SLEEP_NOT_FOUND) {
-                throw e;
-            }
-
-            return ResponseEntity
-                    .status(ErrorCode.SLEEP_NOT_FOUND.getStatus())
-                    .body(SleepGetApiResponse.fail(
-                            ErrorCode.SLEEP_NOT_FOUND.getCode(),
-                            "수면 기록을 찾을 수 없습니다."
-                    ));
-        }
+        SleepResponse response = sleepService.getSleep(memberId, sleepId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @Operation(

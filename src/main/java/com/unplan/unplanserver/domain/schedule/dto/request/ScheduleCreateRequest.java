@@ -55,10 +55,14 @@ public class ScheduleCreateRequest {
         private RecurrenceFreq freq;
         @NotNull
         private Integer interval;
+        @Schema(
+            description = "반복 요일. WEEKLY: 'MON,TUE,FRI' 형식 (복수 가능). MONTHLY 같은 요일: '2WED'(N번째 요일) 또는 'TUE'(원본 날짜 기준 자동 계산)",
+            example = "MON,TUE"
+        )
         private String byDay;
+        @Schema(description = "MONTHLY 같은 날짜 반복. 단일 또는 복수 날짜 '16' 또는 '1,17'", example = "16")
         private String byMonthDay;
-        @NotNull
-        @Schema(example = "2026-12-31")
+        @Schema(example = "2026-12-31", description = "종료일 (종료 안 함이면 null)")
         private LocalDate until;
 
         private Integer count;

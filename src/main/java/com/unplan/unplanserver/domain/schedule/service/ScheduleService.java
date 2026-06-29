@@ -250,7 +250,9 @@ public class ScheduleService {
     }
 
     private List<Schedule> expandRecurringInstances(Long memberId, LocalDate rangeStart, LocalDate rangeEnd) {
-        List<Schedule> originals = scheduleRepository.findByMemberIdAndIsRecurringTrue(memberId);
+        // 조회 범위 끝보다 늦게 시작하는 반복 원본은 인스턴스가 범위에 들어올 수 없으므로 DB 단계에서 제외
+        List<Schedule> originals =
+                scheduleRepository.findByMemberIdAndIsRecurringTrueAndDateLessThanEqual(memberId, rangeEnd);
         if (originals.isEmpty()) return List.of();
 
         Map<Long, RecurrenceRule> ruleMap = recurrenceRuleRepository.findByScheduleIn(originals)
@@ -316,7 +318,8 @@ public class ScheduleService {
             }
             case WEEKLY -> {
                 List<DayOfWeek> days = parseByDayWeekly(rule.getByDay(), originalDate.getDayOfWeek());
-                LocalDate cycleStart = originalDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                // 주별/월별 뷰와 동일하게 일요일을 주 시작으로 통일 (interval>=2 일 때 주 경계 일관성 유지)
+                LocalDate cycleStart = originalDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
                 while (!cycleStart.isAfter(searchEnd) && generated < maxCount) {
                     for (DayOfWeek dow : days) {
                         if (generated >= maxCount) break;

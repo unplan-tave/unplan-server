@@ -183,6 +183,17 @@ class RecurrenceCalculationTest {
         assertEquals(List.of(d("2026-06-19"), d("2026-06-22"), d("2026-06-26"), d("2026-06-29")), got);
     }
 
+    @Test
+    @DisplayName("WEEKLY interval=2 byDay 'SUN' — 일요일 기준 주기로 격주 일요일 생성 (월요일 기준이면 결과 달라짐)")
+    void weeklyBiweeklySundayAnchored() {
+        RecurrenceRule rule = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.WEEKLY).interval(2).byDay("SUN").build();
+        LocalDate orig = d("2026-06-17"); // 수요일, 같은 주 일요일(06-14)은 원본 이전 → 다음 주기부터
+        List<LocalDate> got = calc(orig, rule, d("2026-06-15"), d("2026-07-31"));
+        // 일요일 앵커(06-14) 기준 격주: 06-28, 07-12, 07-26 (월요일 앵커면 06-21, 07-05, 07-19)
+        assertEquals(List.of(d("2026-06-28"), d("2026-07-12"), d("2026-07-26")), got);
+    }
+
     // ─────────────────────────── interval 0/음수 무한 루프 방어 (코드리뷰 critical) ───────────────────────────
 
     @Test

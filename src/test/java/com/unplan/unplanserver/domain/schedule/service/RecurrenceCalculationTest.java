@@ -194,6 +194,17 @@ class RecurrenceCalculationTest {
         assertEquals(List.of(d("2026-06-28"), d("2026-07-12"), d("2026-07-26")), got);
     }
 
+    @Test
+    @DisplayName("WEEKLY 다중 요일 'SUN,WED' — 반환 목록이 항상 연대순으로 정렬됨")
+    void weeklyMultiDayChronologicalOrder() {
+        RecurrenceRule rule = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.WEEKLY).interval(1).byDay("SUN,WED").build();
+        LocalDate orig = d("2026-06-17"); // 수요일
+        List<LocalDate> got = calc(orig, rule, d("2026-06-15"), d("2026-06-30"));
+        // 생성 순서는 06-24(WED) → 06-21(SUN) → 06-28(SUN) 이지만 정렬되어 반환되어야 함
+        assertEquals(List.of(d("2026-06-21"), d("2026-06-24"), d("2026-06-28")), got);
+    }
+
     // ─────────────────────────── interval 0/음수 무한 루프 방어 (코드리뷰 critical) ───────────────────────────
 
     @Test

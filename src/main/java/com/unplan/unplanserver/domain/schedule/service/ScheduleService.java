@@ -357,9 +357,12 @@ public class ScheduleService {
             }
         }
 
-        // 원본 날짜는 DB 조회에 이미 포함되어 있으므로 제외하고 범위 필터링
+        // 원본 날짜는 DB 조회에 이미 포함되어 있으므로 제외하고 범위 필터링.
+        // sorted: WEEKLY 다중 요일(일요일 앵커에서 SUN이 다른 요일보다 늦게 추가되는 등) 생성 순서가
+        //         연대순이 아닐 수 있어, 반환 목록이 항상 오름차순임을 보장한다.
         return all.stream()
                 .filter(d -> !d.isBefore(rangeStart) && !d.isAfter(rangeEnd))
+                .sorted()
                 .toList();
     }
 

@@ -270,7 +270,7 @@ public class ScheduleService {
                 }
             }
             case MONTHLY -> {
-                LocalDate cur = originalDate.plusMonths(interval);
+                LocalDate cur = originalDate.plusMonths(interval).withDayOfMonth(1);
                 while (!cur.isAfter(searchEnd) && generated < maxCount) {
                     if (rule.getByDay() != null && !rule.getByDay().isBlank()) {
                         String byDay = rule.getByDay();
@@ -282,7 +282,7 @@ public class ScheduleService {
                             // "TUE" 형식: 원본 날짜 기준으로 몇 번째 요일인지 자동 계산
                             DayOfWeek dow = toDayOfWeek(byDay);
                             int nth = (originalDate.getDayOfMonth() - 1) / 7 + 1;
-                            occ = cur.withDayOfMonth(1).with(TemporalAdjusters.dayOfWeekInMonth(nth, dow));
+                            occ = nthWeekdayInMonth(cur, nth, dow);
                         }
                         if (!occ.isAfter(searchEnd)) { all.add(occ); generated++; }
                     } else {
@@ -334,7 +334,17 @@ public class ScheduleService {
         // "2WED" → 숫자(N번째) + 요일 약자
         int nth = Character.getNumericValue(byDay.charAt(0));
         DayOfWeek dow = toDayOfWeek(byDay.substring(1));
-        return monthBase.withDayOfMonth(1).with(TemporalAdjusters.dayOfWeekInMonth(nth, dow));
+        return nthWeekdayInMonth(monthBase, nth, dow);
+    }
+
+    // N번째 요일이 해당 월에 없으면(다음 달로 overflow) 마지막 주차로 폴백
+    private LocalDate nthWeekdayInMonth(LocalDate monthBase, int nth, DayOfWeek dow) {
+        LocalDate firstOfMonth = monthBase.withDayOfMonth(1);
+        LocalDate candidate = firstOfMonth.with(TemporalAdjusters.dayOfWeekInMonth(nth, dow));
+        if (!candidate.getMonth().equals(monthBase.getMonth())) {
+            candidate = firstOfMonth.with(TemporalAdjusters.lastInMonth(dow));
+        }
+        return candidate;
     }
 
     private DayOfWeek toDayOfWeek(String abbr) {

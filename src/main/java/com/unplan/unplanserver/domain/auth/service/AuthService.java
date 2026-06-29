@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Service
 @AllArgsConstructor
 public class AuthService {
@@ -37,7 +39,7 @@ public class AuthService {
         String oauthId = kakaoUserInfo.getId().toString();
         Member member = memberRepository.findByOauthId(oauthId).orElse(null);
         Boolean isNewMember = false;
-        // 회원가입
+        // 이전에 로그인한적이 없으면
         if (member == null){
             isNewMember = true;
             // 회원가입(DB에 추가)
@@ -49,9 +51,9 @@ public class AuthService {
             //기존 refresh토큰 삭제, memberId와 deviceId로 찾으므로 중복로그인 허용
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }
-
+        Boolean onboardingCompleted = member.getOnboardingCompleted();
         TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
-        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember);
+        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember, onboardingCompleted);
 
     }
 
@@ -71,9 +73,10 @@ public class AuthService {
         else{
             refreshRepository.deleteByMemberIdAndDeviceId(member.getMemberId(), requestDto.deviceId());
         }
+        Boolean onboardingCompleted = member.getOnboardingCompleted();
         // access, refresh 토큰 발급
         TokenPair tokenPair = issueTokens(member, requestDto.deviceId());
-        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember);
+        return new SocialLoginResponseDto(tokenPair.accessToken(), tokenPair.refreshToken(), isNewMember, onboardingCompleted);
     }
     private TokenPair issueTokens(Member member, String deviceId){
         Long memberId = member.getMemberId();

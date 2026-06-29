@@ -22,6 +22,22 @@ public class ConditionController {
     private final ConditionService conditionService;
 
     @Operation(
+            summary = "컨디션 조회",
+            description = "인증된 사용자의 컨디션 기록 세트를 조회합니다. 본인의 컨디션 기록만 조회할 수 있습니다."
+    )
+    @GetMapping("/{conditionId}")
+    public ResponseEntity<ApiResponse<ConditionResponse>> getCondition(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long conditionId
+    ) {
+
+        ConditionResponse response =
+                conditionService.getCondition(memberId, conditionId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
             summary = "컨디션 입력",
             description = "신체(Energy) 점수와 정신(Focus) 점수를 한 세트로 기록합니다. 점수는 각각 0~6 사이로 입력합니다."
     )

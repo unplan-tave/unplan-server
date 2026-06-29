@@ -13,7 +13,7 @@ public class SleepRequest {
     public record SleepCreate(
             @Schema(description = "총 수면 시간(분)", example = "450")
             @NotNull(message = "수면 시간은 필수입니다.")
-            @Min(value = 1, message = "수면 시간은 1분 이상이어야 합니다.")
+            @Min(value = 0, message = "수면 시간은 0분 이상이어야 합니다.")
             Integer durationMinutes,
 
             @Schema(description = "기상 시각", type = "string", example = "2026-06-24T07:30")
@@ -31,7 +31,7 @@ public class SleepRequest {
     public record SleepUpdate(
             @Schema(description = "수정할 총 수면 시간(분)", example = "450")
             @NotNull(message = "수면 시간은 필수입니다.")
-            @Min(value = 1, message = "수면 시간은 1분 이상이어야 합니다.")
+            @Min(value = 0, message = "수면 시간은 0분 이상이어야 합니다.")
             Integer durationMinutes,
 
             @Schema(description = "수정할 기상 시각", type = "string", example = "2026-06-24T07:30")

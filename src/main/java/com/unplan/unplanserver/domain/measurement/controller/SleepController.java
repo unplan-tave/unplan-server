@@ -22,6 +22,25 @@ public class SleepController {
     private final SleepService sleepService;
 
     @Operation(
+            summary = "수면 조회",
+            description = """
+                    인증된 사용자의 수면 기록을 조회합니다.<br>
+                    본인의 수면 기록만 조회할 수 있습니다.<br><br>
+                    
+                    - bed_time은 wake_up_time과 duration_minutes를 기준으로 계산된 값입니다.<br>
+                    - is_nap이 true이면 낮잠, false이면 밤잠 기록입니다.
+                    """
+    )
+    @GetMapping("/{sleepId}")
+    public ResponseEntity<ApiResponse<SleepResponse>> getSleep(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long sleepId
+    ) {
+        SleepResponse response = sleepService.getSleep(memberId, sleepId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
             summary = "수면 입력",
             description = """
                     사용자가 기록한 밤잠 또는 낮잠 세션 정보를 등록합니다.<br>

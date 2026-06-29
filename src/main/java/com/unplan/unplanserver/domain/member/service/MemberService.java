@@ -25,7 +25,8 @@ public class MemberService {
         String name = member.getName();
         String nickname = member.getNickname();
         String email = member.getEmail();
-        return new GetProfileResponseDto(name, nickname, email);
+        Boolean onboardingCompleted = member.getOnboardingCompleted();
+        return new GetProfileResponseDto(name, nickname, email, onboardingCompleted);
     }
 
     @Transactional

@@ -106,6 +106,7 @@ class MeasurementServiceTest {
         assertThat(response.conditions().get(0).bodyScorePercent()).isEqualTo(50);
         assertThat(response.sleeps()).hasSize(1);
         assertThat(response.sleeps().get(0).durationMinutes()).isEqualTo(420);
+        assertThat(response.sleeps().get(0).isAllNight()).isFalse();
     }
 
     @Test
@@ -222,6 +223,44 @@ class MeasurementServiceTest {
 
         assertThat(response.sleepScore()).isZero();
         assertThat(response.sleepDurationMinutes()).isZero();
+    }
+
+    @Test
+    void getDailyRecordSetsSleepScoreZeroWhenAllNightSleepExists() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        Sleep allNightSleep = new Sleep(
+                member,
+                0,
+                LocalDateTime.of(2026, 6, 24, 0, 0),
+                LocalDateTime.of(2026, 6, 24, 0, 1),
+                false,
+                true
+        );
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
+        when(conditionRepository.findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
+                member,
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay()
+        )).thenReturn(List.of());
+        when(conditionRepository.findTopByMemberMemberIdAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThanOrderByMeasuredAtDesc(
+                memberId,
+                date.atStartOfDay().minusHours(24),
+                date.atStartOfDay()
+        )).thenReturn(Optional.empty());
+        when(sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
+                memberId,
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay()
+        )).thenReturn(List.of(allNightSleep));
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
+
+        assertThat(response.sleepScore()).isZero();
+        assertThat(response.sleeps()).hasSize(1);
+        assertThat(response.sleeps().get(0).isAllNight()).isTrue();
     }
 
     @Test

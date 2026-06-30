@@ -356,7 +356,7 @@ public class MeasurementService {
             SleepTarget sleepTarget,
             List<Sleep> recentSleeps
     ) {
-        if (sleeps.stream().anyMatch(sleep -> sleep.getDurationMinutes() == 0)) {
+        if (hasAllNightSleep(sleeps)) {
             return 0;
         }
 
@@ -522,6 +522,7 @@ public class MeasurementService {
                 sleep.getBedTime(),
                 sleep.getWakeUpTime(),
                 sleep.getNap(),
+                sleep.getAllNight(),
                 sleep.getCreatedAt()
         );
     }
@@ -547,7 +548,7 @@ public class MeasurementService {
     }
 
     private int calculateSleepScore(Long memberId, List<Sleep> sleeps, LocalDateTime recentSleepBoundary) {
-        if (sleeps.stream().anyMatch(sleep -> sleep.getDurationMinutes() == 0)) {
+        if (hasAllNightSleep(sleeps)) {
             return 0;
         }
 
@@ -567,6 +568,11 @@ public class MeasurementService {
                 sleepPatternScore,
                 sleepStabilityScore
         );
+    }
+
+    private boolean hasAllNightSleep(List<Sleep> sleeps) {
+        return sleeps.stream()
+                .anyMatch(sleep -> sleep.getDurationMinutes() == 0 || Boolean.TRUE.equals(sleep.getAllNight()));
     }
 
     private SleepTarget resolveSleepTarget(Long memberId) {

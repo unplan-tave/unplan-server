@@ -566,8 +566,8 @@ class MeasurementServiceTest {
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-02",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 2),
                 "ALL",
                 "DAY"
         );
@@ -588,8 +588,8 @@ class MeasurementServiceTest {
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-31",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 31),
                 "ALL",
                 "WEEK"
         );
@@ -609,8 +609,8 @@ class MeasurementServiceTest {
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-10",
-                "2026-06-20",
+                LocalDate.of(2026, 5, 10),
+                LocalDate.of(2026, 6, 20),
                 "ALL",
                 "MONTH"
         );
@@ -631,8 +631,8 @@ class MeasurementServiceTest {
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
-                today.toString(),
-                today.plusDays(2).toString(),
+                today,
+                today.plusDays(2),
                 "ALL",
                 "DAY"
         );
@@ -649,8 +649,8 @@ class MeasurementServiceTest {
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
                 "ALL",
                 "DAY"
         ).items().get(0);
@@ -670,8 +670,8 @@ class MeasurementServiceTest {
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
                 "CONDITION",
                 "DAY"
         ).items().get(0);
@@ -691,8 +691,8 @@ class MeasurementServiceTest {
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
                 "SLEEP",
                 "DAY"
         ).items().get(0);
@@ -713,8 +713,8 @@ class MeasurementServiceTest {
 
         service.getAverageRecords(
                 memberId,
-                "2026-05-01",
-                "2026-05-03",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 3),
                 "ALL",
                 "DAY"
         );
@@ -763,8 +763,8 @@ class MeasurementServiceTest {
         MeasurementRecordResponse dailyRecord = measurementService.getDailyRecord(memberId, date);
         AverageItem averageItem = measurementService.getAverageRecords(
                 memberId,
-                date.toString(),
-                date.toString(),
+                date,
+                date,
                 "ALL",
                 "DAY"
         ).items().get(0);
@@ -823,8 +823,8 @@ class MeasurementServiceTest {
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
-                date.toString(),
-                date.toString(),
+                date,
+                date,
                 "ALL",
                 "DAY"
         ).items().get(0);
@@ -838,8 +838,8 @@ class MeasurementServiceTest {
     void getAverageRecordsThrowsWhenFromIsAfterTo() {
         assertThatThrownBy(() -> measurementService.getAverageRecords(
                 1L,
-                "2026-05-02",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 2),
+                LocalDate.of(2026, 5, 1),
                 "ALL",
                 "DAY"
         )).isInstanceOf(IllegalArgumentException.class);
@@ -849,16 +849,16 @@ class MeasurementServiceTest {
     void getAverageRecordsThrowsWhenTypeOrGroupByIsInvalid() {
         assertThatThrownBy(() -> measurementService.getAverageRecords(
                 1L,
-                "2026-05-01",
-                "2026-05-02",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 2),
                 "BAD",
                 "DAY"
         )).isInstanceOf(IllegalArgumentException.class);
 
         assertThatThrownBy(() -> measurementService.getAverageRecords(
                 1L,
-                "2026-05-01",
-                "2026-05-02",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 2),
                 "ALL",
                 "BAD"
         )).isInstanceOf(IllegalArgumentException.class);

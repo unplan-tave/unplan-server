@@ -9,6 +9,8 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.entity.Condition;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
+import com.unplan.unplanserver.domain.measurement.enums.AverageGroupBy;
+import com.unplan.unplanserver.domain.measurement.enums.AverageType;
 import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
 import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
@@ -749,23 +751,4 @@ public class MeasurementService {
     ) {
     }
 
-    private enum AverageType {
-        ALL,
-        CONDITION,
-        SLEEP;
-
-        private boolean includesCondition() {
-            return this == ALL || this == CONDITION;
-        }
-
-        private boolean includesSleep() {
-            return this == ALL || this == SLEEP;
-        }
-    }
-
-    private enum AverageGroupBy {
-        DAY,
-        WEEK,
-        MONTH
-    }
 }

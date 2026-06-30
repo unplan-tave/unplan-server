@@ -118,8 +118,8 @@ class MeasurementControllerTest {
 
         when(measurementService.getAverageRecords(
                 authenticatedMemberId,
-                "2026-05-01",
-                "2026-05-31",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 31),
                 "ALL",
                 "WEEK"
         )).thenReturn(response);
@@ -151,8 +151,8 @@ class MeasurementControllerTest {
     void getAverageRecordsReturnsBadRequestWhenServiceRejectsRequest() throws Exception {
         when(measurementService.getAverageRecords(
                 authenticatedMemberId,
-                "2026-05-31",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 5, 1),
                 "ALL",
                 "DAY"
         )).thenThrow(new IllegalArgumentException("from은 to보다 늦을 수 없습니다."));
@@ -189,8 +189,8 @@ class MeasurementControllerTest {
 
         when(measurementService.getAverageRecords(
                 authenticatedMemberId,
-                "2026-05-01",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
                 "CONDITION",
                 "DAY"
         )).thenReturn(response);
@@ -230,8 +230,8 @@ class MeasurementControllerTest {
 
         when(measurementService.getAverageRecords(
                 authenticatedMemberId,
-                "2026-05-01",
-                "2026-05-01",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
                 "SLEEP",
                 "DAY"
         )).thenReturn(response);

@@ -47,12 +47,11 @@ public class SleepService {
                 request.isAllNight()
         );
 
-        boolean hasExistingCondition = !Boolean.TRUE.equals(request.isAllNight()) && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
         );
-
         if (hasExistingCondition) {
             throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
         }
@@ -87,7 +86,7 @@ public class SleepService {
                 request.isAllNight()
         );
 
-        boolean hasExistingCondition = !Boolean.TRUE.equals(request.isAllNight()) && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
                 sleep.getMember(),
                 request.bedTime(),
                 request.wakeUpTime()

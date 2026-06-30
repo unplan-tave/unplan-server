@@ -64,9 +64,10 @@ class SleepServiceTest {
     void createSleepCalculatesDurationMinutesFromBedTimeAndWakeUpTime() {
         Long memberId = 1L;
         Member member = new Member();
+        LocalDateTime now = LocalDateTime.now();
         SleepRequest.SleepCreate request = new SleepRequest.SleepCreate(
-                LocalDateTime.of(2026, 6, 18, 23, 41),
-                LocalDateTime.of(2026, 6, 19, 9, 41),
+                now.minusMinutes(610),
+                now.minusMinutes(10),
                 false,
                 false
         );

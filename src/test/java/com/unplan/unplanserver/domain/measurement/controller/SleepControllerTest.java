@@ -94,8 +94,8 @@ class SleepControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "bedTime": "2026-06-18T23:41",
-                                  "wakeUpTime": "2026-06-19T09:41",
+                                  "bedTime": "2020-06-18T23:41",
+                                  "wakeUpTime": "2020-06-19T09:41",
                                   "isNap": false,
                                   "isAllNight": false
                                 }

@@ -1,9 +1,12 @@
 package com.unplan.unplanserver.domain.measurement.controller;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -40,6 +43,37 @@ public class MeasurementController {
 
         MeasurementRecordResponse response =
                 measurementService.getDailyRecord(memberId, date);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(
+            summary = "평균 보기 조회",
+            description = """
+                    지정한 기간의 평균 컨디션 점수, Body/Mind 퍼센트, 수면 점수, 수면 시간 평균을 조회합니다.<br>
+                    groupBy 값에 따라 DAY, WEEK, MONTH 단위로 집계합니다.<br>
+                    from과 to는 YYYY-MM-DD 형식으로 입력하면 됩니다.
+                    """
+    )
+    @GetMapping("/averages")
+    public ResponseEntity<ApiResponse<MeasurementAverageResponse>> getAverageRecords(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam("from") String from,
+            @RequestParam("to") String to,
+            @Parameter(
+                    description = "조회할 평균 타입",
+                    schema = @Schema(allowableValues = {"ALL", "CONDITION", "SLEEP"})
+            )
+            @RequestParam("type") String type,
+            @Parameter(
+                    description = "평균 집계 단위",
+                    schema = @Schema(allowableValues = {"DAY", "WEEK", "MONTH"})
+            )
+            @RequestParam("groupBy") String groupBy
+    ) {
+
+        MeasurementAverageResponse response =
+                measurementService.getAverageRecords(memberId, from, to, type, groupBy);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

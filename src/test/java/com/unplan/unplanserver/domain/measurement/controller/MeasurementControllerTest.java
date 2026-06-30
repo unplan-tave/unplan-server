@@ -1,9 +1,12 @@
 package com.unplan.unplanserver.domain.measurement.controller;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.AverageItem;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.global.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -37,6 +40,7 @@ class MeasurementControllerTest {
         measurementService = mock(MeasurementService.class);
         mockMvc = standaloneSetup(new MeasurementController(measurementService))
                 .setCustomArgumentResolvers(new TestAuthenticationPrincipalArgumentResolver(authenticatedMemberId))
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
@@ -91,6 +95,159 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleeps[0].sleepId").value(45))
                 .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false));
+    }
+
+    @Test
+    void getAverageRecordsReturnsAllTypeFields() throws Exception {
+        MeasurementAverageResponse response = new MeasurementAverageResponse(
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 31),
+                "ALL",
+                "WEEK",
+                List.of(new AverageItem(
+                        LocalDate.of(2026, 4, 26),
+                        LocalDate.of(2026, 5, 2),
+                        "5월 1주",
+                        76,
+                        70,
+                        68,
+                        82,
+                        410
+                ))
+        );
+
+        when(measurementService.getAverageRecords(
+                authenticatedMemberId,
+                "2026-05-01",
+                "2026-05-31",
+                "ALL",
+                "WEEK"
+        )).thenReturn(response);
+
+        mockMvc.perform(get("/measurements/averages")
+                        .param("from", "2026-05-01")
+                        .param("to", "2026-05-31")
+                        .param("type", "ALL")
+                        .param("groupBy", "WEEK")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("요청 성공"))
+                .andExpect(jsonPath("$.data.from").value("2026-05-01"))
+                .andExpect(jsonPath("$.data.to").value("2026-05-31"))
+                .andExpect(jsonPath("$.data.type").value("ALL"))
+                .andExpect(jsonPath("$.data.groupBy").value("WEEK"))
+                .andExpect(jsonPath("$.data.items[0].periodStart").value("2026-04-26"))
+                .andExpect(jsonPath("$.data.items[0].periodEnd").value("2026-05-02"))
+                .andExpect(jsonPath("$.data.items[0].label").value("5월 1주"))
+                .andExpect(jsonPath("$.data.items[0].finalConditionScoreAverage").value(76))
+                .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").value(70))
+                .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").value(68))
+                .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").value(82))
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410));
+    }
+
+    @Test
+    void getAverageRecordsReturnsBadRequestWhenServiceRejectsRequest() throws Exception {
+        when(measurementService.getAverageRecords(
+                authenticatedMemberId,
+                "2026-05-31",
+                "2026-05-01",
+                "ALL",
+                "DAY"
+        )).thenThrow(new IllegalArgumentException("from은 to보다 늦을 수 없습니다."));
+
+        mockMvc.perform(get("/measurements/averages")
+                        .param("from", "2026-05-31")
+                        .param("to", "2026-05-01")
+                        .param("type", "ALL")
+                        .param("groupBy", "DAY")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("from은 to보다 늦을 수 없습니다."));
+    }
+
+    @Test
+    void getAverageRecordsOmitsSleepFieldsWhenTypeIsCondition() throws Exception {
+        MeasurementAverageResponse response = new MeasurementAverageResponse(
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
+                "CONDITION",
+                "DAY",
+                List.of(new AverageItem(
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 1),
+                        "5/1",
+                        76,
+                        70,
+                        68,
+                        null,
+                        null
+                ))
+        );
+
+        when(measurementService.getAverageRecords(
+                authenticatedMemberId,
+                "2026-05-01",
+                "2026-05-01",
+                "CONDITION",
+                "DAY"
+        )).thenReturn(response);
+
+        mockMvc.perform(get("/measurements/averages")
+                        .param("from", "2026-05-01")
+                        .param("to", "2026-05-01")
+                        .param("type", "CONDITION")
+                        .param("groupBy", "DAY")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].finalConditionScoreAverage").value(76))
+                .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").value(70))
+                .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").value(68))
+                .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").doesNotExist());
+    }
+
+    @Test
+    void getAverageRecordsOmitsConditionFieldsWhenTypeIsSleep() throws Exception {
+        MeasurementAverageResponse response = new MeasurementAverageResponse(
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 1),
+                "SLEEP",
+                "DAY",
+                List.of(new AverageItem(
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 1),
+                        "5/1",
+                        null,
+                        null,
+                        null,
+                        82,
+                        410
+                ))
+        );
+
+        when(measurementService.getAverageRecords(
+                authenticatedMemberId,
+                "2026-05-01",
+                "2026-05-01",
+                "SLEEP",
+                "DAY"
+        )).thenReturn(response);
+
+        mockMvc.perform(get("/measurements/averages")
+                        .param("from", "2026-05-01")
+                        .param("to", "2026-05-01")
+                        .param("type", "SLEEP")
+                        .param("groupBy", "DAY")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].finalConditionScoreAverage").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").value(82))
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410));
     }
 
     private record TestAuthenticationPrincipalArgumentResolver(Long memberId)

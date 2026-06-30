@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,6 +38,28 @@ public record MeasurementRecordResponse(
             @JsonProperty("isNap")
             Boolean isNap,
             LocalDateTime createdAt
+    ) {
+    }
+
+    public record MeasurementAverageResponse(
+            LocalDate from,
+            LocalDate to,
+            String type,
+            String groupBy,
+            List<AverageItem> items
+    ) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AverageItem(
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            String label,
+            Integer finalConditionScoreAverage,
+            Integer bodyScorePercentAverage,
+            Integer mindScorePercentAverage,
+            Integer sleepScoreAverage,
+            Integer sleepDurationMinutesAverage
     ) {
     }
 }

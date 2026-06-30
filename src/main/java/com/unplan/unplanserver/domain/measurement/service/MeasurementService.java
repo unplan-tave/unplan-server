@@ -26,11 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,30 +54,36 @@ public class MeasurementService {
 
     public MeasurementAverageResponse getAverageRecords(
             Long memberId,
-            String from,
-            String to,
+            LocalDate from,
+            LocalDate to,
             String type,
             String groupBy
     ) {
-        LocalDate fromDate = parseDate(from, "from");
-        LocalDate toDate = parseDate(to, "to");
-        AverageType averageType = parseAverageType(type);
-        AverageGroupBy averageGroupBy = parseAverageGroupBy(groupBy);
-
-        if (fromDate.isAfter(toDate)) {
+        if (from == null) {
+            throw new IllegalArgumentException("from은 필수입니다.");
+        }
+        if (to == null) {
+            throw new IllegalArgumentException("to는 필수입니다.");
+        }
+        if (from.isAfter(to)) {
             throw new IllegalArgumentException("from은 to보다 늦을 수 없습니다.");
         }
 
-        List<AveragePeriod> periods = createPeriods(fromDate, toDate, averageGroupBy);
+        AverageType averageType = parseAverageType(type);
+        AverageGroupBy averageGroupBy = parseAverageGroupBy(groupBy);
+
+        List<AveragePeriod> periods = createPeriods(from, to, averageGroupBy);
         LocalDate today = LocalDate.now();
+
+        PreloadedMeasurementData preloadedData = preloadMeasurementData(memberId, periods, today);
         List<AverageItem> items = periods.stream()
-                .map(period -> calculateAverageItem(memberId, period, averageType, today))
+                .map(period -> calculateAverageItem(period, averageType, today, preloadedData))
                 .flatMap(List::stream)
                 .toList();
 
         return new MeasurementAverageResponse(
-                fromDate,
-                toDate,
+                from,
+                to,
                 averageType.name(),
                 averageGroupBy.name(),
                 items
@@ -89,13 +96,12 @@ public class MeasurementService {
 
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.plusDays(1).atStartOfDay();
-        LocalDateTime inclusiveEnd = end.minusNanos(1);
 
-        List<Condition> conditions = conditionRepository.findAllByMemberAndMeasuredAtBetween(member, start, inclusiveEnd)
+        List<Condition> conditions = conditionRepository.findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(member, start, end)
                 .stream()
                 .sorted(Comparator.comparing(Condition::getMeasuredAt))
                 .toList();
-        List<Sleep> sleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeBetween(memberId, start, inclusiveEnd)
+        List<Sleep> sleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(memberId, start, end)
                 .stream()
                 .sorted(Comparator.comparing(Sleep::getWakeUpTime))
                 .toList();
@@ -131,10 +137,10 @@ public class MeasurementService {
     }
 
     private List<AverageItem> calculateAverageItem(
-            Long memberId,
             AveragePeriod period,
             AverageType type,
-            LocalDate today
+            LocalDate today,
+            PreloadedMeasurementData preloadedData
     ) {
         LocalDate calculationEnd = period.periodEnd().isAfter(today) ? today : period.periodEnd();
         if (period.periodStart().isAfter(calculationEnd)) {
@@ -144,7 +150,7 @@ public class MeasurementService {
         List<MeasurementRecordResponse> dailyRecords = new ArrayList<>();
         LocalDate current = period.periodStart();
         while (!current.isAfter(calculationEnd)) {
-            dailyRecords.add(getDailyRecord(memberId, current));
+            dailyRecords.add(calculateDailyRecordFromPreloadedData(current, preloadedData));
             current = current.plusDays(1);
         }
 
@@ -186,6 +192,197 @@ public class MeasurementService {
                 sleepScoreAverage,
                 sleepDurationMinutesAverage
         ));
+    }
+
+    private PreloadedMeasurementData preloadMeasurementData(
+            Long memberId,
+            List<AveragePeriod> periods,
+            LocalDate today
+    ) {
+        List<AveragePeriod> calculationPeriods = periods.stream()
+                .filter(period -> !period.periodStart().isAfter(today))
+                .toList();
+
+        if (calculationPeriods.isEmpty()) {
+            return PreloadedMeasurementData.empty();
+        }
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        LocalDate minCalculationDate = calculationPeriods.stream()
+                .map(AveragePeriod::periodStart)
+                .min(LocalDate::compareTo)
+                .orElse(today);
+        LocalDate maxPeriodEnd = calculationPeriods.stream()
+                .map(AveragePeriod::periodEnd)
+                .max(LocalDate::compareTo)
+                .orElse(today);
+        LocalDate maxCalculationDate = maxPeriodEnd.isAfter(today) ? today : maxPeriodEnd;
+
+        List<Condition> conditions = conditionRepository.findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
+                        member,
+                        minCalculationDate.minusDays(1).atStartOfDay(),
+                        maxCalculationDate.plusDays(1).atStartOfDay()
+                )
+                .stream()
+                .sorted(Comparator.comparing(Condition::getMeasuredAt))
+                .toList();
+
+        List<Sleep> sleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
+                        memberId,
+                        minCalculationDate.minusDays(7).atStartOfDay(),
+                        maxCalculationDate.plusDays(1).atStartOfDay()
+                )
+                .stream()
+                .sorted(Comparator.comparing(Sleep::getWakeUpTime))
+                .toList();
+
+        SleepTarget sleepTarget = resolveSleepTarget(memberId);
+
+        return new PreloadedMeasurementData(
+                conditions,
+                conditions.stream()
+                        .collect(Collectors.groupingBy(condition -> condition.getMeasuredAt().toLocalDate())),
+                sleeps,
+                sleeps.stream()
+                        .collect(Collectors.groupingBy(sleep -> sleep.getWakeUpTime().toLocalDate())),
+                sleepTarget
+        );
+    }
+
+    private MeasurementRecordResponse calculateDailyRecordFromPreloadedData(
+            LocalDate date,
+            PreloadedMeasurementData preloadedData
+    ) {
+        List<Condition> conditions = preloadedData.conditionsByDate()
+                .getOrDefault(date, List.of())
+                .stream()
+                .sorted(Comparator.comparing(Condition::getMeasuredAt))
+                .toList();
+        List<Sleep> sleeps = preloadedData.sleepsByWakeUpDate()
+                .getOrDefault(date, List.of())
+                .stream()
+                .sorted(Comparator.comparing(Sleep::getWakeUpTime))
+                .toList();
+
+        ConditionScoreSource conditionScoreSource = resolveConditionScoreSourceFromPreloadedData(
+                conditions,
+                preloadedData.conditions(),
+                date.atStartOfDay()
+        );
+        int sleepDurationMinutes = sleeps.stream()
+                .mapToInt(Sleep::getDurationMinutes)
+                .sum();
+        int sleepScore = resolveSleepScoreFromPreloadedData(
+                sleeps,
+                date,
+                preloadedData.sleepsByWakeUpDate(),
+                preloadedData.sleeps(),
+                preloadedData.sleepTarget()
+        );
+
+        ConditionScoreResult scoreResult = ConditionScoreCalculator.calculateConditionScore(
+                conditionScoreSource.bodyScore(),
+                conditionScoreSource.mindScore(),
+                sleepScore
+        );
+
+        return new MeasurementRecordResponse(
+                date,
+                scoreResult.finalConditionScore(),
+                scoreResult.conditionLevel(),
+                scoreResult.conditionTag(),
+                scoreResult.bodyScorePercent(),
+                scoreResult.mindScorePercent(),
+                scoreResult.sleepScore(),
+                sleepDurationMinutes,
+                conditions.stream()
+                        .map(this::toConditionRecord)
+                        .toList(),
+                sleeps.stream()
+                        .map(this::toSleepRecord)
+                        .toList()
+        );
+    }
+
+    private ConditionScoreSource resolveConditionScoreSourceFromPreloadedData(
+            List<Condition> conditions,
+            List<Condition> allConditions,
+            LocalDateTime dateStart
+    ) {
+        return conditions.stream()
+                .max(Comparator.comparing(Condition::getMeasuredAt))
+                .map(condition -> new ConditionScoreSource(condition.getBodyScore(), condition.getMindScore()))
+                .orElseGet(() -> allConditions.stream()
+                        .filter(condition -> !condition.getMeasuredAt().isBefore(dateStart.minusHours(24)))
+                        .filter(condition -> condition.getMeasuredAt().isBefore(dateStart))
+                        .max(Comparator.comparing(Condition::getMeasuredAt))
+                        .map(condition -> new ConditionScoreSource(condition.getBodyScore(), condition.getMindScore()))
+                        .orElseGet(() -> new ConditionScoreSource(DEFAULT_BODY_SCORE, DEFAULT_MIND_SCORE)));
+    }
+
+    private int resolveSleepScoreFromPreloadedData(
+            List<Sleep> sleeps,
+            LocalDate date,
+            Map<LocalDate, List<Sleep>> sleepsByWakeUpDate,
+            List<Sleep> allSleeps,
+            SleepTarget sleepTarget
+    ) {
+        if (!sleeps.isEmpty()) {
+            return calculateSleepScoreFromPreloadedData(
+                    sleeps,
+                    sleepTarget,
+                    findRecentSleeps(allSleeps, date.plusDays(1).atStartOfDay())
+            );
+        }
+
+        List<Sleep> previousDaySleeps = sleepsByWakeUpDate.getOrDefault(date.minusDays(1), List.of());
+        if (previousDaySleeps.isEmpty()) {
+            return DEFAULT_SLEEP_SCORE;
+        }
+
+        return calculateSleepScoreFromPreloadedData(
+                previousDaySleeps,
+                sleepTarget,
+                findRecentSleeps(allSleeps, date.atStartOfDay())
+        );
+    }
+
+    private int calculateSleepScoreFromPreloadedData(
+            List<Sleep> sleeps,
+            SleepTarget sleepTarget,
+            List<Sleep> recentSleeps
+    ) {
+        if (sleeps.stream().anyMatch(sleep -> sleep.getDurationMinutes() == 0)) {
+            return 0;
+        }
+
+        int totalSleepMinutes = sleeps.stream()
+                .mapToInt(Sleep::getDurationMinutes)
+                .sum();
+        int sleepAmountScore = ConditionScoreCalculator.calculateSleepAmountScore(
+                totalSleepMinutes,
+                sleepTarget.targetSleepMinutes()
+        );
+        int sleepPatternScore = calculateSleepPatternScore(sleeps, sleepTarget);
+        int sleepStabilityScore = calculateSleepStabilityScore(recentSleeps);
+
+        return ConditionScoreCalculator.calculateSleepScore(
+                sleepAmountScore,
+                sleepPatternScore,
+                sleepStabilityScore
+        );
+    }
+
+    private List<Sleep> findRecentSleeps(List<Sleep> allSleeps, LocalDateTime boundary) {
+        LocalDateTime start = boundary.minusDays(7);
+        return allSleeps.stream()
+                .filter(sleep -> !sleep.getWakeUpTime().isBefore(start))
+                .filter(sleep -> sleep.getWakeUpTime().isBefore(boundary))
+                .sorted(Comparator.comparing(Sleep::getWakeUpTime).reversed())
+                .limit(7)
+                .toList();
     }
 
     private int average(int sum, int divisor) {
@@ -266,17 +463,6 @@ public class MeasurementService {
         return periods;
     }
 
-    private LocalDate parseDate(String value, String name) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + "은 필수입니다.");
-        }
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException(name + " 형식이 올바르지 않습니다.");
-        }
-    }
-
     private AverageType parseAverageType(String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("type은 필수입니다.");
@@ -307,10 +493,10 @@ public class MeasurementService {
         return conditions.stream()
                 .max(Comparator.comparing(Condition::getMeasuredAt))
                 .map(condition -> new ConditionScoreSource(condition.getBodyScore(), condition.getMindScore()))
-                .orElseGet(() -> conditionRepository.findTopByMemberMemberIdAndMeasuredAtBetweenOrderByMeasuredAtDesc(
+                .orElseGet(() -> conditionRepository.findTopByMemberMemberIdAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThanOrderByMeasuredAtDesc(
                                 memberId,
                                 dateStart.minusHours(24),
-                                dateStart.minusNanos(1)
+                                dateStart
                         )
                         .map(condition -> new ConditionScoreSource(condition.getBodyScore(), condition.getMindScore()))
                         .orElseGet(() -> new ConditionScoreSource(DEFAULT_BODY_SCORE, DEFAULT_MIND_SCORE)));
@@ -345,10 +531,10 @@ public class MeasurementService {
 
         LocalDateTime previousDayStart = date.minusDays(1).atStartOfDay();
         LocalDateTime previousDayEnd = date.atStartOfDay();
-        List<Sleep> previousDaySleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeBetween(
+        List<Sleep> previousDaySleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
                 memberId,
                 previousDayStart,
-                previousDayEnd.minusNanos(1)
+                previousDayEnd
         );
 
         if (previousDaySleeps.isEmpty()) {
@@ -399,29 +585,33 @@ public class MeasurementService {
                 return sleepCondition.targetDuration();
             }
         } catch (CustomException e) {
-            // If onboarding sleep condition is not set yet, keep measurement available with defaults.
+
         }
 
         return DEFAULT_TARGET_SLEEP_MINUTES;
     }
 
     private SleepTimelineTarget resolveSleepTimelineTarget(Long memberId) {
-        BiorhythmResponse.GetBiorhythm biorhythm = biorhythmService.getBiorhythm(memberId);
-        String sleepTimeline = biorhythm.sleepTimeline();
+        try {
+            BiorhythmResponse.GetBiorhythm biorhythm = biorhythmService.getBiorhythm(memberId);
+            String sleepTimeline = biorhythm.sleepTimeline();
 
-        if (sleepTimeline == null
-                || sleepTimeline.length() != 24
-                || !sleepTimeline.contains("1")) {
-            return new SleepTimelineTarget(DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME);
+            if (sleepTimeline != null
+                    && sleepTimeline.length() == 24
+                    && sleepTimeline.contains("1")) {
+                int bedHour = findSleepStartHour(sleepTimeline);
+                int wakeHour = findSleepEndHour(sleepTimeline, bedHour);
+
+                return new SleepTimelineTarget(
+                        LocalTime.of(bedHour, 0),
+                        LocalTime.of(wakeHour, 0)
+                );
+            }
+        } catch (CustomException e) {
+
         }
 
-        int bedHour = findSleepStartHour(sleepTimeline);
-        int wakeHour = findSleepEndHour(sleepTimeline, bedHour);
-
-        return new SleepTimelineTarget(
-                LocalTime.of(bedHour, 0),
-                LocalTime.of(wakeHour, 0)
-        );
+        return new SleepTimelineTarget(DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME);
     }
 
     private int findSleepStartHour(String sleepTimeline) {
@@ -476,6 +666,10 @@ public class MeasurementService {
                 recentSleepBoundary
         );
 
+        return calculateSleepStabilityScore(findRecentSleeps(recentSleeps, recentSleepBoundary));
+    }
+
+    private int calculateSleepStabilityScore(List<Sleep> recentSleeps) {
         if (recentSleeps.size() < 2) {
             return DEFAULT_STABILITY_SCORE;
         }
@@ -527,6 +721,25 @@ public class MeasurementService {
             LocalTime targetBedTime,
             LocalTime targetWakeUpTime
     ) {
+    }
+
+    private record PreloadedMeasurementData(
+            List<Condition> conditions,
+            Map<LocalDate, List<Condition>> conditionsByDate,
+            List<Sleep> sleeps,
+            Map<LocalDate, List<Sleep>> sleepsByWakeUpDate,
+            SleepTarget sleepTarget
+    ) {
+
+        private static PreloadedMeasurementData empty() {
+            return new PreloadedMeasurementData(
+                    List.of(),
+                    Map.of(),
+                    List.of(),
+                    Map.of(),
+                    new SleepTarget(DEFAULT_TARGET_SLEEP_MINUTES, DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME)
+            );
+        }
     }
 
     private record AveragePeriod(

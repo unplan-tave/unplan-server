@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface ConditionRepository extends JpaRepository<Condition, Long> {
 
-    List<Condition> findAllByMemberAndMeasuredAtBetween(
+    List<Condition> findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
             Member member,
             LocalDateTime start,
             LocalDateTime end
@@ -27,7 +27,7 @@ public interface ConditionRepository extends JpaRepository<Condition, Long> {
             Long memberId
     );
 
-    Optional<Condition> findTopByMemberMemberIdAndMeasuredAtBetweenOrderByMeasuredAtDesc(
+    Optional<Condition> findTopByMemberMemberIdAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThanOrderByMeasuredAtDesc(
             Long memberId,
             LocalDateTime start,
             LocalDateTime end

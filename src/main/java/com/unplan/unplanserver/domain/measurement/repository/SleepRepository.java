@@ -13,7 +13,7 @@ public interface SleepRepository extends JpaRepository<Sleep, Long> {
 
     Optional<Sleep> findBySleepIdAndMemberMemberId(Long sleepId, Long memberId);
 
-    List<Sleep> findAllByMemberMemberIdAndWakeUpTimeBetween(
+    List<Sleep> findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
             Long memberId,
             LocalDateTime start,
             LocalDateTime end

@@ -58,8 +58,8 @@ public class MeasurementController {
     @GetMapping("/averages")
     public ResponseEntity<ApiResponse<MeasurementAverageResponse>> getAverageRecords(
             @AuthenticationPrincipal Long memberId,
-            @RequestParam("from") String from,
-            @RequestParam("to") String to,
+            @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @Parameter(
                     description = "조회할 평균 타입",
                     schema = @Schema(allowableValues = {"ALL", "CONDITION", "SLEEP"})

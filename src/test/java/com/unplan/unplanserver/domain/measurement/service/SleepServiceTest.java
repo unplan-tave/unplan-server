@@ -93,19 +93,15 @@ class SleepServiceTest {
     void createSleepStoresZeroDurationWhenAllNightIsTrue() {
         Long memberId = 1L;
         Member member = new Member();
+        LocalDateTime now = LocalDateTime.now();
         SleepRequest.SleepCreate request = new SleepRequest.SleepCreate(
-                LocalDateTime.of(2026, 6, 18, 0, 0),
-                LocalDateTime.of(2026, 6, 19, 0, 0),
+                now.minusHours(24),
+                now.minusMinutes(1),
                 false,
                 true
         );
 
         when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
-                member,
-                request.bedTime(),
-                request.wakeUpTime()
-        )).thenReturn(false);
         when(sleepRepository.save(any(Sleep.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SleepResponse response = sleepService.createSleep(memberId, request);

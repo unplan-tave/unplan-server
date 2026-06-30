@@ -44,7 +44,7 @@ public class Sleep {
     private Boolean nap;
 
     @Column(name = "is_all_night", nullable = false)
-    private Boolean allNight;
+    private Boolean allNight = false;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

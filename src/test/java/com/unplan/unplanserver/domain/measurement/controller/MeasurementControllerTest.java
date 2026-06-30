@@ -70,6 +70,7 @@ class MeasurementControllerTest {
                         LocalDateTime.of(2026, 6, 23, 23, 30),
                         LocalDateTime.of(2026, 6, 24, 6, 30),
                         false,
+                        false,
                         LocalDateTime.of(2026, 6, 24, 7, 0)
                 ))
         );
@@ -94,7 +95,8 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.conditions[0].bodyScorePercent").value(50))
                 .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleeps[0].sleepId").value(45))
-                .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false));
+                .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false))
+                .andExpect(jsonPath("$.data.sleeps[0].isAllNight").value(false));
     }
 
     @Test

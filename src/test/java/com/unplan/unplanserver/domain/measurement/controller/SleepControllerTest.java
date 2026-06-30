@@ -19,8 +19,12 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import java.time.LocalDateTime;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,6 +55,7 @@ class SleepControllerTest {
                 .bedTime(LocalDateTime.of(2026, 6, 23, 23, 0))
                 .wakeUpTime(LocalDateTime.of(2026, 6, 24, 7, 30))
                 .isNap(false)
+                .isAllNight(false)
                 .createdAt(LocalDateTime.of(2026, 6, 24, 22, 15))
                 .build();
 
@@ -66,7 +71,71 @@ class SleepControllerTest {
                 .andExpect(jsonPath("$.data.bedTime").value("2026-06-23T23:00:00"))
                 .andExpect(jsonPath("$.data.wakeUpTime").value("2026-06-24T07:30:00"))
                 .andExpect(jsonPath("$.data.isNap").value(false))
+                .andExpect(jsonPath("$.data.isAllNight").value(false))
                 .andExpect(jsonPath("$.data.createdAt").value("2026-06-24T22:15:00"));
+    }
+
+    @Test
+    void createSleepAcceptsBedTimeWakeUpTimeNapAndAllNight() throws Exception {
+        SleepResponse response = SleepResponse.builder()
+                .sleepId(45L)
+                .durationMinutes(600)
+                .bedTime(LocalDateTime.of(2026, 6, 18, 23, 41))
+                .wakeUpTime(LocalDateTime.of(2026, 6, 19, 9, 41))
+                .isNap(false)
+                .isAllNight(false)
+                .createdAt(LocalDateTime.of(2026, 6, 19, 9, 41))
+                .build();
+
+        when(sleepService.createSleep(eq(authenticatedMemberId), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/sleeps")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bedTime": "2026-06-18T23:41",
+                                  "wakeUpTime": "2026-06-19T09:41",
+                                  "isNap": false,
+                                  "isAllNight": false
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.durationMinutes").value(600))
+                .andExpect(jsonPath("$.data.isNap").value(false))
+                .andExpect(jsonPath("$.data.isAllNight").value(false));
+    }
+
+    @Test
+    void updateSleepReturnsAllNightResponse() throws Exception {
+        Long sleepId = 45L;
+        SleepResponse response = SleepResponse.builder()
+                .sleepId(sleepId)
+                .durationMinutes(0)
+                .bedTime(LocalDateTime.of(2026, 6, 18, 0, 0))
+                .wakeUpTime(LocalDateTime.of(2026, 6, 19, 0, 0))
+                .isNap(false)
+                .isAllNight(true)
+                .createdAt(LocalDateTime.of(2026, 6, 19, 0, 0))
+                .build();
+
+        when(sleepService.updateSleep(eq(authenticatedMemberId), eq(sleepId), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/sleeps/{sleepId}", sleepId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bedTime": "2026-06-18T00:00",
+                                  "wakeUpTime": "2026-06-19T00:00",
+                                  "isNap": false,
+                                  "isAllNight": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.durationMinutes").value(0))
+                .andExpect(jsonPath("$.data.isNap").value(false))
+                .andExpect(jsonPath("$.data.isAllNight").value(true));
     }
 
     @Test

@@ -37,6 +37,8 @@ public record MeasurementRecordResponse(
             LocalDateTime wakeUpTime,
             @JsonProperty("isNap")
             Boolean isNap,
+            @JsonProperty("isAllNight")
+            Boolean isAllNight,
             LocalDateTime createdAt
     ) {
     }

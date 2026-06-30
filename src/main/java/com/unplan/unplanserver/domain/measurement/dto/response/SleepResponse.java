@@ -26,6 +26,9 @@ public class SleepResponse {
     @JsonProperty("isNap")
     private Boolean isNap;
 
+    @JsonProperty("isAllNight")
+    private Boolean isAllNight;
+
     @JsonProperty("createdAt")
     private LocalDateTime createdAt;
 
@@ -36,6 +39,7 @@ public class SleepResponse {
                 .bedTime(sleep.getBedTime())
                 .wakeUpTime(sleep.getWakeUpTime())
                 .isNap(sleep.getNap())
+                .isAllNight(sleep.getAllNight())
                 .createdAt(sleep.getCreatedAt())
                 .build();
     }

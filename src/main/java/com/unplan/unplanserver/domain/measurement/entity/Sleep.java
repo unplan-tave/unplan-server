@@ -43,6 +43,9 @@ public class Sleep {
     @Column(name = "is_nap", nullable = false)
     private Boolean nap;
 
+    @Column(name = "is_all_night", nullable = false)
+    private Boolean allNight = false;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,22 +57,36 @@ public class Sleep {
             LocalDateTime wakeUpTime,
             Boolean nap
     ) {
+        this(member, durationMinutes, bedTime, wakeUpTime, nap, false);
+    }
+
+    public Sleep(
+            Member member,
+            Integer durationMinutes,
+            LocalDateTime bedTime,
+            LocalDateTime wakeUpTime,
+            Boolean nap,
+            Boolean allNight
+    ) {
         this.member = member;
         this.durationMinutes = durationMinutes;
         this.bedTime = bedTime;
         this.wakeUpTime = wakeUpTime;
         this.nap = nap;
+        this.allNight = allNight;
     }
 
     public void updateSleep(
             Integer durationMinutes,
             LocalDateTime bedTime,
             LocalDateTime wakeUpTime,
-            Boolean nap
+            Boolean nap,
+            Boolean allNight
     ) {
         this.durationMinutes = durationMinutes;
         this.bedTime = bedTime;
         this.wakeUpTime = wakeUpTime;
         this.nap = nap;
+        this.allNight = allNight;
     }
 }

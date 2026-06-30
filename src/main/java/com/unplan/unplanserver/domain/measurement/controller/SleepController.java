@@ -27,8 +27,9 @@ public class SleepController {
                     인증된 사용자의 수면 기록을 조회합니다.<br>
                     본인의 수면 기록만 조회할 수 있습니다.<br><br>
                     
-                    - bed_time은 wake_up_time과 duration_minutes를 기준으로 계산된 값입니다.<br>
-                    - is_nap이 true이면 낮잠, false이면 밤잠 기록입니다.
+                    - durationMinutes는 서버가 bedTime과 wakeUpTime 기준으로 계산한 값입니다.<br>
+                    - isNap이 true이면 낮잠, false이면 밤잠 기록입니다.<br>
+                    - isAllNight가 true이면 밤샘 기록이며 durationMinutes는 0입니다.
                     """
     )
     @GetMapping("/{sleepId}")
@@ -41,13 +42,15 @@ public class SleepController {
     }
 
     @Operation(
-            summary = "수면 입력",
-            description = """
+                    summary = "수면 입력",
+                    description = """
                     사용자가 기록한 밤잠 또는 낮잠 세션 정보를 등록합니다.<br>
-                    사용자는 총 수면 시간, 기상 시각, 낮잠 여부를 입력합니다.<br><br>
+                    사용자는 취침 시각, 기상 시각, 낮잠 여부, 밤샘 여부를 입력합니다.<br><br>
                     
-                    - bed_time은 요청값으로 받지 않습니다.<br>
-                    - 서버에서 wake_up_time - duration_minutes 값으로 bed_time을 자동 계산합니다.<br>
+                    - durationMinutes는 요청값으로 받지 않습니다.<br>
+                    - 서버에서 wakeUpTime - bedTime 값으로 durationMinutes를 계산합니다.<br>
+                    - isAllNight가 true이면 durationMinutes는 0으로 저장합니다.<br>
+                    - isNap과 isAllNight는 동시에 true일 수 없습니다.<br>
                     - created_at은 서버에서 자동 생성됩니다.
                     """
     )
@@ -66,13 +69,15 @@ public class SleepController {
     }
 
     @Operation(
-            summary = "수면 수정",
-            description = """
+                    summary = "수면 수정",
+                    description = """
                     기존에 입력한 밤잠 또는 낮잠 수면 세션 정보를 수정합니다.<br>
-                    사용자는 수정할 총 수면 시간, 기상 시각, 낮잠 여부를 입력합니다.<br><br>
+                    사용자는 취침 시각, 기상 시각, 낮잠 여부, 밤샘 여부를 입력합니다.<br><br>
                     
-                    - bed_time은 요청값으로 받지 않습니다.<br>
-                    - 서버에서 wake_up_time - duration_minutes 값으로 bed_time을 다시 계산합니다.<br>
+                    - durationMinutes는 요청값으로 받지 않습니다.<br>
+                    - 서버에서 wakeUpTime - bedTime 값으로 durationMinutes를 다시 계산합니다.<br>
+                    - isAllNight가 true이면 durationMinutes는 0으로 저장합니다.<br>
+                    - isNap과 isAllNight는 동시에 true일 수 없습니다.<br>
                     - created_at은 최초 생성 시각이므로 수정해도 변경되지 않습니다.
                     """
     )

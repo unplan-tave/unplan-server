@@ -89,4 +89,33 @@ class EmptyTimeFinderTest {
         assertEquals(slots, finder.filterByDuration(slots, 30));
         assertTrue(finder.filterByDuration(slots, null).isEmpty());
     }
+
+    // ─────────────────────────── 자정(24:00)·초 단위 경계 규약 ───────────────────────────
+
+    @Test
+    @DisplayName("windowEnd=00:00 은 '그날의 끝(24:00)' — 마지막 1분이 유실되지 않음")
+    void midnightWindowEndMeansEndOfDay() {
+        // 23:00~24:00 슬롯(60분)에 60분짜리 카드가 들어가야 함 (23:59로 자르면 59분이 되어 탈락)
+        List<TimeSlot> slots = find(t("23:00"), LocalTime.MIDNIGHT, List.of(), 15, 0);
+        assertEquals(List.of(slot("23:00", "00:00")), slots);
+        assertEquals(60, slots.get(0).durationMinutes());
+        assertEquals(slots, finder.filterByDuration(slots, 60));
+    }
+
+    @Test
+    @DisplayName("windowEnd=00:00 + 핀 카드 — 버퍼 이후부터 자정까지가 빈 슬롯")
+    void midnightWindowEndWithPin() {
+        // 핀 22:00~23:00 (+buffer 15 → 차단 21:45~23:15) → 20:00~21:45, 23:15~24:00(45분)
+        List<TimeSlot> slots = find(t("20:00"), LocalTime.MIDNIGHT, List.of(busy("22:00", "23:00")), 15, 0);
+        assertEquals(List.of(slot("20:00", "21:45"), slot("23:15", "00:00")), slots);
+        assertEquals(45, slots.get(1).durationMinutes());
+    }
+
+    @Test
+    @DisplayName("windowStart 에 초가 있으면 다음 분으로 올림 — 슬롯이 과거 시각에서 시작하지 않음")
+    void windowStartSecondsRoundedUp() {
+        // '현재 시각' 14:30:45 → 슬롯은 14:31부터 (내림하면 14:30 = 현재보다 과거)
+        List<TimeSlot> slots = find(LocalTime.of(14, 30, 45), t("16:00"), List.of(), 15, 0);
+        assertEquals(List.of(slot("14:31", "16:00")), slots);
+    }
 }

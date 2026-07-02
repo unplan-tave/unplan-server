@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -50,6 +51,9 @@ public class ScheduleService {
         if (request.getRecurrence() != null) {
             validateRecurrence(request.getRecurrence());
         }
+        // 시작/종료 시간 검증 — 한쪽만 있는 '반쪽 핀 카드'나 역전된 구간이 저장되면
+        // 추천 빈 시간 계산(busy 매핑)이 깨지므로 저장 전에 차단한다.
+        validateTimePair(request.getStartTime(), request.getEndTime());
 
         // 1. Schedule 엔티티 생성
         // Request DTO에서 값을 꺼내서 Schedule entity를 만듦
@@ -131,6 +135,9 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         schedule.update(request);
+        // 부분 수정(PATCH) 결과가 반쪽 핀 카드/역전 구간이 되지 않는지 최종 상태로 검증.
+        // 검증 실패 시 예외로 트랜잭션이 롤백되어 변경이 반영되지 않는다.
+        validateTimePair(schedule.getStartTime(), schedule.getEndTime());
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
         return ScheduleDetailResponse.from(schedule, locationInfo);
     }
@@ -204,6 +211,17 @@ public class ScheduleService {
     // 반복 일정 동적 확장 로직 (조회 범위 내 인스턴스만 계산)
     // ──────────────────────────────────────────────────────────────────────────
 
+    // 시작/종료 시간은 둘 다 있거나(핀 카드) 둘 다 없어야(큐 카드) 하고, 있으면 시작 < 종료.
+    // 일정이 단일 date 에 귀속되는 모델이라 자정을 넘기는 구간(start > end)은 표현할 수 없다.
+    private void validateTimePair(LocalTime startTime, LocalTime endTime) {
+        if ((startTime == null) != (endTime == null)) {
+            throw new CustomException(ErrorCode.INVALID_SCHEDULE_TIME);
+        }
+        if (startTime != null && !startTime.isBefore(endTime)) {
+            throw new CustomException(ErrorCode.INVALID_SCHEDULE_TIME);
+        }
+    }
+
     // 반복 규칙 형식 검증 — 잘못된 값이 저장되어 이후 조회 확장 시 예외를 일으키는 것을 차단
     private void validateRecurrence(ScheduleCreateRequest.RecurrenceRequest rec) {
         if (rec.getInterval() != null && rec.getInterval() < 1) {
@@ -233,8 +251,15 @@ public class ScheduleService {
             for (String token : rec.getByDay().split(",")) {
                 token = token.trim();
                 if (token.isEmpty()) continue;
-                String dayPart = (monthly && Character.isDigit(token.charAt(0)))
-                        ? token.substring(1) : token;
+                String dayPart = token;
+                if (monthly && Character.isDigit(token.charAt(0))) {
+                    // N번째 요일은 1~5만 유효 ("0WED"는 전월로 넘어가는 미정의 동작이 됨)
+                    int nth = Character.getNumericValue(token.charAt(0));
+                    if (nth < 1 || nth > 5) {
+                        throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+                    }
+                    dayPart = token.substring(1);
+                }
                 if (!isValidWeekday(dayPart)) {
                     throw new CustomException(ErrorCode.INVALID_RECURRENCE);
                 }
@@ -400,7 +425,10 @@ public class ScheduleService {
                 .filter(s -> !s.isEmpty()) // 끝/중복 콤마로 생기는 빈 토큰 방어
                 .map(this::toDayOfWeek)
                 .distinct()
-                .sorted(Comparator.comparingInt(DayOfWeek::getValue))
+                // 주기 앵커(일요일)와 같은 순서로 정렬해야 count 절단이 연대순으로 적용된다.
+                // ISO 값(월=1…일=7) 정렬을 쓰면 일요일이 마지막에 생성되어, count 초과 시
+                // 주 안에서 가장 이른 일요일 인스턴스가 잘리고 더 늦은 요일이 남는 오류가 생긴다.
+                .sorted(Comparator.comparingInt(dow -> dow.getValue() % 7)) // SUN=0, MON=1 … SAT=6
                 .toList();
         return days.isEmpty() ? List.of(defaultDay) : days;
     }

@@ -5,6 +5,8 @@ import com.unplan.unplanserver.domain.schedule.enums.RemindSoundType;
 import com.unplan.unplanserver.domain.schedule.enums.RemindType;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -25,11 +27,18 @@ public class ScheduleUpdateRequest {
 
     @Schema(example = "10:00")
     private LocalTime endTime;
+
+    // 0/음수 소요시간은 추천 소요시간 필터를 무의미하게 통과하므로 차단
+    @Positive
     private Integer estimatedTime;
+
     private String memo;
     private ScheduleStatus status;
     private Boolean isRemindOn;
+
+    @PositiveOrZero
     private Integer remindMinutes;
+
     private RemindType remindType;
     private RemindSoundType remindSoundType;
 }

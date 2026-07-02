@@ -94,7 +94,7 @@ public class ScheduleController {
             @AuthenticationPrincipal Long memberId,
             @Parameter(description = "수정할 일정 ID", example = "1")
             @PathVariable Long scheduleId,
-            @RequestBody ScheduleUpdateRequest request) {
+            @RequestBody @Valid ScheduleUpdateRequest request) {
 
         return ResponseEntity.ok(scheduleService.updateSchedule(memberId, scheduleId, request));
     }

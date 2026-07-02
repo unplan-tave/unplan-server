@@ -115,11 +115,20 @@ public class ScheduleService {
 
     @Transactional(readOnly = true)
     public List<ScheduleGetResponse> getSchedulesByDate(Long memberId, LocalDate date) {
-        List<Schedule> schedules = new ArrayList<>(scheduleRepository.findByMemberIdAndDate(memberId, date));
-        schedules.addAll(expandRecurringInstances(memberId, date, date));
-        return schedules.stream()
+        return findSchedulesWithRecurring(memberId, date).stream()
                 .map(ScheduleGetResponse::from)
                 .toList();
+    }
+
+    /**
+     * 특정 날짜의 일정 목록 (반복 일정의 해당 날짜 인스턴스 포함, 엔티티 반환).
+     * 추천 모듈이 핀 카드 점유 시간(busy) 계산에 사용한다 — 반복 핀 카드도 빈 시간에서 제외되어야 하므로.
+     */
+    @Transactional(readOnly = true)
+    public List<Schedule> findSchedulesWithRecurring(Long memberId, LocalDate date) {
+        List<Schedule> schedules = new ArrayList<>(scheduleRepository.findByMemberIdAndDate(memberId, date));
+        schedules.addAll(expandRecurringInstances(memberId, date, date));
+        return schedules;
     }
 
     @Transactional(readOnly = true)

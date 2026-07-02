@@ -16,4 +16,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
     // 반복 인스턴스는 원본 날짜 이후에만 생기므로, 조회 범위 끝(rangeEnd)보다 늦게 시작하는 원본은 제외.
     List<Schedule> findByMemberIdAndIsRecurringTrueAndDateLessThanEqual(Long memberId, LocalDate date);
+
+    // 추천 후보 큐 카드 조회 (시작/종료 시간이 없는 카드)
+    List<Schedule> findByMemberIdAndIsQueueTrue(Long memberId);
 }

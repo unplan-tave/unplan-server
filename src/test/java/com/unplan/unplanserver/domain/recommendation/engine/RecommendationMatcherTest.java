@@ -37,40 +37,43 @@ class RecommendationMatcherTest {
         assertTrue(matcher.adjacentTags(RECOVERY).isEmpty()); // 기력 회복은 별도 분기
     }
 
-    // ─────────────────────────── 태그 매칭 티어 ───────────────────────────
+    // ─────────────────────────── 태그 매칭 티어(교차 채우기) ───────────────────────────
 
     @Test
-    @DisplayName("1순위: 정확히 일치하는 태그 카드만")
-    void matchExact() {
-        QueueCard c1 = card(1, CORE_TASK, 60, null, "2026-06-01T09:00");
-        QueueCard c2 = card(2, BRAIN_WORK, 60, null, "2026-06-01T09:00");
-        assertEquals(List.of(c1), matcher.matchByTag(CORE_TASK, List.of(c1, c2)));
+    @DisplayName("정확 일치 티어를 먼저, 부족하면 인접→나머지 순으로 이어 채운다 (총 limit)")
+    void fillsAcrossTiers() {
+        QueueCard exact = card(1, CORE_TASK, 60, null, "2026-06-01T09:00");
+        QueueCard brain = card(2, BRAIN_WORK, 60, null, "2026-06-01T09:00"); // CORE 인접
+        QueueCard daily = card(3, DAILY_TASK, 60, null, "2026-06-01T09:00"); // CORE 인접 아님 → 나머지 티어
+        // limit 3 → 정확(exact) → 인접(brain) → 나머지(daily)
+        assertEquals(List.of(exact, brain, daily), matcher.match(CORE_TASK, List.of(daily, brain, exact), 3, null));
     }
 
     @Test
-    @DisplayName("2순위: 정확 일치 없으면 인접 태그 카드")
-    void matchAdjacent() {
-        QueueCard brain = card(2, BRAIN_WORK, 60, null, "2026-06-01T09:00"); // CORE의 인접
-        QueueCard daily = card(3, DAILY_TASK, 60, null, "2026-06-01T09:00"); // CORE의 인접 아님
-        assertEquals(List.of(brain), matcher.matchByTag(CORE_TASK, List.of(brain, daily)));
+    @DisplayName("정확 일치가 limit 이상이면 그 안에서 상위 limit개만, 하위 티어는 노출하지 않는다")
+    void exactTierCapsWithoutLowerTiers() {
+        QueueCard e1 = card(1, CORE_TASK, 60, "2026-07-01", "2026-06-01T09:00");
+        QueueCard e2 = card(2, CORE_TASK, 60, "2026-07-02", "2026-06-01T09:00");
+        QueueCard e3 = card(3, CORE_TASK, 60, "2026-07-03", "2026-06-01T09:00");
+        QueueCard adj = card(4, BRAIN_WORK, 60, "2026-06-30", "2026-06-01T09:00"); // 인접·마감 더 임박하나 하위 티어라 제외
+        // 정확 3개 → 마감순 e1,e2,e3. 인접(adj)은 티어 우선순위에 밀려 제외 (마감 임박이어도)
+        assertEquals(List.of(e1, e2, e3), matcher.match(CORE_TASK, List.of(e1, e2, e3, adj), 3, null));
     }
 
     @Test
-    @DisplayName("3순위: 정확·인접 모두 없으면 태그 무관 전체(마감 임박 폴백)")
-    void matchFallbackAll() {
-        QueueCard daily = card(3, DAILY_TASK, 60, null, "2026-06-01T09:00");
-        QueueCard urgent = card(4, URGENT, 60, null, "2026-06-01T09:00");
-        // CORE 정확 없음, 인접(BRAIN/SIMPLE) 없음 → 전체 반환
-        assertEquals(List.of(daily, urgent), matcher.matchByTag(CORE_TASK, List.of(daily, urgent)));
+    @DisplayName("보여줄 수 있는 후보가 limit 미만이면 있는 만큼만 반환")
+    void fewerThanLimit() {
+        QueueCard exact = card(1, CORE_TASK, 60, null, "2026-06-01T09:00");
+        assertEquals(List.of(exact), matcher.match(CORE_TASK, List.of(exact), 3, null));
     }
 
     @Test
-    @DisplayName("기력 회복: 회복 태그 카드만, 없으면 빈 목록(전체로 폴백하지 않음)")
+    @DisplayName("기력 회복: 회복 태그 카드만 채우고 없으면 빈 목록(다른 태그로 폴백하지 않음)")
     void matchRecovery() {
         QueueCard recovery = card(1, RECOVERY, 30, null, "2026-06-01T09:00");
         QueueCard core = card(2, CORE_TASK, 60, null, "2026-06-01T09:00");
-        assertEquals(List.of(recovery), matcher.matchByTag(RECOVERY, List.of(recovery, core)));
-        assertTrue(matcher.matchByTag(RECOVERY, List.of(core)).isEmpty()); // 회복 카드 없음 → 빈 목록
+        assertEquals(List.of(recovery), matcher.match(RECOVERY, List.of(recovery, core), 3, null));
+        assertTrue(matcher.match(RECOVERY, List.of(core), 3, null).isEmpty()); // 회복 카드 없음 → 빈 목록
     }
 
     // ─────────────────────────── 정렬 ───────────────────────────

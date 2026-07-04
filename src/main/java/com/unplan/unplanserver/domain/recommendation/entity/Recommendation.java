@@ -57,8 +57,8 @@ public class Recommendation {
     @Column(name = "source_schedule_id")
     private Long sourceScheduleId;
 
-    // 추천 목록 내 노출 순서 (0부터). 바텀시트가 "추천 일정 1", "1/4"처럼 순서대로 페이지네이션되므로
-    // (Figma UI & Prototype), 엔진 정렬 결과를 저장해 재조회 시에도 같은 순서를 보장한다.
+    // 추천 목록 내 노출 순서 (0부터). 바텀시트가 "추천 일정 1", "1/3"처럼 순서대로 페이지네이션되므로
+    // (Figma UI & Prototype, 최대 3개는 PM 확정 2026-07-04), 엔진 정렬 결과를 저장해 재조회 시에도 같은 순서를 보장한다.
     @Column(name = "display_order")
     private Integer displayOrder;
 

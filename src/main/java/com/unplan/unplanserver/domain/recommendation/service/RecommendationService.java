@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse.EmptyTime;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse.RecommendationItem;
@@ -18,6 +19,8 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,8 +53,8 @@ public class RecommendationService {
     static final int BUFFER_MINUTES = 15;
     /** '최소 여유 시간' 기본값. #83(빈시간 추천 설정) 머지 후 회원 설정값 read 로 교체 */
     static final int DEFAULT_MIN_GAP_MINUTES = 0;
-    /** 한 번에 노출하는 최대 추천 수 — Figma 바텀시트 "1/4" 페이지네이션 */
-    static final int MAX_RECOMMENDATIONS = 4;
+    /** 한 번에 노출하는 최대 추천 수 (PM 확정 2026-07-04: Figma는 4개지만 부담을 줄이려 3개로 축소) */
+    static final int MAX_RECOMMENDATIONS = 3;
 
     private final ScheduleService scheduleService;
     private final ScheduleRepository scheduleRepository;
@@ -111,15 +114,16 @@ public class RecommendationService {
             List<QueueCard> fitting = cards.stream()
                     .filter(c -> c.estimatedMinutes() <= slot.durationMinutes())
                     .toList();
-            List<QueueCard> matched = matcher.matchByTag(current, fitting);
-            // TODO(기획 확인 대기 — 이슈 #78): '기력 회복'일 때 온보딩 회복 수단 추천
-            //  폴백(기력회복 카드 없을 때만) vs 병렬(카드 뒤에 항상) / 랜덤 vs 설정 순서 확정 후 여기에 붙인다.
-            //  회복 수단 길이는 min(빈 시간, 30분), sourceType=RECOVERY_MEAN, sourceScheduleId=null.
-            if (matched.isEmpty()) continue;
+            // 우선순위 티어를 이어 채워 최대 MAX_RECOMMENDATIONS 개 (PM 확정 2026-07-04)
+            List<QueueCard> top = matcher.match(current, fitting, MAX_RECOMMENDATIONS, slot.durationMinutes());
+            // TODO(task B — 회복 수단, PM 확정 2026-07-04): '기력 회복'이면 기력회복 카드 뒤에 '회복 수단' 후보 1건을
+            //  덧붙여 총 MAX_RECOMMENDATIONS 를 채운다. 회복 수단은 개별 수단(낮잠/음악…)이 아니라 하나의 후보이고
+            //  수락 시 사용자가 고른 수단이 일정 제목이 된다. 온보딩 Recover 순서대로 옵션 제공.
+            //  길이는 min(빈 시간, 30분), sourceType=RECOVERY_MEAN, sourceScheduleId=null.
+            //  온보딩이 회복방법 ≥1 을 강제하므로(RECOVER_METHOD_REQUIRED) 기력 회복 상태에선 이 후보가 항상 ≥1개 →
+            //  0개 오류 케이스는 ①빈시간X ②빈시간O·매칭카드X 둘뿐(기력회복 0개 케이스는 발생하지 않음).
+            if (top.isEmpty()) continue;
 
-            List<QueueCard> top = matcher.sort(matched, slot.durationMinutes()).stream()
-                    .limit(MAX_RECOMMENDATIONS)
-                    .toList();
             return persistAndRespond(memberId, date, current, slot, top, candidateById);
         }
 
@@ -164,6 +168,111 @@ public class RecommendationService {
         }
         EmptyTime emptyTime = new EmptyTime(slot.start(), slot.end(), slot.durationMinutes());
         return new RecommendationListResponse(date, current.name(), emptyTime, items);
+    }
+
+    /**
+     * 추천 수락. (2026-07-03 결정, 이슈 #78)
+     * <ul>
+     *   <li>큐 카드 추천: 기본은 원본 큐 카드에 날짜·시간을 부여해 핀 카드로 '전환'(원본 UPDATE, 큐에서 사라짐).
+     *       {@code keepQueueCard=true}('기존 큐 카드 유지하기')면 핀 카드를 복제 생성하고 원본 큐 카드는 그대로 두어,
+     *       같은 일정이 큐(다음 추천 후보로 계속 노출)와 핀(확정)으로 공존한다.</li>
+     *   <li>회복 수단 추천: 원본 큐 카드가 없으므로 항상 새 일정 생성(INSERT).</li>
+     * </ul>
+     */
+    @Transactional
+    public RecommendationAcceptResponse accept(Long memberId, Long recommendId, boolean keepQueueCard) {
+        Recommendation rec = recommendationRepository.findByRecommendIdAndMemberId(recommendId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+        if (rec.getStatus() != RecommendationStatus.PENDING) {
+            throw new CustomException(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
+        }
+
+        // 스케줄 모델은 자정을 넘기는 구간을 표현할 수 없다(start<end). 슬롯 끝이 정확히 24:00이면 추천
+        // 스냅샷 end 는 00:00(=24:00 규약)으로 저장되므로, 핀 카드로는 23:59 로 클램핑해 유효 구간을 유지한다.
+        LocalTime endTime = LocalTime.MIDNIGHT.equals(rec.getEndTime()) ? LocalTime.of(23, 59) : rec.getEndTime();
+
+        Long scheduleId;
+        boolean created;
+        if (rec.getSourceType() == RecommendationSourceType.QUEUE_CARD) {
+            // 원본 큐 카드가 이미 삭제됐으면 전환/복제 대상이 없다.
+            Schedule source = scheduleRepository.findByScheduleIdAndMemberId(rec.getSourceScheduleId(), memberId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
+            if (keepQueueCard) {
+                // 큐 카드는 그대로 두고 핀 카드를 복제 생성 → 같은 일정이 큐+핀으로 공존
+                Schedule pin = scheduleRepository.save(
+                        pinCopyOf(memberId, source, rec.getDate(), rec.getStartTime(), endTime));
+                scheduleId = pin.getScheduleId();
+                created = true;
+            } else {
+                // 큐 카드 → 핀 카드 전환 (원본 UPDATE)
+                source.assignToPin(rec.getDate(), rec.getStartTime(), endTime);
+                scheduleId = source.getScheduleId();
+                created = false;
+            }
+        } else {
+            // 회복 수단 → 원본 큐 카드가 없으므로 새 일정 INSERT
+            Schedule saved = scheduleRepository.save(Schedule.builder()
+                    .memberId(memberId)
+                    .title(rec.getTitle())
+                    .conditionTag(rec.getConditionTag())
+                    .date(rec.getDate())
+                    .startTime(rec.getStartTime())
+                    .endTime(endTime)
+                    .isQueue(false)
+                    .isRecurring(false)
+                    .isConflict(false)
+                    .status(ScheduleStatus.TODO)
+                    .build());
+            scheduleId = saved.getScheduleId();
+            created = true;
+        }
+
+        rec.accept(scheduleId);
+        return new RecommendationAcceptResponse(
+                rec.getRecommendId(), scheduleId, rec.getTitle(),
+                rec.getDate(), rec.getStartTime(), endTime,
+                rec.getSourceType().name(), created);
+    }
+
+    /**
+     * 큐 카드를 핀 카드로 복제한다. 제목·컨디션 태그·위치·메모·알림 설정은 원본 그대로 유지하고
+     * 날짜·시간만 부여해 핀 카드로 만든다(Figma "제목/태그/위치/메모는 원래 큐 카드대로 유지").
+     * 반복 설정은 복제하지 않는다(단발성 핀 카드).
+     */
+    private Schedule pinCopyOf(Long memberId, Schedule source, LocalDate date, LocalTime start, LocalTime end) {
+        return Schedule.builder()
+                .memberId(memberId)
+                .title(source.getTitle())
+                .location(source.getLocation())
+                .conditionTag(source.getConditionTag())
+                .estimatedTime(source.getEstimatedTime())
+                .memo(source.getMemo())
+                .isRemindOn(source.getIsRemindOn())
+                .remindMinutes(source.getRemindMinutes())
+                .remindType(source.getRemindType())
+                .remindSoundType(source.getRemindSoundType())
+                .date(date)
+                .startTime(start)
+                .endTime(end)
+                .isQueue(false)
+                .isRecurring(false)
+                .isConflict(false)
+                .status(ScheduleStatus.TODO)
+                .build();
+    }
+
+    /**
+     * 추천 거절. REJECTED 로 표시해 같은 날짜 재계산 시 목록에서 제외한다("다시 안 뜸").
+     * 큐 카드 원본은 건드리지 않는다.
+     */
+    @Transactional
+    public void reject(Long memberId, Long recommendId) {
+        Recommendation rec = recommendationRepository.findByRecommendIdAndMemberId(recommendId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+        if (rec.getStatus() != RecommendationStatus.PENDING) {
+            throw new CustomException(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
+        }
+        rec.reject();
     }
 
     /**

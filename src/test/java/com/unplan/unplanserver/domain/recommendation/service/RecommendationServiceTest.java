@@ -2,10 +2,12 @@ package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.engine.EmptyTimeFinder;
 import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatcher;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
+import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationStatus;
 import com.unplan.unplanserver.domain.recommendation.repository.RecommendationRepository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
@@ -13,10 +15,13 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,10 +30,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -94,7 +103,7 @@ class RecommendationServiceTest {
     // ─────────────────────────── 시나리오 ───────────────────────────
 
     @Test
-    @DisplayName("핀 카드 버퍼를 제외한 첫 빈 시간에, 소요시간이 맞고 태그가 정확 일치하는 카드를 배치한다")
+    @DisplayName("첫 빈 시간에, 정확 일치 카드를 먼저 두고 부족분은 인접 태그로 이어 채운다")
     void basicRecommendation() {
         givenConditionTag("핵심 작업");
         givenNoRejected();
@@ -111,14 +120,16 @@ class RecommendationServiceTest {
         assertThat(res.emptyTime().startTime()).isEqualTo(LocalTime.parse("14:00"));
         assertThat(res.emptyTime().endTime()).isEqualTo(LocalTime.parse("14:45"));
         assertThat(res.emptyTime().durationMinutes()).isEqualTo(45);
-        // 정확 일치(핵심 작업) 카드만 — 인접 태그(두뇌 활동)는 1순위가 있으므로 제외
-        assertThat(res.recommendations()).hasSize(1);
+        // 교차 채우기: 정확 일치(과제) 먼저 + 인접(독서)로 이어 채움 → 2개 (둘 다 45분 슬롯에 맞음)
+        assertThat(res.recommendations()).hasSize(2);
         RecommendationListResponse.RecommendationItem item = res.recommendations().get(0);
         assertThat(item.title()).isEqualTo("과제");
         assertThat(item.startTime()).isEqualTo(LocalTime.parse("14:00"));
         assertThat(item.endTime()).isEqualTo(LocalTime.parse("14:30"));
         assertThat(item.deadline()).isEqualTo(LocalDate.parse("2026-07-04"));
         assertThat(item.displayOrder()).isZero();
+        assertThat(res.recommendations().get(1).title()).isEqualTo("독서");
+        assertThat(res.recommendations().get(1).displayOrder()).isEqualTo(1);
         // 재생성: 이전 PENDING 정리
         verify(recommendationRepository).deleteByMemberIdAndDateAndStatus(MEMBER_ID, TODAY, RecommendationStatus.PENDING);
     }
@@ -248,7 +259,7 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("마감 임박순 정렬 + 최대 4개 제한이 적용된다")
+    @DisplayName("마감 임박순 정렬 + 최대 3개 제한이 적용된다")
     void sortedByDeadlineAndCapped() {
         givenConditionTag("핵심 작업");
         givenNoRejected();
@@ -263,10 +274,172 @@ class RecommendationServiceTest {
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
 
-        assertThat(res.recommendations()).hasSize(4); // MAX_RECOMMENDATIONS
+        assertThat(res.recommendations()).hasSize(3); // MAX_RECOMMENDATIONS
         assertThat(res.recommendations()).extracting(RecommendationListResponse.RecommendationItem::title)
-                .containsExactly("마감 첫째", "마감 둘째", "마감 셋째", "마감 넷째"); // 마감 없음은 5순위로 잘림
+                .containsExactly("마감 첫째", "마감 둘째", "마감 셋째"); // 마감 넷째·마감 없음은 3개 초과로 잘림
         assertThat(res.recommendations()).extracting(RecommendationListResponse.RecommendationItem::displayOrder)
-                .containsExactly(0, 1, 2, 3);
+                .containsExactly(0, 1, 2);
+    }
+
+    // ─────────────────────────── 수락 / 거절 ───────────────────────────
+
+    private Recommendation pendingRec(RecommendationSourceType sourceType, Long sourceScheduleId,
+                                      String title, String start, String end) {
+        return Recommendation.builder()
+                .recommendId(500L).memberId(MEMBER_ID).date(TODAY).title(title)
+                .startTime(LocalTime.parse(start)).endTime(LocalTime.parse(end))
+                .conditionTag(ConditionTag.RECOVERY)
+                .sourceType(sourceType).sourceScheduleId(sourceScheduleId)
+                .status(RecommendationStatus.PENDING)
+                .build();
+    }
+
+    @Test
+    @DisplayName("큐 카드 추천 수락은 원본 큐 카드를 핀 카드로 전환한다 (새 일정 생성 안 함)")
+    void acceptQueueCardConvertsToPin() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "과제", "14:00", "14:30");
+        Schedule source = queue(99L, "과제", ConditionTag.CORE_TASK, 30, TODAY.plusDays(1));
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+        when(scheduleRepository.findByScheduleIdAndMemberId(99L, MEMBER_ID)).thenReturn(Optional.of(source));
+
+        RecommendationAcceptResponse res = service.accept(MEMBER_ID, 500L, false);
+
+        assertThat(res.created()).isFalse();
+        assertThat(res.scheduleId()).isEqualTo(99L);
+        assertThat(res.startTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(res.endTime()).isEqualTo(LocalTime.parse("14:30"));
+        // 원본이 핀 카드로 전환됨
+        assertThat(source.getIsQueue()).isFalse();
+        assertThat(source.getDate()).isEqualTo(TODAY);
+        assertThat(source.getStartTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(source.getEndTime()).isEqualTo(LocalTime.parse("14:30"));
+        // 추천은 ACCEPTED, 새 일정 INSERT 없음
+        assertThat(rec.getStatus()).isEqualTo(RecommendationStatus.ACCEPTED);
+        assertThat(rec.getAcceptedScheduleId()).isEqualTo(99L);
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("'기존 큐 카드 유지하기' 수락은 핀 카드를 복제 생성하고 원본 큐 카드는 큐로 남긴다 (큐+핀 공존)")
+    void acceptKeepQueueCardCreatesPinAndKeepsQueue() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "과제", "14:00", "14:30");
+        Schedule source = queue(99L, "과제", ConditionTag.CORE_TASK, 30, TODAY.plusDays(1));
+        Schedule persistedPin = Schedule.builder()
+                .scheduleId(300L).memberId(MEMBER_ID).title("과제")
+                .date(TODAY).startTime(LocalTime.parse("14:00")).endTime(LocalTime.parse("14:30"))
+                .isQueue(false).status(ScheduleStatus.TODO).build();
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+        when(scheduleRepository.findByScheduleIdAndMemberId(99L, MEMBER_ID)).thenReturn(Optional.of(source));
+        when(scheduleRepository.save(any())).thenReturn(persistedPin);
+
+        RecommendationAcceptResponse res = service.accept(MEMBER_ID, 500L, true);
+
+        // 새 핀 카드가 생성됨
+        assertThat(res.created()).isTrue();
+        assertThat(res.scheduleId()).isEqualTo(300L);
+        // 원본 큐 카드는 전환되지 않고 그대로 큐로 남음 → 다음 추천 후보로 계속 노출
+        assertThat(source.getIsQueue()).isTrue();
+        assertThat(source.getStartTime()).isNull();
+        // 저장된 핀 카드는 원본 필드를 복제하고 시간만 부여
+        ArgumentCaptor<Schedule> captor = ArgumentCaptor.forClass(Schedule.class);
+        verify(scheduleRepository).save(captor.capture());
+        Schedule saved = captor.getValue();
+        assertThat(saved.getIsQueue()).isFalse();
+        assertThat(saved.getTitle()).isEqualTo("과제");
+        assertThat(saved.getConditionTag()).isEqualTo(ConditionTag.CORE_TASK);
+        assertThat(saved.getDate()).isEqualTo(TODAY);
+        assertThat(saved.getStartTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(saved.getEndTime()).isEqualTo(LocalTime.parse("14:30"));
+        // 추천은 ACCEPTED(거절 아님) → 원본 큐 카드는 재추천 후보로 유지
+        assertThat(rec.getStatus()).isEqualTo(RecommendationStatus.ACCEPTED);
+        assertThat(rec.getAcceptedScheduleId()).isEqualTo(300L);
+    }
+
+    @Test
+    @DisplayName("회복 수단 추천 수락은 원본이 없으므로 새 일정을 생성한다")
+    void acceptRecoveryMeanCreatesSchedule() {
+        Recommendation rec = pendingRec(RecommendationSourceType.RECOVERY_MEAN, null, "낮잠", "14:00", "14:30");
+        Schedule persisted = Schedule.builder()
+                .scheduleId(200L).memberId(MEMBER_ID).title("낮잠")
+                .date(TODAY).startTime(LocalTime.parse("14:00")).endTime(LocalTime.parse("14:30"))
+                .isQueue(false).status(ScheduleStatus.TODO).build();
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+        when(scheduleRepository.save(any())).thenReturn(persisted);
+
+        RecommendationAcceptResponse res = service.accept(MEMBER_ID, 500L, false);
+
+        assertThat(res.created()).isTrue();
+        assertThat(res.scheduleId()).isEqualTo(200L);
+        assertThat(rec.getStatus()).isEqualTo(RecommendationStatus.ACCEPTED);
+        assertThat(rec.getAcceptedScheduleId()).isEqualTo(200L);
+        verify(scheduleRepository).save(any());
+        verify(scheduleRepository, never()).findByScheduleIdAndMemberId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("슬롯 끝이 자정(00:00=24:00)인 추천을 수락하면 핀 카드 종료 시각은 23:59로 클램핑된다")
+    void acceptClampsMidnightEnd() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "야간 작업", "23:30", "00:00");
+        Schedule source = queue(99L, "야간 작업", ConditionTag.CORE_TASK, 30, null);
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+        when(scheduleRepository.findByScheduleIdAndMemberId(99L, MEMBER_ID)).thenReturn(Optional.of(source));
+
+        RecommendationAcceptResponse res = service.accept(MEMBER_ID, 500L, false);
+
+        assertThat(res.endTime()).isEqualTo(LocalTime.of(23, 59));
+        assertThat(source.getEndTime()).isEqualTo(LocalTime.of(23, 59));
+        assertThat(source.getStartTime()).isEqualTo(LocalTime.parse("23:30"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 추천 수락은 RECOMMENDATION_NOT_FOUND")
+    void acceptNotFound() {
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.accept(MEMBER_ID, 500L, false))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("이미 처리된(수락/거절된) 추천을 다시 수락하면 RECOMMENDATION_ALREADY_PROCESSED, 일정은 건드리지 않는다")
+    void acceptAlreadyProcessed() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "과제", "14:00", "14:30");
+        rec.accept(99L); // 이미 ACCEPTED
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+
+        assertThatThrownBy(() -> service.accept(MEMBER_ID, 500L, false))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
+        verify(scheduleRepository, never()).findByScheduleIdAndMemberId(anyLong(), anyLong());
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("거절은 추천을 REJECTED로 표시하고 원본 큐 카드는 건드리지 않는다")
+    void rejectMarksRejected() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "과제", "14:00", "14:30");
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+
+        service.reject(MEMBER_ID, 500L);
+
+        assertThat(rec.getStatus()).isEqualTo(RecommendationStatus.REJECTED);
+        verify(scheduleRepository, never()).findByScheduleIdAndMemberId(anyLong(), anyLong());
+        verify(scheduleRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이미 처리된 추천을 거절하면 RECOMMENDATION_ALREADY_PROCESSED")
+    void rejectAlreadyProcessed() {
+        Recommendation rec = pendingRec(RecommendationSourceType.QUEUE_CARD, 99L, "과제", "14:00", "14:30");
+        rec.reject(); // 이미 REJECTED
+        when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
+
+        assertThatThrownBy(() -> service.reject(MEMBER_ID, 500L))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
     }
 }

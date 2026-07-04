@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * 홈/컨디션 탭 추천 목록 응답 (GET /schedule/recommendations?date=).
  * Figma 바텀시트 구조 그대로: 빈 시간 안내("14:00 ~ 15:30까지, 1시간 동안 스케줄이 비어 있어요")
- * + 추천 카드 페이지네이션("추천 일정 1", "1/4").
+ * + 추천 카드 페이지네이션("추천 일정 1", "1/3" — PM 확정 2026-07-04, 최대 3개).
  *
  * @param date          추천 대상 날짜
  * @param conditionTag  현재 컨디션 태그 (enum 명, 예: "CORE_TASK"). 바텀시트 상단 문구용

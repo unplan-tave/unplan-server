@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -36,23 +37,38 @@ public class RecommendationMatcher {
     }
 
     /**
-     * 현재 컨디션 태그로 추천 후보 큐 카드를 선별한다.
-     * - 기력 회복: 회복(RECOVERY) 태그 카드만. (없을 때의 '온보딩 회복 수단' 폴백은 온보딩 데이터가 필요해 서비스 계층에서 처리)
-     * - 그 외: 1순위 정확 일치 → (없으면) 2순위 인접 태그 → (없으면) 3순위 태그 무관 전체(마감 임박 폴백)
+     * 현재 컨디션 태그로 추천 후보 큐 카드를 우선순위 티어 순서대로 최대 {@code limit} 개까지 채워 선별한다.
+     * 상위 티어를 (각 티어 내부 정렬 후) 먼저 채우고, {@code limit} 에 못 미치면 다음 티어에서 이어 채운다.
+     * (PM 확정 2026-07-04: "1순위 후보가 limit 미만이면 다음 순위에서 이어 채워 총 limit 개". 기존 '첫 티어만' 폴백 아님)
+     * <ul>
+     *   <li>기력 회복: 회복(RECOVERY) 태그 카드만. ('회복 수단' 후보는 온보딩 데이터가 필요해 서비스 계층에서 뒤에 덧붙인다)</li>
+     *   <li>그 외: 1순위 정확 일치 → 2순위 인접 태그 → 3순위 태그 무관 나머지(마감 임박 폴백)</li>
+     * </ul>
+     * 각 티어 내부는 마감 임박 → 소요시간 적합순으로 정렬한다.
      */
-    public List<QueueCard> matchByTag(ConditionTag current, List<QueueCard> cards) {
-        if (current == RECOVERY) {
-            return cards.stream().filter(c -> c.conditionTag() == RECOVERY).toList();
+    public List<QueueCard> match(ConditionTag current, List<QueueCard> cards, int limit, Integer slotLengthMinutes) {
+        List<QueueCard> result = new ArrayList<>();
+        for (List<QueueCard> tier : tiers(current, cards)) {
+            if (result.size() >= limit) break;
+            sort(tier, slotLengthMinutes).stream()
+                    .limit((long) limit - result.size())
+                    .forEach(result::add);
         }
+        return result;
+    }
 
-        List<QueueCard> exact = cards.stream().filter(c -> c.conditionTag() == current).toList();
-        if (!exact.isEmpty()) return exact;
-
+    /** 우선순위 티어 목록 (상위 티어부터). 티어 간 중복 카드 없음. */
+    private List<List<QueueCard>> tiers(ConditionTag current, List<QueueCard> cards) {
+        if (current == RECOVERY) {
+            return List.of(cards.stream().filter(c -> c.conditionTag() == RECOVERY).toList());
+        }
         List<ConditionTag> adjacent = adjacentTags(current);
-        List<QueueCard> adj = cards.stream().filter(c -> adjacent.contains(c.conditionTag())).toList();
-        if (!adj.isEmpty()) return adj;
-
-        return cards; // 3순위: 태그 무관 전체 (정렬 단계에서 마감 임박순 적용)
+        List<QueueCard> exact = cards.stream().filter(c -> c.conditionTag() == current).toList();
+        List<QueueCard> adj = cards.stream()
+                .filter(c -> c.conditionTag() != current && adjacent.contains(c.conditionTag())).toList();
+        List<QueueCard> rest = cards.stream()
+                .filter(c -> c.conditionTag() != current && !adjacent.contains(c.conditionTag())).toList();
+        return List.of(exact, adj, rest);
     }
 
     /**

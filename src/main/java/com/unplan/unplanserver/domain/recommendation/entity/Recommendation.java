@@ -1,7 +1,6 @@
 package com.unplan.unplanserver.domain.recommendation.entity;
 
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
-import com.unplan.unplanserver.domain.recommendation.enums.RecommendationStatus;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import jakarta.persistence.*;
 import lombok.*;
@@ -62,11 +61,8 @@ public class Recommendation {
     @Column(name = "display_order")
     private Integer displayOrder;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private RecommendationStatus status;
-
-    // 수락 시 생성된 실제 일정(Schedule) id (추적용). 수락 전에는 null
+    // 수락 여부 겸 추적용: 수락 시 생성/전환된 실제 일정(Schedule) id. 수락 전에는 null (= 미수락).
+    // 별도 상태 enum 없이 이 값의 null 여부로 수락 여부를 판정한다.
     @Column(name = "accepted_schedule_id")
     private Long acceptedScheduleId;
 
@@ -76,24 +72,20 @@ public class Recommendation {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    /** 수락 처리: 상태를 ACCEPTED로 바꾸고 생성된 일정 id를 기록한다. */
+    /** 수락 처리: 생성/전환된 일정 id를 기록한다(이 값이 채워지면 '수락됨'). */
     public void accept(Long acceptedScheduleId) {
-        this.status = RecommendationStatus.ACCEPTED;
         this.acceptedScheduleId = acceptedScheduleId;
     }
 
-    /** 거절 처리: 재계산 시 제외되도록 REJECTED로 표시한다. */
-    public void reject() {
-        this.status = RecommendationStatus.REJECTED;
+    /** 수락 여부 */
+    public boolean isAccepted() {
+        return acceptedScheduleId != null;
     }
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.status == null) {
-            this.status = RecommendationStatus.PENDING;
-        }
     }
 
     @PreUpdate

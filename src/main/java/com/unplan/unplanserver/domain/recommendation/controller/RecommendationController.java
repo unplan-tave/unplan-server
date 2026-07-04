@@ -45,18 +45,7 @@ public class RecommendationController {
             @RequestBody(required = false) RecommendationAcceptRequest request) {
 
         boolean keepQueueCard = request != null && request.keepQueueCardOrDefault();
-        return ResponseEntity.ok(recommendationService.accept(memberId, recommendId, keepQueueCard));
-    }
-
-    @Operation(summary = "추천 거절",
-            description = "추천을 거절합니다. 같은 날짜 재조회 시 목록에서 제외됩니다.")
-    @DeleteMapping("/{recommendId}")
-    public ResponseEntity<Void> rejectRecommendation(
-            @AuthenticationPrincipal Long memberId,
-            @Parameter(description = "거절할 추천 ID", example = "1")
-            @PathVariable Long recommendId) {
-
-        recommendationService.reject(memberId, recommendId);
-        return ResponseEntity.noContent().build();
+        String recoveryMean = request != null ? request.recoveryMean() : null;
+        return ResponseEntity.ok(recommendationService.accept(memberId, recommendId, keepQueueCard, recoveryMean));
     }
 }

@@ -48,7 +48,8 @@ public enum ErrorCode {
 
     // --- [추천 관련 에러] ---
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RECOMMENDATION_404", "존재하지 않는 추천입니다."),
-    RECOMMENDATION_ALREADY_PROCESSED(HttpStatus.CONFLICT, "RECOMMENDATION_409", "이미 수락 또는 거절된 추천입니다.");
+    RECOMMENDATION_ALREADY_PROCESSED(HttpStatus.CONFLICT, "RECOMMENDATION_409", "이미 수락된 추천입니다."),
+    RECOVERY_MEAN_INVALID(HttpStatus.BAD_REQUEST, "RECOVERY_MEAN_400", "선택한 회복 수단이 올바르지 않습니다.");
 
     private final HttpStatus status;
     private final String code;

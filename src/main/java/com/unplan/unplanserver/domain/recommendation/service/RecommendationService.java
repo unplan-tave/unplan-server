@@ -1,6 +1,7 @@
 package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse.EmptyTime;
@@ -12,7 +13,6 @@ import com.unplan.unplanserver.domain.recommendation.engine.TimeRange;
 import com.unplan.unplanserver.domain.recommendation.engine.TimeSlot;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
-import com.unplan.unplanserver.domain.recommendation.enums.RecommendationStatus;
 import com.unplan.unplanserver.domain.recommendation.repository.RecommendationRepository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
@@ -32,17 +32,18 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.unplan.unplanserver.domain.schedule.enums.ConditionTag.RECOVERY;
 
 /**
  * 홈/컨디션 탭 일정 추천 생성 (Notion "추천 로직" 1~4단계 조립).
  * 빈 시간 탐색 → 소요시간 필터 → 컨디션 태그 매칭 → 정렬 → 슬롯 배치 → 영속화.
  *
  * GET 시마다 이전 노출분(PENDING)을 지우고 재생성한다 — 큐 카드/핀 카드/컨디션이 수시로 바뀌므로.
- * 수락(ACCEPTED)/거절(REJECTED) 이력은 남기며, 거절된 원본 큐 카드는 같은 날짜 재계산에서 제외한다.
+ * 수락(ACCEPTED) 이력은 남긴다. '패스'(넘기기)는 서버 상태 변경 없이 프론트 페이지네이션으로 처리되며,
+ * 넘긴 추천은 다음 GET 재생성에서 다시 후보로 나올 수 있다(Figma: 영구 '거절' 없음).
  */
 @Slf4j
 @Service
@@ -56,10 +57,14 @@ public class RecommendationService {
     /** 한 번에 노출하는 최대 추천 수 (PM 확정 2026-07-04: Figma는 4개지만 부담을 줄이려 3개로 축소) */
     static final int MAX_RECOMMENDATIONS = 3;
 
+    /** 회복 수단 후보 길이 상한(분) — Notion 3-1 "최대 30분" */
+    static final int RECOVERY_MEAN_MAX_MINUTES = 30;
+
     private final ScheduleService scheduleService;
     private final ScheduleRepository scheduleRepository;
     private final RecommendationRepository recommendationRepository;
     private final MeasurementService measurementService;
+    private final RecoverService recoverService;
     private final EmptyTimeFinder emptyTimeFinder;
     private final RecommendationMatcher matcher;
 
@@ -79,8 +84,8 @@ public class RecommendationService {
         // 1. 현재 컨디션 태그 — Notion: "현재 컨디션을 오늘의 나머지 시간에 동일하게 적용"
         ConditionTag current = currentConditionTag(memberId, now.toLocalDate());
 
-        // 이전 노출분 정리 후 재생성 (수락/거절 이력은 보존)
-        recommendationRepository.deleteByMemberIdAndDateAndStatus(memberId, date, RecommendationStatus.PENDING);
+        // 이전 노출분(미수락분) 정리 후 재생성 (수락 이력은 보존)
+        recommendationRepository.deleteByMemberIdAndDateAndAcceptedScheduleIdIsNull(memberId, date);
 
         // 2. 빈 시간 탐색 — 반복 인스턴스를 포함한 핀 카드가 busy
         LocalTime windowStart = date.equals(now.toLocalDate()) ? now.toLocalTime() : LocalTime.MIDNIGHT;
@@ -91,22 +96,19 @@ public class RecommendationService {
         List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
                 date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES, DEFAULT_MIN_GAP_MINUTES);
 
-        // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2)·이 날짜에 거절된 카드 제외
-        Set<Long> rejectedSourceIds = recommendationRepository
-                .findByMemberIdAndDateAndStatusIn(memberId, date, List.of(RecommendationStatus.REJECTED))
-                .stream()
-                .map(Recommendation::getSourceScheduleId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2) 제외
         Map<Long, Schedule> candidateById = scheduleRepository.findByMemberIdAndIsQueueTrue(memberId).stream()
                 .filter(s -> s.getStatus() != ScheduleStatus.DONE)
                 .filter(s -> s.getEstimatedTime() != null)
-                .filter(s -> !rejectedSourceIds.contains(s.getScheduleId()))
                 .collect(Collectors.toMap(Schedule::getScheduleId, Function.identity()));
         List<QueueCard> cards = candidateById.values().stream()
                 .map(s -> new QueueCard(s.getScheduleId(), s.getConditionTag(),
                         s.getEstimatedTime(), s.getDate(), s.getCreatedAt()))
                 .toList();
+
+        // '기력 회복'이면 회복 수단 후보(단일)를 덧붙일 수 있도록 회원의 회복 수단을 미리 조회 (설정 순서)
+        List<String> recoveryMeans = current == RECOVERY
+                ? recoverService.getRecoveryMeanLabels(memberId) : List.of();
 
         // 4. 슬롯을 시간순으로 돌며, 처음으로 후보가 나오는 빈 시간에 추천 배치
         //    (Figma: 바텀시트는 하나의 빈 시간 + 그 안의 추천 카드 페이지네이션)
@@ -116,26 +118,27 @@ public class RecommendationService {
                     .toList();
             // 우선순위 티어를 이어 채워 최대 MAX_RECOMMENDATIONS 개 (PM 확정 2026-07-04)
             List<QueueCard> top = matcher.match(current, fitting, MAX_RECOMMENDATIONS, slot.durationMinutes());
-            // TODO(task B — 회복 수단, PM 확정 2026-07-04): '기력 회복'이면 기력회복 카드 뒤에 '회복 수단' 후보 1건을
-            //  덧붙여 총 MAX_RECOMMENDATIONS 를 채운다. 회복 수단은 개별 수단(낮잠/음악…)이 아니라 하나의 후보이고
-            //  수락 시 사용자가 고른 수단이 일정 제목이 된다. 온보딩 Recover 순서대로 옵션 제공.
-            //  길이는 min(빈 시간, 30분), sourceType=RECOVERY_MEAN, sourceScheduleId=null.
-            //  온보딩이 회복방법 ≥1 을 강제하므로(RECOVER_METHOD_REQUIRED) 기력 회복 상태에선 이 후보가 항상 ≥1개 →
-            //  0개 오류 케이스는 ①빈시간X ②빈시간O·매칭카드X 둘뿐(기력회복 0개 케이스는 발생하지 않음).
-            if (top.isEmpty()) continue;
+            // '기력 회복'이면 기력회복 카드 뒤에 '회복 수단' 후보 1건을 덧붙여 총 MAX_RECOMMENDATIONS 를 채운다
+            // (PM 확정 2026-07-04: 개별 수단이 아니라 하나의 후보, 수락 시 고른 수단이 제목).
+            boolean addRecoveryMean = current == RECOVERY
+                    && top.size() < MAX_RECOMMENDATIONS && !recoveryMeans.isEmpty();
+            if (top.isEmpty() && !addRecoveryMean) continue;
 
-            return persistAndRespond(memberId, date, current, slot, top, candidateById);
+            return persistAndRespond(memberId, date, current, slot, top, candidateById,
+                    addRecoveryMean ? recoveryMeans : List.of());
         }
 
-        // 어떤 빈 시간에도 넣을 후보가 없음
+        // 어떤 빈 시간에도 넣을 후보가 없음 (오류 케이스 ①빈시간X ②빈시간O·매칭카드X)
         return new RecommendationListResponse(date, current.name(), null, List.of());
     }
 
     private RecommendationListResponse persistAndRespond(Long memberId, LocalDate date, ConditionTag current,
                                                          TimeSlot slot, List<QueueCard> top,
-                                                         Map<Long, Schedule> candidateById) {
+                                                         Map<Long, Schedule> candidateById,
+                                                         List<String> recoveryMeans) {
         List<RecommendationItem> items = new ArrayList<>();
-        for (int order = 0; order < top.size(); order++) {
+        int order = 0;
+        for (; order < top.size(); order++) {
             QueueCard card = top.get(order);
             Schedule source = candidateById.get(card.scheduleId());
             LocalTime startTime = slot.start();
@@ -163,9 +166,43 @@ public class RecommendationService {
                     card.deadline(),
                     card.conditionTag() != null ? card.conditionTag().name() : null,
                     RecommendationSourceType.QUEUE_CARD.name(),
-                    order
+                    order,
+                    null
             ));
         }
+
+        // 회복 수단 후보 1건 (기력 회복 상태에서 자리가 남을 때). 제목은 아직 미선택(null) — 수락 시 사용자가 고름.
+        if (!recoveryMeans.isEmpty()) {
+            LocalTime startTime = slot.start();
+            int length = Math.min(slot.durationMinutes(), RECOVERY_MEAN_MAX_MINUTES);
+            LocalTime endTime = startTime.plusMinutes(length);
+
+            Recommendation saved = recommendationRepository.save(Recommendation.builder()
+                    .memberId(memberId)
+                    .date(date)
+                    .title(null)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .conditionTag(RECOVERY)
+                    .sourceType(RecommendationSourceType.RECOVERY_MEAN)
+                    .sourceScheduleId(null)
+                    .displayOrder(order)
+                    .build());
+
+            items.add(new RecommendationItem(
+                    saved.getRecommendId(),
+                    null,
+                    startTime,
+                    endTime,
+                    length,
+                    null,
+                    RECOVERY.name(),
+                    RecommendationSourceType.RECOVERY_MEAN.name(),
+                    order,
+                    recoveryMeans
+            ));
+        }
+
         EmptyTime emptyTime = new EmptyTime(slot.start(), slot.end(), slot.durationMinutes());
         return new RecommendationListResponse(date, current.name(), emptyTime, items);
     }
@@ -176,14 +213,15 @@ public class RecommendationService {
      *   <li>큐 카드 추천: 기본은 원본 큐 카드에 날짜·시간을 부여해 핀 카드로 '전환'(원본 UPDATE, 큐에서 사라짐).
      *       {@code keepQueueCard=true}('기존 큐 카드 유지하기')면 핀 카드를 복제 생성하고 원본 큐 카드는 그대로 두어,
      *       같은 일정이 큐(다음 추천 후보로 계속 노출)와 핀(확정)으로 공존한다.</li>
-     *   <li>회복 수단 추천: 원본 큐 카드가 없으므로 항상 새 일정 생성(INSERT).</li>
+     *   <li>회복 수단 추천: 원본 큐 카드가 없으므로 항상 새 일정 생성(INSERT). 제목은 사용자가 고른 회복 수단.</li>
      * </ul>
      */
     @Transactional
-    public RecommendationAcceptResponse accept(Long memberId, Long recommendId, boolean keepQueueCard) {
+    public RecommendationAcceptResponse accept(Long memberId, Long recommendId, boolean keepQueueCard,
+                                               String recoveryMean) {
         Recommendation rec = recommendationRepository.findByRecommendIdAndMemberId(recommendId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_NOT_FOUND));
-        if (rec.getStatus() != RecommendationStatus.PENDING) {
+        if (rec.isAccepted()) {
             throw new CustomException(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
         }
 
@@ -193,10 +231,12 @@ public class RecommendationService {
 
         Long scheduleId;
         boolean created;
+        String title;
         if (rec.getSourceType() == RecommendationSourceType.QUEUE_CARD) {
             // 원본 큐 카드가 이미 삭제됐으면 전환/복제 대상이 없다.
             Schedule source = scheduleRepository.findByScheduleIdAndMemberId(rec.getSourceScheduleId(), memberId)
                     .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
+            title = source.getTitle();
             if (keepQueueCard) {
                 // 큐 카드는 그대로 두고 핀 카드를 복제 생성 → 같은 일정이 큐+핀으로 공존
                 Schedule pin = scheduleRepository.save(
@@ -210,10 +250,16 @@ public class RecommendationService {
                 created = false;
             }
         } else {
-            // 회복 수단 → 원본 큐 카드가 없으므로 새 일정 INSERT
+            // 회복 수단 → 사용자가 고른 수단이 제목. 회원이 설정한 회복 수단 중 하나여야 한다.
+            String meanTitle = recoveryMean == null ? null : recoveryMean.trim();
+            if (meanTitle == null || meanTitle.isBlank()
+                    || !recoverService.getRecoveryMeanLabels(memberId).contains(meanTitle)) {
+                throw new CustomException(ErrorCode.RECOVERY_MEAN_INVALID);
+            }
+            // 원본 큐 카드가 없으므로 새 일정 INSERT
             Schedule saved = scheduleRepository.save(Schedule.builder()
                     .memberId(memberId)
-                    .title(rec.getTitle())
+                    .title(meanTitle)
                     .conditionTag(rec.getConditionTag())
                     .date(rec.getDate())
                     .startTime(rec.getStartTime())
@@ -225,11 +271,12 @@ public class RecommendationService {
                     .build());
             scheduleId = saved.getScheduleId();
             created = true;
+            title = meanTitle;
         }
 
         rec.accept(scheduleId);
         return new RecommendationAcceptResponse(
-                rec.getRecommendId(), scheduleId, rec.getTitle(),
+                rec.getRecommendId(), scheduleId, title,
                 rec.getDate(), rec.getStartTime(), endTime,
                 rec.getSourceType().name(), created);
     }
@@ -259,20 +306,6 @@ public class RecommendationService {
                 .isConflict(false)
                 .status(ScheduleStatus.TODO)
                 .build();
-    }
-
-    /**
-     * 추천 거절. REJECTED 로 표시해 같은 날짜 재계산 시 목록에서 제외한다("다시 안 뜸").
-     * 큐 카드 원본은 건드리지 않는다.
-     */
-    @Transactional
-    public void reject(Long memberId, Long recommendId) {
-        Recommendation rec = recommendationRepository.findByRecommendIdAndMemberId(recommendId, memberId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_NOT_FOUND));
-        if (rec.getStatus() != RecommendationStatus.PENDING) {
-            throw new CustomException(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
-        }
-        rec.reject();
     }
 
     /**

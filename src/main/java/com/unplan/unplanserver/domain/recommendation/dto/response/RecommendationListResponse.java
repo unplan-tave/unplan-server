@@ -32,6 +32,8 @@ public record RecommendationListResponse(
      * @param estimatedTime 소요시간(분). Figma 카드의 "약 30분 소요"
      * @param deadline      원본 큐 카드의 마감일. 없으면 null → "마감일 없음"
      * @param sourceType    QUEUE_CARD / RECOVERY_MEAN
+     * @param title         큐 카드는 원본 제목. 회복 수단 후보는 아직 미선택이라 null → 프론트가 recoveryMeans 중 하나를 고르게 함
+     * @param recoveryMeans 회복 수단 후보(RECOVERY_MEAN)일 때만, 사용자가 고를 회복 수단 목록(설정 순서). 큐 카드는 null
      */
     public record RecommendationItem(
             Long recommendId,
@@ -42,6 +44,7 @@ public record RecommendationListResponse(
             LocalDate deadline,
             String conditionTag,
             String sourceType,
-            int displayOrder
+            int displayOrder,
+            List<String> recoveryMeans
     ) {}
 }

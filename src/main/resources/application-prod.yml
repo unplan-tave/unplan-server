@@ -14,6 +14,11 @@ spring:
         format_sql: false
     show-sql: false
 
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: 3600000  #1시간
+  refresh-expiration: 2592000000 #30일
+
 springdoc:
   swagger-ui:
     enabled: false

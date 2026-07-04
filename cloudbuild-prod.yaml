@@ -8,10 +8,11 @@ steps:
           --source . \
           --region asia-northeast3 \
           --allow-unauthenticated \
+          --add-cloudsql-instances project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db \
           --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
-          --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_prod?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
-          --set-env-vars "SPRING_DATASOURCE_USERNAME=$$DB_USERNAME" \
-          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD" \
+          --set-env-vars "PROD_DB_URL=jdbc:postgresql:///unplan_prod?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
+          --set-env-vars "PROD_DB_USERNAME=$$DB_USERNAME" \
+          --set-env-vars "PROD_DB_PASSWORD=$$DB_PASSWORD" \
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
           --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \

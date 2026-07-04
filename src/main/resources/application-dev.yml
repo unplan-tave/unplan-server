@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: ${DEVELOP_DB_URL:jdbc:postgresql://8.230.24.118:5432/unplan_dev}
+    username: ${DEVELOP_DB_USERNAME}
+    password: ${DEVELOP_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+    show-sql: false
+
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: 3600000  #1시간
+  refresh-expiration: 2592000000 #30일
+
+swagger:
+  server-url: ${DEVELOP_SERVER_URL:https://unplan-server-dev-1032991906194.asia-northeast3.run.app}
+  description: Dev Server

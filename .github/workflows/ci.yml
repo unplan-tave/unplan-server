@@ -44,3 +44,9 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew clean build
+        env:
+          SPRING_PROFILES_ACTIVE: local
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_EXPIRATION: ${{ secrets.JWT_ACCESS_EXPIRATION }}
+          JWT_REFRESH_EXPIRATION: ${{ secrets.JWT_REFRESH_EXPIRATION }}
+          GOOGLE_CLIENT_ID: ${{secrets.GOOGLE_CLIENT_ID}}

@@ -13,3 +13,13 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: 3600000  #1시간
+  refresh-expiration: 2592000000 #30일
+
+swagger:
+  server-url: http://localhost:8080
+  description: Local Server
+

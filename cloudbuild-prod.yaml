@@ -11,8 +11,12 @@ steps:
           --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
           --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql:///unplan_prod?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
           --set-env-vars "SPRING_DATASOURCE_USERNAME=$$DB_USERNAME" \
-          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD"
-    secretEnv: ['DB_USERNAME', 'DB_PASSWORD']
+          --set-env-vars "SPRING_DATASOURCE_PASSWORD=$$DB_PASSWORD" \
+          --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
+          --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
+          --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \
+          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID"
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID']
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -23,3 +27,7 @@ availableSecrets:
       env: 'DB_USERNAME'
     - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_db_password/versions/latest
       env: 'DB_PASSWORD'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_jwt_secret/versions/latest
+      env: 'JWT_SECRET'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_google_client_id/versions/latest
+      env: 'GOOGLE_CLIENT_ID'

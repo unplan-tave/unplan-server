@@ -1,5 +1,7 @@
 package com.unplan.unplanserver.domain.setting.controller;
 
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingRequestDto;
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.service.SettingService;
@@ -25,6 +27,12 @@ public class SettingController {
     @GetMapping("/empty-time")
     public ResponseEntity<ApiResponse<EmptyTimeSettingResponseDto>> getEmptyTimeRecommendSetting(@AuthenticationPrincipal Long memberId) {
         EmptyTimeSettingResponseDto responseDto = settingService.getSetting(memberId);
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(responseDto));
+    }
+
+    @PatchMapping("alarm-setting")
+    public ResponseEntity<ApiResponse<AlarmSettingResponseDto>> updateAlarmSetting(@AuthenticationPrincipal Long memberId, @RequestBody AlarmSettingRequestDto requestDto) {
+        AlarmSettingResponseDto responseDto = settingService.updateAlarmSetting(memberId, requestDto);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(responseDto));
     }
 

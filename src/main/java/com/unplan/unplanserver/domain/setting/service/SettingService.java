@@ -1,5 +1,7 @@
 package com.unplan.unplanserver.domain.setting.service;
 
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingRequestDto;
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.entity.RecommendBanTime;
@@ -66,5 +68,10 @@ public class SettingService {
         }
     }
 
-
+    @Transactional
+    public AlarmSettingResponseDto updateAlarmSetting(Long memberId, AlarmSettingRequestDto requestDto) {
+        Setting setting = settingRepository.findByMemberId(memberId).orElseGet(()->settingRepository.save(new Setting(memberId)));
+        setting.updateAlarmSetting(requestDto);
+        return setting.toAlarmSettingResponseDto();
+    }
 }

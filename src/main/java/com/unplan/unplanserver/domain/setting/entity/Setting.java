@@ -51,8 +51,10 @@ public class Setting {
         this.isConditionRecordAlarmOn = true;
         this.isRecommendAlarmOn = true;
         this.isEmptyTimeRecommendOn = true;
-        this.emptyTimeCriteriaMinutes = 10;
+        this.emptyTimeCriteriaMinutes = 15;
         this.recommendBanTimeList = new ArrayList<>();
+        this.recommendBanTimeList.add(new RecommendBanTime(this.settingId, LocalTime.of(0, 0), LocalTime.of(7, 0)));
+        this.recommendBanTimeList.add(new RecommendBanTime(this.settingId, LocalTime.of(22, 0), LocalTime.of(23, 59)));
         this.isRecommendBanTimeOn = true;
     }
 

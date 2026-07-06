@@ -36,6 +36,15 @@ public class SettingService {
         return setting.toResponseDto();
     }
 
+    @Transactional
+    public EmptyTimeSettingResponseDto getSetting(Long memberId) {
+        Setting setting = settingRepository.findByMemberId(memberId).orElse(null);
+        if (setting == null) {
+            setting = new Setting(memberId);
+            settingRepository.save(setting);
+        }
+        return setting.toResponseDto();
+    }
     public void validate(List<EmptyTimeSettingRequestDto.RecommendBanTime> requestedBanTimeList) {
         requestedBanTimeList.sort(Comparator.comparing(EmptyTimeSettingRequestDto.RecommendBanTime::startTime));
         for (EmptyTimeSettingRequestDto.RecommendBanTime recommendBanTime : requestedBanTimeList) {
@@ -54,4 +63,6 @@ public class SettingService {
             }
         }
     }
+
+
 }

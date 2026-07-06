@@ -36,6 +36,17 @@ public class SettingService {
         return setting.toResponseDto();
     }
 
+    @Transactional
+    public EmptyTimeSettingResponseDto getSetting(Long memberId) {
+        try {
+            return settingRepository.findByMemberId(memberId)
+                    .orElseGet(() -> settingRepository.save(new Setting(memberId)))
+                    .toResponseDto();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            return settingRepository.findByMemberId(memberId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.SETTING_NOT_FOUND)).toResponseDto();
+        }
+    }
     public void validate(List<EmptyTimeSettingRequestDto.RecommendBanTime> requestedBanTimeList) {
         requestedBanTimeList.sort(Comparator.comparing(EmptyTimeSettingRequestDto.RecommendBanTime::startTime));
         for (EmptyTimeSettingRequestDto.RecommendBanTime recommendBanTime : requestedBanTimeList) {
@@ -54,4 +65,6 @@ public class SettingService {
             }
         }
     }
+
+
 }

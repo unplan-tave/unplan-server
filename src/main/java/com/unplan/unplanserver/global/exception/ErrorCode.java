@@ -48,6 +48,7 @@ public enum ErrorCode {
     // --- [설정 관련 에러] ---
     INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE", "종료시간이 시작시간보다 빠릅니다."),
     TIME_RANGE_OVERLAP(HttpStatus.CONFLICT, "TIME_RANGE_OVERLAP", "입력한 빈시간 추천 제외 시간대가 기존의 빈시간 추천 제외 시간대와 겹칩니다."),
+    SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "SETTING_NOT_FOUND", "설정을 찾을 수 없습니다"),
     ;
     private final HttpStatus status;
     private final String code;

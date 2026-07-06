@@ -55,38 +55,28 @@ public class Setting {
         this.recommendBanTimeList = new ArrayList<>();
         this.isRecommendBanTimeOn = true;
     }
-    public EmptyTimeSettingResponseDto toResponseDto(EmptyTimeSettingRequestDto requestDto) {
-        Boolean isEmptyTimeRecommendOn = requestDto.isEmptyTimeRecommendOn();
-        Integer emptyTimeCriteriaMinutes = requestDto.emptyTimeCriteriaMinutes();
-        Boolean isRecommendBanTimeOn = requestDto.isRecommendBanTimeOn();
-        List<EmptyTimeSettingRequestDto.RecommendBanTime> recommendBanTimes = requestDto.recommendBanTimes();
-        if (isEmptyTimeRecommendOn != null) {
-            this.isEmptyTimeRecommendOn = isEmptyTimeRecommendOn;
+
+    public void update(EmptyTimeSettingRequestDto requestDto) {
+        if (requestDto.isEmptyTimeRecommendOn() != null) {
+            this.isEmptyTimeRecommendOn = requestDto.isEmptyTimeRecommendOn();
         }
-        if (emptyTimeCriteriaMinutes != null) {
-            this.emptyTimeCriteriaMinutes = emptyTimeCriteriaMinutes;
+        if (requestDto.emptyTimeCriteriaMinutes() != null) {
+            this.emptyTimeCriteriaMinutes = requestDto.emptyTimeCriteriaMinutes();
         }
-        if (isRecommendBanTimeOn != null) {
-            this.isRecommendBanTimeOn = isRecommendBanTimeOn;
+        if (requestDto.isRecommendBanTimeOn() != null) {
+            this.isRecommendBanTimeOn = requestDto.isRecommendBanTimeOn();
         }
-        List<EmptyTimeSettingResponseDto.RecommendBanTime> recommendBanTimesResponse = new ArrayList<>();
-        // response dto에 기존 추천금지 시간대 목록 추가
-        log.info(this.recommendBanTimeList.toString());
-        for (RecommendBanTime recommendBanTime : this.recommendBanTimeList) {
-            LocalTime startTime = recommendBanTime.getStartTime();
-            LocalTime endTime = recommendBanTime.getEndTime();
-            EmptyTimeSettingResponseDto.RecommendBanTime responseRecommendBanTime = new EmptyTimeSettingResponseDto.RecommendBanTime(startTime, endTime);
-            recommendBanTimesResponse.add(responseRecommendBanTime);
-        }
-        if (recommendBanTimes != null) {
-            // response dto에 입력받은 추천금지 시간대 추가
-            for (EmptyTimeSettingRequestDto.RecommendBanTime requestedRecommendBanTime : recommendBanTimes) {
-                LocalTime startTime = requestedRecommendBanTime.startTime();
-                LocalTime endTime = requestedRecommendBanTime.endTime();
-                RecommendBanTime recommendBanTime = new RecommendBanTime(this.settingId, startTime, endTime);
-                this.recommendBanTimeList.add(recommendBanTime);
-                recommendBanTimesResponse.add(new EmptyTimeSettingResponseDto.RecommendBanTime(startTime, endTime));
+        if (requestDto.recommendBanTimes() != null) {
+            this.recommendBanTimeList.clear();
+            for (EmptyTimeSettingRequestDto.RecommendBanTime requestedRecommendBanTime : requestDto.recommendBanTimes()) {
+                this.recommendBanTimeList.add(new RecommendBanTime(this.settingId, requestedRecommendBanTime.startTime(), requestedRecommendBanTime.endTime()));
             }
+        }
+    }
+    public EmptyTimeSettingResponseDto toResponseDto() {
+        List<EmptyTimeSettingResponseDto.RecommendBanTime> recommendBanTimesResponse = new ArrayList<>();
+        for (RecommendBanTime recommendBanTime : this.recommendBanTimeList) {
+            recommendBanTimesResponse.add(new EmptyTimeSettingResponseDto.RecommendBanTime(recommendBanTime.getStartTime(), recommendBanTime.getEndTime()));
         }
 
         return new EmptyTimeSettingResponseDto(this.isEmptyTimeRecommendOn, this.emptyTimeCriteriaMinutes, this.isRecommendBanTimeOn, recommendBanTimesResponse);

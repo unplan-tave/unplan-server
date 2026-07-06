@@ -1,5 +1,7 @@
 package com.unplan.unplanserver.domain.setting.entity;
 
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingRequestDto;
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingResponseDto;
 import jakarta.persistence.*;
@@ -82,5 +84,29 @@ public class Setting {
         }
 
         return new EmptyTimeSettingResponseDto(this.isEmptyTimeRecommendOn, this.emptyTimeCriteriaMinutes, this.isRecommendBanTimeOn, recommendBanTimesResponse);
+    }
+
+    public AlarmSettingResponseDto toAlarmSettingResponseDto() {
+        return new AlarmSettingResponseDto(this.isScheduleEndAlarmOn, this.isConditionRecordAlarmOn, this.isRecommendAlarmOn);
+    }
+
+    public void updateAlarmSetting(AlarmSettingRequestDto requestDto) {
+        if (requestDto == null) {
+            return;
+        }
+        Boolean isScheduleEndAlarmOn = requestDto.isScheduleEndAlarmOn();
+        Boolean isConditionRecordAlarmOn = requestDto.isConditionRecordAlarmOn();
+        Boolean isRecommendAlarmOn = requestDto.isRecommendAlarmOn();
+
+        if (isScheduleEndAlarmOn != null) {
+            this.isScheduleEndAlarmOn = isScheduleEndAlarmOn;
+        }
+        if (isConditionRecordAlarmOn != null) {
+            this.isConditionRecordAlarmOn = isConditionRecordAlarmOn;
+        }
+        if (isRecommendAlarmOn != null) {
+            this.isRecommendAlarmOn = isRecommendAlarmOn;
+        }
+
     }
 }

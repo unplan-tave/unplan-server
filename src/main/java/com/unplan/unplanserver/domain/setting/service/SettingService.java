@@ -1,5 +1,7 @@
 package com.unplan.unplanserver.domain.setting.service;
 
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingRequestDto;
+import com.unplan.unplanserver.domain.setting.dto.AlarmSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingResponseDto;
 import com.unplan.unplanserver.domain.setting.entity.RecommendBanTime;
@@ -23,11 +25,7 @@ public class SettingService {
     private final SettingRepository settingRepository;
     @Transactional
     public EmptyTimeSettingResponseDto updateSetting(Long memberId, EmptyTimeSettingRequestDto requestDto) {
-        Setting setting = settingRepository.findByMemberId(memberId).orElse(null);
-        if (setting == null) {
-            setting = new Setting(memberId);
-            settingRepository.save(setting);
-        }
+        Setting setting = settingRepository.findByMemberId(memberId).orElseThrow(()->new CustomException(ErrorCode.SETTING_NOT_FOUND));
         if (requestDto.recommendBanTimes() != null) {
             validate(requestDto.recommendBanTimes());
         }
@@ -36,16 +34,10 @@ public class SettingService {
         return setting.toResponseDto();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public EmptyTimeSettingResponseDto getSetting(Long memberId) {
-        try {
-            return settingRepository.findByMemberId(memberId)
-                    .orElseGet(() -> settingRepository.save(new Setting(memberId)))
-                    .toResponseDto();
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            return settingRepository.findByMemberId(memberId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.SETTING_NOT_FOUND)).toResponseDto();
-        }
+        Setting setting = settingRepository.findByMemberId(memberId).orElseThrow(()->new CustomException(ErrorCode.SETTING_NOT_FOUND));
+        return setting.toResponseDto();
     }
     public void validate(List<EmptyTimeSettingRequestDto.RecommendBanTime> requestedBanTimeList) {
         requestedBanTimeList.sort(Comparator.comparing(EmptyTimeSettingRequestDto.RecommendBanTime::startTime));
@@ -66,5 +58,17 @@ public class SettingService {
         }
     }
 
+    @Transactional
+    public AlarmSettingResponseDto updateAlarmSetting(Long memberId, AlarmSettingRequestDto requestDto) {
+        Setting setting = settingRepository.findByMemberId(memberId).orElseGet(()->settingRepository.save(new Setting(memberId)));
+        setting.updateAlarmSetting(requestDto);
+        return setting.toAlarmSettingResponseDto();
+    }
 
+    @Transactional(readOnly = true)
+    public AlarmSettingResponseDto getAlarmSetting(Long memberId) {
+        return settingRepository.findByMemberId(memberId)
+                .map(Setting::toAlarmSettingResponseDto)
+                .orElseGet(() -> new AlarmSettingResponseDto(true, true, true));
+    }
 }

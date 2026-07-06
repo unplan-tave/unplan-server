@@ -30,13 +30,13 @@ public class SettingController {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(responseDto));
     }
 
-    @PatchMapping("alarm-setting")
+    @PatchMapping("/alarm-setting")
     public ResponseEntity<ApiResponse<AlarmSettingResponseDto>> updateAlarmSetting(@AuthenticationPrincipal Long memberId, @RequestBody AlarmSettingRequestDto requestDto) {
         AlarmSettingResponseDto responseDto = settingService.updateAlarmSetting(memberId, requestDto);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(responseDto));
     }
 
-    @GetMapping("alarm-setting")
+    @GetMapping("/alarm-setting")
     public ResponseEntity<ApiResponse<AlarmSettingResponseDto>> getAlarmSetting(@AuthenticationPrincipal Long memberId) {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(settingService.getAlarmSetting(memberId)));
     }

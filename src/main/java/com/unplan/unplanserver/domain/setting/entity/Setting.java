@@ -91,7 +91,9 @@ public class Setting {
     }
 
     public void updateAlarmSetting(AlarmSettingRequestDto requestDto) {
-
+        if (requestDto == null) {
+            return;
+        }
         Boolean isScheduleEndAlarmOn = requestDto.isScheduleEndAlarmOn();
         Boolean isConditionRecordAlarmOn = requestDto.isConditionRecordAlarmOn();
         Boolean isRecommendAlarmOn = requestDto.isRecommendAlarmOn();

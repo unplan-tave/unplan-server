@@ -104,7 +104,7 @@ class RecommendationServiceTest {
         givenConditionTag("핵심 작업");
         givenSaveReturnsArgument();
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of(pin("15:00", "16:00")));
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(11L, "과제", ConditionTag.CORE_TASK, 30, LocalDate.parse("2026-07-04")),
                 queue(13L, "독서", ConditionTag.BRAIN_WORK, 30, null)));
 
@@ -135,7 +135,7 @@ class RecommendationServiceTest {
         givenConditionTag("핵심 작업");
         givenSaveReturnsArgument();
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of(pin("15:00", "16:00")));
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(11L, "보고서", ConditionTag.CORE_TASK, 60, null))); // 45분 슬롯엔 안 맞음
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
@@ -156,7 +156,7 @@ class RecommendationServiceTest {
         givenSaveReturnsArgument();
         when(recoverService.getRecoveryMeanLabels(MEMBER_ID)).thenReturn(List.of("짧은 낮잠", "음악 감상"));
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(21L, "낮잠 큐카드", ConditionTag.RECOVERY, 30, null),
                 queue(22L, "메일 정리", ConditionTag.DAILY_TASK, 30, null)));
 
@@ -186,7 +186,7 @@ class RecommendationServiceTest {
         givenSaveReturnsArgument();
         when(recoverService.getRecoveryMeanLabels(MEMBER_ID)).thenReturn(List.of("짧은 낮잠"));
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(31L, "메일 정리", ConditionTag.DAILY_TASK, 30, null))); // 기력회복 태그 카드 없음
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
@@ -203,7 +203,7 @@ class RecommendationServiceTest {
         givenSaveReturnsArgument();
         when(recoverService.getRecoveryMeanLabels(MEMBER_ID)).thenReturn(List.of("짧은 낮잠"));
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(41L, "낮잠1", ConditionTag.RECOVERY, 30, null),
                 queue(42L, "낮잠2", ConditionTag.RECOVERY, 30, null),
                 queue(43L, "낮잠3", ConditionTag.RECOVERY, 30, null),
@@ -227,20 +227,13 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("소요시간 미정 카드는 후보에서 제외, 완료 카드도 제외")
-    void undefinedEstimateAndDoneExcluded() {
+    @DisplayName("후보 조회는 findActiveQueueCards 결과를 그대로 신뢰한다 (완료·소요시간 미정 제외는 쿼리 책임)")
+    void usesActiveQueueCardsFromRepository() {
         givenConditionTag("핵심 작업");
         givenSaveReturnsArgument();
-        Schedule done = Schedule.builder()
-                .scheduleId(31L).memberId(MEMBER_ID).title("끝난 일")
-                .conditionTag(ConditionTag.CORE_TASK).estimatedTime(30)
-                .isQueue(true).status(ScheduleStatus.DONE)
-                .createdAt(LocalDateTime.of(2026, 6, 1, 0, 0))
-                .build();
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
-                queue(32L, "소요시간 미정", ConditionTag.CORE_TASK, null, null),
-                done,
+        // findActiveQueueCards 가 이미 DONE·소요시간 미정을 걸러 반환한다고 가정
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(33L, "정상 카드", ConditionTag.CORE_TASK, 30, null)));
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
@@ -254,7 +247,7 @@ class RecommendationServiceTest {
     void noCandidatesReturnsEmptyList() {
         givenConditionTag("핵심 작업");
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of());
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
 
@@ -271,7 +264,7 @@ class RecommendationServiceTest {
         givenConditionTag("존재하지 않는 라벨");
         givenSaveReturnsArgument();
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(41L, "루틴 업무", ConditionTag.DAILY_TASK, 30, null)));
 
         RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
@@ -286,7 +279,7 @@ class RecommendationServiceTest {
         givenConditionTag("핵심 작업");
         givenSaveReturnsArgument();
         when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
-        when(scheduleRepository.findByMemberIdAndIsQueueTrue(MEMBER_ID)).thenReturn(List.of(
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
                 queue(51L, "마감 셋째", ConditionTag.CORE_TASK, 30, LocalDate.parse("2026-07-07")),
                 queue(52L, "마감 첫째", ConditionTag.CORE_TASK, 30, LocalDate.parse("2026-07-04")),
                 queue(53L, "마감 없음", ConditionTag.CORE_TASK, 30, null),

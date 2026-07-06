@@ -96,10 +96,8 @@ public class RecommendationService {
         List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
                 date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES, DEFAULT_MIN_GAP_MINUTES);
 
-        // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2) 제외
-        Map<Long, Schedule> candidateById = scheduleRepository.findByMemberIdAndIsQueueTrue(memberId).stream()
-                .filter(s -> s.getStatus() != ScheduleStatus.DONE)
-                .filter(s -> s.getEstimatedTime() != null)
+        // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2)은 쿼리에서 제외되어 조회됨
+        Map<Long, Schedule> candidateById = scheduleRepository.findActiveQueueCards(memberId).stream()
                 .collect(Collectors.toMap(Schedule::getScheduleId, Function.identity()));
         List<QueueCard> cards = candidateById.values().stream()
                 .map(s -> new QueueCard(s.getScheduleId(), s.getConditionTag(),
@@ -267,6 +265,7 @@ public class RecommendationService {
                     .isQueue(false)
                     .isRecurring(false)
                     .isConflict(false)
+                    .isRemindOn(false)
                     .status(ScheduleStatus.TODO)
                     .build());
             scheduleId = saved.getScheduleId();

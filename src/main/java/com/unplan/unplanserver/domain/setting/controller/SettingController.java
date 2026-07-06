@@ -36,4 +36,9 @@ public class SettingController {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(responseDto));
     }
 
+    @GetMapping("alarm-setting")
+    public ResponseEntity<ApiResponse<AlarmSettingResponseDto>> getAlarmSetting(@AuthenticationPrincipal Long memberId) {
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(settingService.getAlarmSetting(memberId)));
+    }
+
 }

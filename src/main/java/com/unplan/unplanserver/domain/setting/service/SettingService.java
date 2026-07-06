@@ -74,4 +74,15 @@ public class SettingService {
         setting.updateAlarmSetting(requestDto);
         return setting.toAlarmSettingResponseDto();
     }
+
+    public AlarmSettingResponseDto getAlarmSetting(Long memberId) {
+        try {
+            return settingRepository.findByMemberId(memberId)
+                    .orElseGet(() -> settingRepository.save(new Setting(memberId)))
+                    .toAlarmSettingResponseDto();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            return settingRepository.findByMemberId(memberId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.SETTING_NOT_FOUND)).toAlarmSettingResponseDto();
+        }
+    }
 }

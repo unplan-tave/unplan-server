@@ -1,7 +1,11 @@
 package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
+import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResponse;
+import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResult;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse.EmptyTime;
@@ -60,11 +64,19 @@ public class RecommendationService {
     /** 회복 수단 후보 길이 상한(분) — Notion 3-1 "최대 30분" */
     static final int RECOVERY_MEAN_MAX_MINUTES = 30;
 
+    /** 큐카드 7일 추천 기본 탐색 범위(일) */
+    static final int QUEUE_CARD_DEFAULT_RANGE_DAYS = 7;
+    /** 큐카드 추천 확장 탐색 범위(일) — Figma "14일 이내로 찾아볼까요?" */
+    static final int QUEUE_CARD_EXTENDED_RANGE_DAYS = 14;
+    /** 온보딩 수면 패턴(sleepTimeline) 문자열 길이 = 24시간 (1문자 = 1시간, '1' = 수면) */
+    static final int BIORHYTHM_TIMELINE_HOURS = 24;
+
     private final ScheduleService scheduleService;
     private final ScheduleRepository scheduleRepository;
     private final RecommendationRepository recommendationRepository;
     private final MeasurementService measurementService;
     private final RecoverService recoverService;
+    private final BiorhythmRepository biorhythmRepository;
     private final EmptyTimeFinder emptyTimeFinder;
     private final RecommendationMatcher matcher;
 
@@ -128,6 +140,113 @@ public class RecommendationService {
 
         // 어떤 빈 시간에도 넣을 후보가 없음 (오류 케이스 ①빈시간X ②빈시간O·매칭카드X)
         return new RecommendationListResponse(date, current.name(), null, List.of());
+    }
+
+    /**
+     * 큐 카드 7일(확장 시 14일) 추천 시간대 생성 (Notion "GET /schedule/{scheduleId}/recommendations").
+     * 대상 큐 카드를 핀 카드로 전환할 후보 시간대를, 오늘부터 {@code rangeDays} 이내에서 날짜별 1개씩 찾는다.
+     *
+     * @param rangeDays 탐색 범위(일). 7(기본) 또는 14(확장)
+     */
+    @Transactional
+    public QueueCardRecommendationResult getQueueCardRecommendations(Long memberId, Long scheduleId, int rangeDays) {
+        return generateQueueCardRecommendations(memberId, scheduleId, rangeDays, LocalDateTime.now());
+    }
+
+    /** now 를 주입받는 내부 진입점 (테스트 용이성) */
+    @Transactional
+    public QueueCardRecommendationResult generateQueueCardRecommendations(Long memberId, Long scheduleId,
+                                                                          int rangeDays, LocalDateTime now) {
+        // 1. 대상 큐 카드 로드 & 검증
+        Schedule card = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
+        if (!Boolean.TRUE.equals(card.getIsQueue()) || card.getStatus() == ScheduleStatus.DONE) {
+            // 이미 핀 카드이거나 완료된 일정은 '핀 전환' 대상이 아니다
+            throw new CustomException(ErrorCode.NOT_A_QUEUE_CARD);
+        }
+        Integer estimatedTime = card.getEstimatedTime();
+        if (estimatedTime == null) {
+            // 소요시간 미정이면 슬롯 길이 기준이 없어 탐색 불가 → 소요시간 입력 유도 (Figma "소요시간 변경")
+            return QueueCardRecommendationResult.ofNoSlot(false, true);
+        }
+
+        // 이 큐 카드의 이전 노출분(미수락분) 정리 후 재생성 (수락 이력은 보존)
+        recommendationRepository.deleteByMemberIdAndSourceScheduleIdAndAcceptedScheduleIdIsNull(memberId, scheduleId);
+
+        // 2. 수면 시간대(온보딩 sleepTimeline)를 busy 로 — 미래 날짜에도 수면 중 시간대는 추천하지 않음
+        List<TimeRange> sleepBusy = sleepBusyRanges(memberId);
+
+        // 3. 날짜별 탐색: 오늘 ~ 오늘+rangeDays-1, 각 날짜의 가장 이른 '들어맞는' 빈 시간 1개
+        LocalDate today = now.toLocalDate();
+        List<Recommendation> saved = new ArrayList<>();
+        int order = 0;
+        for (int d = 0; d < rangeDays; d++) {
+            LocalDate date = today.plusDays(d);
+            LocalTime windowStart = date.equals(today) ? now.toLocalTime() : LocalTime.MIDNIGHT;
+
+            List<TimeRange> busy = new ArrayList<>(sleepBusy);
+            scheduleService.findSchedulesWithRecurring(memberId, date).stream()
+                    .filter(s -> s.getStartTime() != null && s.getEndTime() != null)
+                    .forEach(s -> busy.add(new TimeRange(s.getStartTime(), s.getEndTime())));
+
+            List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
+                    date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES, DEFAULT_MIN_GAP_MINUTES);
+            // 슬롯은 시각 오름차순이라 findFirst = 그날 가장 이른, 소요시간이 들어가는 슬롯
+            TimeSlot pick = slots.stream()
+                    .filter(s -> estimatedTime <= s.durationMinutes())
+                    .findFirst().orElse(null);
+            if (pick == null) continue;
+
+            // 추천 시간 = 슬롯 시작 + 소요시간 (Notion "기존과 동일한 소요 시간"). 정확히 24:00이면 00:00 으로 wrap(=24:00 규약)
+            LocalTime startTime = pick.start();
+            LocalTime endTime = startTime.plusMinutes(estimatedTime);
+            saved.add(recommendationRepository.save(Recommendation.builder()
+                    .memberId(memberId)
+                    .date(date)
+                    .title(card.getTitle())
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .conditionTag(card.getConditionTag())
+                    .sourceType(RecommendationSourceType.QUEUE_CARD)
+                    .sourceScheduleId(scheduleId)
+                    .displayOrder(order++)
+                    .build()));
+        }
+
+        // 4. 무슬롯 분기 — 7일이면 14일 확장 유도, 14일까지 없으면 소요시간 변경만 가능
+        if (saved.isEmpty()) {
+            boolean canExtend = rangeDays < QUEUE_CARD_EXTENDED_RANGE_DAYS;
+            return QueueCardRecommendationResult.ofNoSlot(canExtend, !canExtend);
+        }
+
+        List<QueueCardRecommendationResponse.Slot> slotItems = saved.stream()
+                .map(r -> new QueueCardRecommendationResponse.Slot(
+                        r.getRecommendId(), r.getDate(), r.getStartTime(), r.getEndTime(), r.getDisplayOrder()))
+                .toList();
+        return QueueCardRecommendationResult.ofSuccess(new QueueCardRecommendationResponse(
+                scheduleId, card.getTitle(), estimatedTime, rangeDays, slotItems));
+    }
+
+    /**
+     * 온보딩 수면 패턴(sleepTimeline, 24자·'1'=수면)을 하루 안의 busy 시간 구간 목록으로 변환한다.
+     * 인접한 수면 시각은 EmptyTimeFinder 가 병합하므로 여기선 시각별로 나눠 넣는다.
+     * 하루 끝(23시)에 걸친 수면은 24:00 을 LocalTime 으로 표현할 수 없어 23:59 로 클램핑한다
+     * (잔여 [23:59,24:00) 1분은 어떤 큐 카드도 들어가지 못해 무해). 패턴이 없으면 빈 목록.
+     */
+    private List<TimeRange> sleepBusyRanges(Long memberId) {
+        String timeline = biorhythmRepository.findByMemberId(memberId)
+                .map(Biorhythm::getSleepTimeline).orElse(null);
+        if (timeline == null || timeline.length() < BIORHYTHM_TIMELINE_HOURS) {
+            return List.of();
+        }
+        List<TimeRange> ranges = new ArrayList<>();
+        for (int hour = 0; hour < BIORHYTHM_TIMELINE_HOURS; hour++) {
+            if (timeline.charAt(hour) != '1') continue;
+            LocalTime start = LocalTime.of(hour, 0);
+            LocalTime end = hour == 23 ? LocalTime.of(23, 59) : LocalTime.of(hour + 1, 0);
+            ranges.add(new TimeRange(start, end));
+        }
+        return ranges;
     }
 
     private RecommendationListResponse persistAndRespond(Long memberId, LocalDate date, ConditionTag current,

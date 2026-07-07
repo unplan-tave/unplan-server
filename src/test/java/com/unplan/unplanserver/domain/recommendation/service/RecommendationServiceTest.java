@@ -2,7 +2,10 @@ package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
+import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
+import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResult;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.engine.EmptyTimeFinder;
@@ -58,13 +61,15 @@ class RecommendationServiceTest {
     @Mock private RecommendationRepository recommendationRepository;
     @Mock private MeasurementService measurementService;
     @Mock private RecoverService recoverService;
+    @Mock private BiorhythmRepository biorhythmRepository;
 
     private RecommendationService service;
 
     @BeforeEach
     void setUp() {
         service = new RecommendationService(scheduleService, scheduleRepository, recommendationRepository,
-                measurementService, recoverService, new EmptyTimeFinder(), new RecommendationMatcher());
+                measurementService, recoverService, biorhythmRepository,
+                new EmptyTimeFinder(), new RecommendationMatcher());
     }
 
     // ─────────────────────────── 헬퍼 ───────────────────────────
@@ -293,6 +298,132 @@ class RecommendationServiceTest {
                 .containsExactly("마감 첫째", "마감 둘째", "마감 셋째"); // 마감 넷째·마감 없음은 3개 초과로 잘림
         assertThat(res.recommendations()).extracting(RecommendationListResponse.RecommendationItem::displayOrder)
                 .containsExactly(0, 1, 2);
+    }
+
+    // ─────────────────────────── 큐카드 7일 추천 ───────────────────────────
+
+    @Test
+    @DisplayName("7일 추천: 날짜별 가장 이른 빈 시간 1개씩, 오늘은 현재 시각부터 배치된다")
+    void queueCardSevenDayRecommendation() {
+        givenSaveReturnsArgument();
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "이력서 작성", ConditionTag.CORE_TASK, 30, null)));
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        assertThat(result.hasSlots()).isTrue();
+        assertThat(result.success().scheduleId()).isEqualTo(77L);
+        assertThat(result.success().title()).isEqualTo("이력서 작성");
+        assertThat(result.success().estimatedTime()).isEqualTo(30);
+        assertThat(result.success().rangeDays()).isEqualTo(7);
+        assertThat(result.success().slots()).hasSize(7);
+        // 오늘: 현재 시각(14:00)부터
+        assertThat(result.success().slots().get(0).date()).isEqualTo(TODAY);
+        assertThat(result.success().slots().get(0).startTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(result.success().slots().get(0).endTime()).isEqualTo(LocalTime.parse("14:30"));
+        assertThat(result.success().slots().get(0).displayOrder()).isZero();
+        // 미래 날짜: 하루 시작(00:00)부터
+        assertThat(result.success().slots().get(1).date()).isEqualTo(TODAY.plusDays(1));
+        assertThat(result.success().slots().get(1).startTime()).isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(result.success().slots().get(1).displayOrder()).isEqualTo(1);
+        assertThat(result.success().slots().get(6).date()).isEqualTo(TODAY.plusDays(6));
+        // 재생성: 이 큐카드의 이전 노출분 정리
+        verify(recommendationRepository)
+                .deleteByMemberIdAndSourceScheduleIdAndAcceptedScheduleIdIsNull(MEMBER_ID, 77L);
+    }
+
+    @Test
+    @DisplayName("7일 추천: 수면 시간대(sleepTimeline)에는 슬롯을 배치하지 않는다")
+    void queueCardSevenDayExcludesSleep() {
+        givenSaveReturnsArgument();
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "이력서 작성", ConditionTag.CORE_TASK, 30, null)));
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        // 수면 00~06시(0~6) + 23시 → 미래 날짜의 이른 빈 시간은 수면 06:00 + 버퍼 15분 = 07:15부터
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(
+                Biorhythm.builder().memberId(MEMBER_ID)
+                        .focusedTimeline("000000000000000000000000")
+                        .drowsyTimeline("000000000000000000000000")
+                        .sleepTimeline("111111100000000000000001")
+                        .build()));
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        // 미래 날짜(내일): 07:15부터 (수면 07:00 종료 + 버퍼 15분)
+        assertThat(result.success().slots().get(1).date()).isEqualTo(TODAY.plusDays(1));
+        assertThat(result.success().slots().get(1).startTime()).isEqualTo(LocalTime.parse("07:15"));
+    }
+
+    @Test
+    @DisplayName("7일 내 후보 없음: 409 canExtendTo14Days=true (소요시간 변경 아님)")
+    void queueCardSevenDayNoSlotCanExtend() {
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "긴 일정", ConditionTag.CORE_TASK, 2000, null))); // 하루보다 김
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        assertThat(result.hasSlots()).isFalse();
+        assertThat(result.noSlot().canExtendTo14Days()).isTrue();
+        assertThat(result.noSlot().mustChangeDuration()).isFalse();
+        verify(recommendationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("14일까지도 후보 없음: 409 mustChangeDuration=true (더 이상 확장 불가)")
+    void queueCardFourteenDayNoSlotMustChangeDuration() {
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "긴 일정", ConditionTag.CORE_TASK, 2000, null)));
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 14, NOW);
+
+        assertThat(result.hasSlots()).isFalse();
+        assertThat(result.noSlot().canExtendTo14Days()).isFalse();
+        assertThat(result.noSlot().mustChangeDuration()).isTrue();
+    }
+
+    @Test
+    @DisplayName("소요시간 미정(estimatedTime=null) 큐카드: 즉시 409 mustChangeDuration=true, 탐색/정리 안 함")
+    void queueCardWithoutEstimatedTime() {
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "시간 미정", ConditionTag.CORE_TASK, null, null)));
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        assertThat(result.hasSlots()).isFalse();
+        assertThat(result.noSlot().canExtendTo14Days()).isFalse();
+        assertThat(result.noSlot().mustChangeDuration()).isTrue();
+        verify(recommendationRepository, never())
+                .deleteByMemberIdAndSourceScheduleIdAndAcceptedScheduleIdIsNull(anyLong(), anyLong());
+        verifyNoInteractions(scheduleService, biorhythmRepository);
+    }
+
+    @Test
+    @DisplayName("큐카드가 아닌 일정(핀 카드)에는 NOT_A_QUEUE_CARD")
+    void queueCardNotAQueue() {
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(pin("14:00", "15:00"))); // isQueue=false
+
+        assertThatThrownBy(() -> service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_A_QUEUE_CARD);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 큐카드는 SCHEDULE_NOT_FOUND")
+    void queueCardNotFound() {
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_NOT_FOUND);
     }
 
     // ─────────────────────────── 수락 / 거절 ───────────────────────────

@@ -18,6 +18,9 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
+import com.unplan.unplanserver.domain.setting.entity.Setting;
+import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,13 +65,15 @@ class RecommendationServiceTest {
     @Mock private MeasurementService measurementService;
     @Mock private RecoverService recoverService;
     @Mock private BiorhythmRepository biorhythmRepository;
+    @Mock private SettingRepository settingRepository;
 
     private RecommendationService service;
 
     @BeforeEach
     void setUp() {
+        // settingRepository 는 기본이 Optional.empty() = 설정 없는 회원(제약 없음). 설정 반영 테스트에서만 스텁.
         service = new RecommendationService(scheduleService, scheduleRepository, recommendationRepository,
-                measurementService, recoverService, biorhythmRepository,
+                measurementService, recoverService, biorhythmRepository, settingRepository,
                 new EmptyTimeFinder(), new RecommendationMatcher());
     }
 
@@ -152,6 +157,46 @@ class RecommendationServiceTest {
         assertThat(res.recommendations()).hasSize(1);
         assertThat(res.recommendations().get(0).startTime()).isEqualTo(LocalTime.parse("16:15"));
         assertThat(res.recommendations().get(0).endTime()).isEqualTo(LocalTime.parse("17:15"));
+    }
+
+    @Test
+    @DisplayName("설정(#83)의 '최소 여유 시간' 미만 슬롯은 건너뛴다")
+    void minGapSettingSkipsShortSlots() {
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        Setting setting = new Setting(MEMBER_ID);
+        setting.update(new EmptyTimeSettingRequestDto(true, 60, false, null)); // 최소 60분, 제외 시간대 off
+        when(settingRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(setting));
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of(pin("15:00", "16:00")));
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(11L, "과제", ConditionTag.CORE_TASK, 30, null)));
+
+        RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
+
+        // 14:00~14:45(45분)는 최소 여유 시간 60분 미만이라 탈락 → 16:15~자정 슬롯에 배치
+        assertThat(res.emptyTime().startTime()).isEqualTo(LocalTime.parse("16:15"));
+        assertThat(res.recommendations().get(0).startTime()).isEqualTo(LocalTime.parse("16:15"));
+    }
+
+    @Test
+    @DisplayName("설정(#83)의 '추천 제외 시간대'는 버퍼 없이 그대로 차단된다")
+    void banTimeSettingBlocksWithoutBuffer() {
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        Setting setting = new Setting(MEMBER_ID);
+        setting.update(new EmptyTimeSettingRequestDto(false, null, true,
+                List.of(new EmptyTimeSettingRequestDto.RecommendBanTime(
+                        LocalTime.parse("18:00"), LocalTime.parse("23:59")))));
+        when(settingRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(setting));
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(11L, "과제", ConditionTag.CORE_TASK, 30, null)));
+
+        RecommendationListResponse res = service.generate(MEMBER_ID, TODAY, NOW);
+
+        // 빈 시간: 14:00~18:00. 제외 시간대에 핀 카드용 15분 버퍼가 붙으면 17:45 로 끝나므로 18:00 확인이 핵심
+        assertThat(res.emptyTime().startTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(res.emptyTime().endTime()).isEqualTo(LocalTime.parse("18:00"));
     }
 
     @Test

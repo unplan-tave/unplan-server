@@ -42,6 +42,17 @@ public class EmptyTimeFinder {
      */
     public List<TimeSlot> findFreeSlots(LocalDate date, LocalTime windowStart, LocalTime windowEnd,
                                         List<TimeRange> busy, int bufferMinutes, int minGapMinutes) {
+        return findFreeSlots(date, windowStart, windowEnd, busy, bufferMinutes, minGapMinutes, List.of());
+    }
+
+    /**
+     * @param banned 버퍼 없이 그대로 차단할 구간들 — '추천 제외 시간대' 설정(#83).
+     *               버퍼는 실제 일정 앞뒤의 전환 여유를 위한 것이라, 사용자가 경계를 직접 정한
+     *               제외 시간대에 덧붙이면 설정 의도보다 넓게 차단하게 되어 적용하지 않는다.
+     */
+    public List<TimeSlot> findFreeSlots(LocalDate date, LocalTime windowStart, LocalTime windowEnd,
+                                        List<TimeRange> busy, int bufferMinutes, int minGapMinutes,
+                                        List<TimeRange> banned) {
         int windowStartMin = TimeRange.toMinuteOfDay(windowStart)
                 + ((windowStart.getSecond() > 0 || windowStart.getNano() > 0) ? 1 : 0);
         int windowEndMin = windowEnd.equals(LocalTime.MIDNIGHT)
@@ -51,12 +62,10 @@ public class EmptyTimeFinder {
         // 1. 핀 구간에 버퍼를 적용하고 탐색 범위로 클리핑한 '차단 구간' 목록
         List<int[]> blocks = new ArrayList<>();
         for (TimeRange b : busy) {
-            int s = TimeRange.toMinuteOfDay(b.start());
-            int e = TimeRange.toMinuteOfDay(b.end());
-            if (s >= e) continue; // 비정상 구간 방어
-            int blockStart = Math.max(s - bufferMinutes, windowStartMin);
-            int blockEnd = Math.min(e + bufferMinutes, windowEndMin);
-            if (blockStart < blockEnd) blocks.add(new int[]{blockStart, blockEnd});
+            addBlock(blocks, b, bufferMinutes, windowStartMin, windowEndMin);
+        }
+        for (TimeRange b : banned) {
+            addBlock(blocks, b, 0, windowStartMin, windowEndMin);
         }
         blocks.sort(Comparator.comparingInt(a -> a[0]));
 
@@ -79,6 +88,16 @@ public class EmptyTimeFinder {
         return slots.stream()
                 .filter(s -> s.durationMinutes() >= requiredMinutes)
                 .toList();
+    }
+
+    private void addBlock(List<int[]> blocks, TimeRange range, int bufferMinutes,
+                          int windowStartMin, int windowEndMin) {
+        int s = TimeRange.toMinuteOfDay(range.start());
+        int e = TimeRange.toMinuteOfDay(range.end());
+        if (s >= e) return; // 비정상 구간 방어
+        int blockStart = Math.max(s - bufferMinutes, windowStartMin);
+        int blockEnd = Math.min(e + bufferMinutes, windowEndMin);
+        if (blockStart < blockEnd) blocks.add(new int[]{blockStart, blockEnd});
     }
 
     private void addSlotIfLongEnough(List<TimeSlot> slots, LocalDate date, int startMin, int endMin, int minGapMinutes) {

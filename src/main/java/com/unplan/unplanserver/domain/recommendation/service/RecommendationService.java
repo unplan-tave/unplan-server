@@ -23,6 +23,7 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +57,7 @@ public class RecommendationService {
 
     /** 핀 카드 앞뒤 버퍼(분) — Notion 1-4 */
     static final int BUFFER_MINUTES = 15;
-    /** '최소 여유 시간' 기본값. #83(빈시간 추천 설정) 머지 후 회원 설정값 read 로 교체 */
+    /** '최소 여유 시간' 폴백 — 회원 Setting(#83)이 없거나 빈시간 추천 기준이 꺼져 있을 때 */
     static final int DEFAULT_MIN_GAP_MINUTES = 0;
     /** 한 번에 노출하는 최대 추천 수 (PM 확정 2026-07-04: Figma는 4개지만 부담을 줄이려 3개로 축소) */
     static final int MAX_RECOMMENDATIONS = 3;
@@ -77,6 +78,7 @@ public class RecommendationService {
     private final MeasurementService measurementService;
     private final RecoverService recoverService;
     private final BiorhythmRepository biorhythmRepository;
+    private final SettingRepository settingRepository;
     private final EmptyTimeFinder emptyTimeFinder;
     private final RecommendationMatcher matcher;
 
@@ -99,14 +101,16 @@ public class RecommendationService {
         // 이전 노출분(미수락분) 정리 후 재생성 (수락 이력은 보존)
         recommendationRepository.deleteByMemberIdAndDateAndAcceptedScheduleIdIsNull(memberId, date);
 
-        // 2. 빈 시간 탐색 — 반복 인스턴스를 포함한 핀 카드가 busy
+        // 2. 빈 시간 탐색 — 반복 인스턴스를 포함한 핀 카드가 busy, 회원 설정(#83)의 최소 여유 시간·제외 시간대 반영
+        EmptyTimeSettings settings = emptyTimeSettings(memberId);
         LocalTime windowStart = date.equals(now.toLocalDate()) ? now.toLocalTime() : LocalTime.MIDNIGHT;
         List<TimeRange> busy = scheduleService.findSchedulesWithRecurring(memberId, date).stream()
                 .filter(s -> s.getStartTime() != null && s.getEndTime() != null)
                 .map(s -> new TimeRange(s.getStartTime(), s.getEndTime()))
                 .toList();
         List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
-                date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES, DEFAULT_MIN_GAP_MINUTES);
+                date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES,
+                settings.minGapMinutes(), settings.banRanges());
 
         // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2)은 쿼리에서 제외되어 조회됨
         Map<Long, Schedule> candidateById = scheduleRepository.findActiveQueueCards(memberId).stream()
@@ -175,6 +179,8 @@ public class RecommendationService {
 
         // 2. 수면 시간대(온보딩 sleepTimeline)를 busy 로 — 미래 날짜에도 수면 중 시간대는 추천하지 않음
         List<TimeRange> sleepBusy = sleepBusyRanges(memberId);
+        // 회원 설정(#83) — 제외 시간대는 매일 반복(LocalTime)이라 모든 탐색 날짜에 동일 적용
+        EmptyTimeSettings settings = emptyTimeSettings(memberId);
 
         // 3. 날짜별 탐색: 오늘 ~ 오늘+rangeDays-1, 각 날짜의 가장 이른 '들어맞는' 빈 시간 1개
         LocalDate today = now.toLocalDate();
@@ -190,7 +196,8 @@ public class RecommendationService {
                     .forEach(s -> busy.add(new TimeRange(s.getStartTime(), s.getEndTime())));
 
             List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
-                    date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES, DEFAULT_MIN_GAP_MINUTES);
+                    date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES,
+                    settings.minGapMinutes(), settings.banRanges());
             // 슬롯은 시각 오름차순이라 findFirst = 그날 가장 이른, 소요시간이 들어가는 슬롯
             TimeSlot pick = slots.stream()
                     .filter(s -> estimatedTime <= s.durationMinutes())
@@ -233,6 +240,29 @@ public class RecommendationService {
      * 하루 끝(23시)에 걸친 수면은 24:00 을 LocalTime 으로 표현할 수 없어 23:59 로 클램핑한다
      * (잔여 [23:59,24:00) 1분은 어떤 큐 카드도 들어가지 못해 무해). 패턴이 없으면 빈 목록.
      */
+    /** 빈시간 추천 설정(#83) 스냅샷 — 최소 여유 시간(minGap)과 추천 제외 시간대 */
+    record EmptyTimeSettings(int minGapMinutes, List<TimeRange> banRanges) {
+        static final EmptyTimeSettings NONE = new EmptyTimeSettings(DEFAULT_MIN_GAP_MINUTES, List.of());
+    }
+
+    /**
+     * 회원의 빈시간 추천 설정(#83)을 읽는다 (read-only 연동, 쓰기는 SettingService 소유).
+     * Setting 행이 없으면(설정 화면 미진입 회원) 제약 없이 추천한다.
+     * 각 항목의 on/off 플래그가 꺼져 있으면 해당 제약만 무시한다.
+     */
+    private EmptyTimeSettings emptyTimeSettings(Long memberId) {
+        return settingRepository.findByMemberId(memberId)
+                .map(s -> new EmptyTimeSettings(
+                        Boolean.TRUE.equals(s.getIsEmptyTimeRecommendOn()) && s.getEmptyTimeCriteriaMinutes() != null
+                                ? s.getEmptyTimeCriteriaMinutes() : DEFAULT_MIN_GAP_MINUTES,
+                        Boolean.TRUE.equals(s.getIsRecommendBanTimeOn())
+                                ? s.getRecommendBanTimeList().stream()
+                                        .map(b -> new TimeRange(b.getStartTime(), b.getEndTime()))
+                                        .toList()
+                                : List.of()))
+                .orElse(EmptyTimeSettings.NONE);
+    }
+
     private List<TimeRange> sleepBusyRanges(Long memberId) {
         String timeline = biorhythmRepository.findByMemberId(memberId)
                 .map(Biorhythm::getSleepTimeline).orElse(null);

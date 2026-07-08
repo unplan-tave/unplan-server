@@ -14,7 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/member-settings")
+@RequestMapping("/member-settings")
 @RequiredArgsConstructor
 public class SettingController {
     private final SettingService settingService;

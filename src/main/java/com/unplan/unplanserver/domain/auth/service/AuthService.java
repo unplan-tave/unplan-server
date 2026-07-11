@@ -6,7 +6,7 @@ import com.unplan.unplanserver.domain.auth.dto.request.KakaoLoginRequestDto;
 import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
 import com.unplan.unplanserver.domain.auth.dto.response.SocialLoginResponseDto;
 import com.unplan.unplanserver.domain.auth.dto.response.TokenReissueResponseDto;
-import com.unplan.unplanserver.domain.auth.webclient.KakaoAuthClient;
+import com.unplan.unplanserver.webclient.KakaoAuthClient;
 import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @AllArgsConstructor

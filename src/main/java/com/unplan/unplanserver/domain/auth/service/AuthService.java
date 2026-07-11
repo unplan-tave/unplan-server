@@ -11,6 +11,8 @@ import com.unplan.unplanserver.domain.jwt.entity.Refresh;
 import com.unplan.unplanserver.domain.jwt.repository.RefreshRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.domain.setting.entity.Setting;
+import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.common.TokenPair;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
@@ -32,6 +34,7 @@ public class AuthService {
     private final MemberRepository memberRepository;
     private final JwtUtil jwtUtil;
     private final GoogleIdTokenValidator googleIdTokenValidator;
+    private final SettingRepository settingRepository;
 
     @Transactional
     public SocialLoginResponseDto kakaoLogin(KakaoLoginRequestDto requestDto) {
@@ -45,6 +48,8 @@ public class AuthService {
             // 회원가입(DB에 추가)
             member = Member.fromKakao(kakaoUserInfo);
             memberRepository.save(member);
+            Setting setting = new Setting(member.getMemberId());
+            settingRepository.save(setting);
         }
         //로그인
         else{
@@ -67,6 +72,8 @@ public class AuthService {
         if(member == null){
             member = Member.fromGoogle(googleUserInfoDto);
             memberRepository.save(member);
+            Setting setting = new Setting(member.getMemberId());
+            settingRepository.save(setting);
             isNewMember = true;
         }
         // 로그인

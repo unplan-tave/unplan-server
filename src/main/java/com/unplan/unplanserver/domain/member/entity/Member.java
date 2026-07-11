@@ -106,6 +106,9 @@ public class Member {
         }
     }
 
+    public void completeOnboarding() {
+        this.onboardingCompleted = true;
+    }
     private boolean notBlank(String str) {
         return str != null && !str.trim().isEmpty();
     }

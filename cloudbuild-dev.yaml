@@ -15,7 +15,8 @@ steps:
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
           --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \
-          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID"
+          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID" \
+          --set-env-vars "DEVELOP_SERVER_URL=https://dev-api.un-plan.com"
     secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID']
 
 options:

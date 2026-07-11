@@ -144,8 +144,18 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         schedule.update(request);
+
+        // personalTags가 요청에 포함된 경우에만 태그 전체 교체 (null = 기존 유지, 빈 배열 = 전체 해제)
+        List<String> tagNames;
+        if (request.getPersonalTags() != null) {
+            tagService.detachAll(schedule);
+            tagNames = tagService.attachTags(schedule, memberId, request.getPersonalTags());
+        } else {
+            tagNames = tagService.getTagNamesBySchedule(schedule);
+        }
+
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo, tagService.getTagNamesBySchedule(schedule));
+        return ScheduleDetailResponse.from(schedule, locationInfo, tagNames);
     }
 
     @Transactional

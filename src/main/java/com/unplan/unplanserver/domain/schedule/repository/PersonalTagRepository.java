@@ -12,4 +12,7 @@ public interface PersonalTagRepository extends JpaRepository<PersonalTag, Long> 
     Optional<PersonalTag> findByMemberIdAndNameIgnoreCase(Long memberId, String name);
 
     List<PersonalTag> findByMemberIdOrderByName(Long memberId);
+
+    // 계정당 태그 생성 한도(100개) 검사용
+    long countByMemberId(Long memberId);
 }

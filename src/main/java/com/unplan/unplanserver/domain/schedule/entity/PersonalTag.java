@@ -24,6 +24,7 @@ public class PersonalTag {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
-    @Column(name = "name", nullable = false, length = 50)
+    // Figma 스펙: 태그 글자수 1~25자
+    @Column(name = "name", nullable = false, length = 25)
     private String name;
 }

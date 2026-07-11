@@ -5,6 +5,8 @@ import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.entity.SchedulePersonalTag;
 import com.unplan.unplanserver.domain.schedule.repository.PersonalTagRepository;
 import com.unplan.unplanserver.domain.schedule.repository.SchedulePersonalTagRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +70,40 @@ class TagServiceTest {
         assertTrue(tagService.attachTags(schedule, 1L, null).isEmpty());
         assertTrue(tagService.attachTags(schedule, 1L, List.of()).isEmpty());
         verifyNoInteractions(personalTagRepository, schedulePersonalTagRepository);
+    }
+
+    @Test
+    @DisplayName("attachTags — 계정당 태그 100개 도달 후 새 태그 생성 시 PERSONAL_TAG_LIMIT_EXCEEDED")
+    void attachTagsLimitExceeded() {
+        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "새태그")).thenReturn(Optional.empty());
+        when(personalTagRepository.countByMemberId(1L)).thenReturn(100L);
+
+        CustomException e = assertThrows(CustomException.class,
+                () -> tagService.attachTags(schedule, 1L, List.of("새태그")));
+
+        assertEquals(ErrorCode.PERSONAL_TAG_LIMIT_EXCEEDED, e.getErrorCode());
+        verify(personalTagRepository, never()).save(any(PersonalTag.class));
+        verify(schedulePersonalTagRepository, never()).save(any(SchedulePersonalTag.class));
+    }
+
+    @Test
+    @DisplayName("attachTags — 99개까지는 새 태그 생성 허용 (한도 경계)")
+    void attachTagsAllowedBelowLimit() {
+        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "새태그")).thenReturn(Optional.empty());
+        when(personalTagRepository.countByMemberId(1L)).thenReturn(99L);
+        when(personalTagRepository.save(any(PersonalTag.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals(List.of("새태그"), tagService.attachTags(schedule, 1L, List.of("새태그")));
+    }
+
+    @Test
+    @DisplayName("attachTags — 한도에 도달해도 기존 태그 재사용은 허용 (생성이 아니므로 카운트 검사 안 함)")
+    void attachTagsReuseAllowedAtLimit() {
+        PersonalTag existing = PersonalTag.builder().personalTagId(5L).memberId(1L).name("건강").build();
+        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "건강")).thenReturn(Optional.of(existing));
+
+        assertEquals(List.of("건강"), tagService.attachTags(schedule, 1L, List.of("건강")));
+        verify(personalTagRepository, never()).countByMemberId(anyLong());
     }
 
     @Test

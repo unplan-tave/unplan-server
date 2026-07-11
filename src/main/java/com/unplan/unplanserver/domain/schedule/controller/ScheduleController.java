@@ -97,13 +97,13 @@ public class ScheduleController {
         return ResponseEntity.ok(scheduleService.getScheduleDetail(memberId, scheduleId));
     }
 
-    @Operation(summary = "일정 수정", description = "특정 일정의 정보를 수정합니다. 전달한 필드만 업데이트됩니다.")
+    @Operation(summary = "일정 수정", description = "특정 일정의 정보를 수정합니다. 전달한 필드만 업데이트됩니다. personalTags를 전달하면 태그 전체가 해당 목록으로 교체됩니다.")
     @PatchMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> updateSchedule(
             @AuthenticationPrincipal Long memberId,
             @Parameter(description = "수정할 일정 ID", example = "1")
             @PathVariable Long scheduleId,
-            @RequestBody ScheduleUpdateRequest request) {
+            @RequestBody @Valid ScheduleUpdateRequest request) {
 
         return ResponseEntity.ok(scheduleService.updateSchedule(memberId, scheduleId, request));
     }

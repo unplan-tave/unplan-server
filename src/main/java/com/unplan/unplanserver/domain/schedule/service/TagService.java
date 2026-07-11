@@ -5,6 +5,8 @@ import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.entity.SchedulePersonalTag;
 import com.unplan.unplanserver.domain.schedule.repository.PersonalTagRepository;
 import com.unplan.unplanserver.domain.schedule.repository.SchedulePersonalTagRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +24,17 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class TagService {
 
+    // Figma 스펙: 한 계정당 개인 태그 100개까지 생성 가능 (기존 태그 재사용은 한도와 무관)
+    private static final int MAX_TAGS_PER_MEMBER = 100;
+
     private final PersonalTagRepository personalTagRepository;
     private final SchedulePersonalTagRepository schedulePersonalTagRepository;
 
     /**
-     * 일정 생성 시 호출. 태그 이름 목록을 받아 멤버 태그를 find-or-create 하고 일정에 연결한다.
+     * 일정 생성·수정 시 호출. 태그 이름 목록을 받아 멤버 태그를 find-or-create 하고 일정에 연결한다.
      * - 공백/빈 토큰 제거, 같은 요청 내 중복 제거(대소문자 무시)
      * - 대소문자만 다른 기존 태그가 있으면 그 태그를 재사용(IgnoreCase), 없으면 생성
+     * - 새 태그 생성은 계정당 100개까지 (초과 시 PERSONAL_TAG_LIMIT_EXCEEDED)
      *
      * @return 실제로 연결된 태그 이름 목록 (기존 태그 재사용 시 저장돼 있던 표기를 따른다)
      */
@@ -45,10 +51,7 @@ public class TagService {
             if (!seen.add(name.toLowerCase())) continue;
 
             PersonalTag tag = personalTagRepository.findByMemberIdAndNameIgnoreCase(memberId, name)
-                    .orElseGet(() -> personalTagRepository.save(PersonalTag.builder()
-                            .memberId(memberId)
-                            .name(name)
-                            .build()));
+                    .orElseGet(() -> createTag(memberId, name));
 
             schedulePersonalTagRepository.save(SchedulePersonalTag.builder()
                     .schedule(schedule)
@@ -57,6 +60,16 @@ public class TagService {
             linked.add(tag.getName());
         }
         return linked;
+    }
+
+    private PersonalTag createTag(Long memberId, String name) {
+        if (personalTagRepository.countByMemberId(memberId) >= MAX_TAGS_PER_MEMBER) {
+            throw new CustomException(ErrorCode.PERSONAL_TAG_LIMIT_EXCEEDED);
+        }
+        return personalTagRepository.save(PersonalTag.builder()
+                .memberId(memberId)
+                .name(name)
+                .build());
     }
 
     /** 일정 삭제 시 해당 일정의 태그 연결을 모두 제거 (조인 행이 FK로 남는 것 방지) */

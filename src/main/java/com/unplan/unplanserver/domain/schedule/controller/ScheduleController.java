@@ -7,6 +7,7 @@ import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailRespon
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
 import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.PersonalTagResponse;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
@@ -78,6 +79,14 @@ public class ScheduleController {
         }
     }
 
+    @Operation(summary = "개인 태그 목록 조회", description = "로그인한 멤버가 등록한 개인 태그 전체를 조회합니다. (태그 검색/재사용 화면용)")
+    @GetMapping("/tags")
+    public ResponseEntity<List<PersonalTagResponse>> getPersonalTags(
+            @AuthenticationPrincipal Long memberId) {
+
+        return ResponseEntity.ok(scheduleService.getPersonalTags(memberId));
+    }
+
     @Operation(summary = "일정 상세 조회", description = "특정 일정의 상세 정보를 조회합니다.")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> getScheduleDetail(
@@ -88,7 +97,7 @@ public class ScheduleController {
         return ResponseEntity.ok(scheduleService.getScheduleDetail(memberId, scheduleId));
     }
 
-    @Operation(summary = "일정 수정", description = "특정 일정의 정보를 수정합니다. 전달한 필드만 업데이트됩니다.")
+    @Operation(summary = "일정 수정", description = "특정 일정의 정보를 수정합니다. 전달한 필드만 업데이트됩니다. personalTags를 전달하면 태그 전체가 해당 목록으로 교체됩니다.")
     @PatchMapping("/{scheduleId}")
     public ResponseEntity<ScheduleDetailResponse> updateSchedule(
             @AuthenticationPrincipal Long memberId,

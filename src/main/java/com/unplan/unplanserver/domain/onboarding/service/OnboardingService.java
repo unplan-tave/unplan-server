@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.onboarding.service;
 
+import com.unplan.unplanserver.domain.member.service.MemberService;
 import com.unplan.unplanserver.domain.onboarding.dto.request.OnboardingRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.request.TransportRequest;
 import com.unplan.unplanserver.domain.onboarding.dto.response.OnboardingResponse;
@@ -18,6 +19,7 @@ public class OnboardingService {
     private final SleepConditionService sleepConditionService;
     private final BiorhythmService biorhythmService;
     private final TransportService transportService;
+    private final MemberService memberService;
 
     public OnboardingResponse saveOnboarding(
             Long memberId,
@@ -35,7 +37,7 @@ public class OnboardingService {
                         request.transportations() == null ? List.of() : request.transportations()
                 )
         );
-
+        memberService.completeOnboarding(memberId);
         return OnboardingResponse.of(memberId);
     }
 }

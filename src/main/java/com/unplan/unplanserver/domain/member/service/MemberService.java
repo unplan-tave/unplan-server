@@ -43,4 +43,13 @@ public class MemberService {
         }
         member.updateProfile(requestDto);
     }
+
+    @Transactional
+    public void completeOnboarding(Long memberId) {
+        if (memberId == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        Member member = memberRepository.findById(memberId).orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        member.completeOnboarding();
+    }
 }

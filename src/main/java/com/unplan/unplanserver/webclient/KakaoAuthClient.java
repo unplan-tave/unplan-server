@@ -1,4 +1,4 @@
-package com.unplan.unplanserver.domain.auth.webclient;
+package com.unplan.unplanserver.webclient;
 
 import com.unplan.unplanserver.domain.auth.dto.response.KakaoUserInfoResponseDto;
 import com.unplan.unplanserver.global.exception.CustomException;

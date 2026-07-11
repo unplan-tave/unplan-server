@@ -13,6 +13,7 @@ import com.unplan.unplanserver.domain.recommendation.dto.response.Recommendation
 import com.unplan.unplanserver.domain.recommendation.engine.EmptyTimeFinder;
 import com.unplan.unplanserver.domain.recommendation.engine.QueueCard;
 import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatcher;
+import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatcher.MatchedCard;
 import com.unplan.unplanserver.domain.recommendation.engine.TimeRange;
 import com.unplan.unplanserver.domain.recommendation.engine.TimeSlot;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
@@ -131,7 +132,7 @@ public class RecommendationService {
                     .filter(c -> c.estimatedMinutes() <= slot.durationMinutes())
                     .toList();
             // 우선순위 티어를 이어 채워 최대 MAX_RECOMMENDATIONS 개 (PM 확정 2026-07-04)
-            List<QueueCard> top = matcher.match(current, fitting, MAX_RECOMMENDATIONS, slot.durationMinutes());
+            List<MatchedCard> top = matcher.match(current, fitting, MAX_RECOMMENDATIONS, slot.durationMinutes());
             // '기력 회복'이면 기력회복 카드 뒤에 '회복 수단' 후보 1건을 덧붙여 총 MAX_RECOMMENDATIONS 를 채운다
             // (PM 확정 2026-07-04: 개별 수단이 아니라 하나의 후보, 수락 시 고른 수단이 제목).
             boolean addRecoveryMean = current == RECOVERY
@@ -280,13 +281,13 @@ public class RecommendationService {
     }
 
     private RecommendationListResponse persistAndRespond(Long memberId, LocalDate date, ConditionTag current,
-                                                         TimeSlot slot, List<QueueCard> top,
+                                                         TimeSlot slot, List<MatchedCard> top,
                                                          Map<Long, Schedule> candidateById,
                                                          List<String> recoveryMeans) {
         List<RecommendationItem> items = new ArrayList<>();
         int order = 0;
         for (; order < top.size(); order++) {
-            QueueCard card = top.get(order);
+            QueueCard card = top.get(order).card();
             Schedule source = candidateById.get(card.scheduleId());
             LocalTime startTime = slot.start();
             // 슬롯 안에 들어가는 카드만 오므로 wrap 은 정확히 24:00(=00:00 규약)에서만 발생
@@ -301,6 +302,7 @@ public class RecommendationService {
                     .conditionTag(card.conditionTag())
                     .sourceType(RecommendationSourceType.QUEUE_CARD)
                     .sourceScheduleId(card.scheduleId())
+                    .matchTier(top.get(order).tier())
                     .displayOrder(order)
                     .build());
 
@@ -313,6 +315,7 @@ public class RecommendationService {
                     card.deadline(),
                     card.conditionTag() != null ? card.conditionTag().name() : null,
                     RecommendationSourceType.QUEUE_CARD.name(),
+                    top.get(order).tier().name(),
                     order,
                     null
             ));
@@ -345,6 +348,7 @@ public class RecommendationService {
                     null,
                     RECOVERY.name(),
                     RecommendationSourceType.RECOVERY_MEAN.name(),
+                    null,
                     order,
                     recoveryMeans
             ));

@@ -133,8 +133,10 @@ class RecommendationServiceTest {
         assertThat(item.endTime()).isEqualTo(LocalTime.parse("14:30"));
         assertThat(item.deadline()).isEqualTo(LocalDate.parse("2026-07-04"));
         assertThat(item.displayOrder()).isZero();
+        assertThat(item.matchTier()).isEqualTo("EXACT"); // 적합도 멘트용 매칭 순위 노출
         assertThat(res.recommendations().get(1).title()).isEqualTo("독서");
         assertThat(res.recommendations().get(1).displayOrder()).isEqualTo(1);
+        assertThat(res.recommendations().get(1).matchTier()).isEqualTo("ADJACENT");
         // 재생성: 이전 PENDING 정리
         verify(recommendationRepository).deleteByMemberIdAndDateAndAcceptedScheduleIdIsNull(MEMBER_ID, TODAY);
     }
@@ -218,6 +220,7 @@ class RecommendationServiceTest {
         RecommendationListResponse.RecommendationItem card = res.recommendations().get(0);
         assertThat(card.title()).isEqualTo("낮잠 큐카드");
         assertThat(card.sourceType()).isEqualTo("QUEUE_CARD");
+        assertThat(card.matchTier()).isEqualTo("EXACT"); // 회복 태그 카드는 정확 일치 취급
         assertThat(card.recoveryMeans()).isNull();
         // 2) 회복 수단 후보: 제목 미선택(null), 옵션은 설정 순서, 길이 min(빈시간,30)
         RecommendationListResponse.RecommendationItem mean = res.recommendations().get(1);
@@ -227,6 +230,7 @@ class RecommendationServiceTest {
         assertThat(mean.recoveryMeans()).containsExactly("짧은 낮잠", "음악 감상");
         assertThat(mean.estimatedTime()).isEqualTo(30);
         assertThat(mean.displayOrder()).isEqualTo(1);
+        assertThat(mean.matchTier()).isNull(); // 회복 수단 후보는 태그 매칭 결과가 아님
     }
 
     @Test

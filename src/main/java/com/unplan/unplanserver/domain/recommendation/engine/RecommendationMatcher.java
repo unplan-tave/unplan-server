@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.recommendation.engine;
 
+import com.unplan.unplanserver.domain.recommendation.enums.MatchTier;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import org.springframework.stereotype.Component;
 
@@ -36,31 +37,39 @@ public class RecommendationMatcher {
         return ADJACENT.getOrDefault(current, List.of());
     }
 
+    /** 매칭 결과 한 건 — 카드와, 그 카드가 어느 순위 티어에서 뽑혔는지 */
+    public record MatchedCard(QueueCard card, MatchTier tier) {}
+
     /**
      * 현재 컨디션 태그로 추천 후보 큐 카드를 우선순위 티어 순서대로 최대 {@code limit} 개까지 채워 선별한다.
      * 상위 티어를 (각 티어 내부 정렬 후) 먼저 채우고, {@code limit} 에 못 미치면 다음 티어에서 이어 채운다.
      * (PM 확정 2026-07-04: "1순위 후보가 limit 미만이면 다음 순위에서 이어 채워 총 limit 개". 기존 '첫 티어만' 폴백 아님)
      * <ul>
-     *   <li>기력 회복: 회복(RECOVERY) 태그 카드만. ('회복 수단' 후보는 온보딩 데이터가 필요해 서비스 계층에서 뒤에 덧붙인다)</li>
-     *   <li>그 외: 1순위 정확 일치 → 2순위 인접 태그 → 3순위 태그 무관 나머지(마감 임박 폴백)</li>
+     *   <li>기력 회복: 회복(RECOVERY) 태그 카드만 — 정확 일치(EXACT) 취급.
+     *       ('회복 수단' 후보는 온보딩 데이터가 필요해 서비스 계층에서 뒤에 덧붙인다)</li>
+     *   <li>그 외: 1순위 정확 일치(EXACT) → 2순위 인접 태그(ADJACENT) → 3순위 태그 무관 나머지(DEADLINE, 마감 임박 폴백)</li>
      * </ul>
      * 각 티어 내부는 마감 임박 → 소요시간 적합순으로 정렬한다.
      */
-    public List<QueueCard> match(ConditionTag current, List<QueueCard> cards, int limit, Integer slotLengthMinutes) {
-        List<QueueCard> result = new ArrayList<>();
-        for (List<QueueCard> tier : tiers(current, cards)) {
+    public List<MatchedCard> match(ConditionTag current, List<QueueCard> cards, int limit, Integer slotLengthMinutes) {
+        List<MatchedCard> result = new ArrayList<>();
+        for (TierGroup group : tiers(current, cards)) {
             if (result.size() >= limit) break;
-            sort(tier, slotLengthMinutes).stream()
+            sort(group.cards(), slotLengthMinutes).stream()
                     .limit((long) limit - result.size())
+                    .map(c -> new MatchedCard(c, group.tier()))
                     .forEach(result::add);
         }
         return result;
     }
 
+    private record TierGroup(MatchTier tier, List<QueueCard> cards) {}
+
     /** 우선순위 티어 목록 (상위 티어부터). 티어 간 중복 카드 없음. */
-    private List<List<QueueCard>> tiers(ConditionTag current, List<QueueCard> cards) {
+    private List<TierGroup> tiers(ConditionTag current, List<QueueCard> cards) {
         if (current == RECOVERY) {
-            return List.of(cards.stream().filter(c -> c.conditionTag() == RECOVERY).toList());
+            return List.of(new TierGroup(MatchTier.EXACT,
+                    cards.stream().filter(c -> c.conditionTag() == RECOVERY).toList()));
         }
         List<ConditionTag> adjacent = adjacentTags(current);
         List<QueueCard> exact = cards.stream().filter(c -> c.conditionTag() == current).toList();
@@ -68,7 +77,9 @@ public class RecommendationMatcher {
                 .filter(c -> c.conditionTag() != current && adjacent.contains(c.conditionTag())).toList();
         List<QueueCard> rest = cards.stream()
                 .filter(c -> c.conditionTag() != current && !adjacent.contains(c.conditionTag())).toList();
-        return List.of(exact, adj, rest);
+        return List.of(new TierGroup(MatchTier.EXACT, exact),
+                new TierGroup(MatchTier.ADJACENT, adj),
+                new TierGroup(MatchTier.DEADLINE, rest));
     }
 
     /**

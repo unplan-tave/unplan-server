@@ -61,7 +61,7 @@ class RecommendationControllerTest {
                 new EmptyTime(LocalTime.of(14, 0), LocalTime.of(14, 45), 45),
                 List.of(new RecommendationItem(
                         10L, "과제", LocalTime.of(14, 0), LocalTime.of(14, 30), 30,
-                        LocalDate.of(2026, 7, 7), "CORE_TASK", "QUEUE_CARD", 0, null)));
+                        LocalDate.of(2026, 7, 7), "CORE_TASK", "QUEUE_CARD", "EXACT", 0, null)));
         when(recommendationService.getRecommendations(MEMBER_ID, DATE)).thenReturn(response);
 
         mockMvc.perform(get("/schedule/recommendations")
@@ -73,6 +73,7 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations", hasSize(1)))
                 .andExpect(jsonPath("$.recommendations[0].title").value("과제"))
                 .andExpect(jsonPath("$.recommendations[0].sourceType").value("QUEUE_CARD"))
+                .andExpect(jsonPath("$.recommendations[0].matchTier").value("EXACT"))
                 .andExpect(jsonPath("$.recommendations[0].displayOrder").value(0));
     }
 

@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.recommendation.entity;
 
+import com.unplan.unplanserver.domain.recommendation.enums.MatchTier;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import jakarta.persistence.*;
@@ -55,6 +56,12 @@ public class Recommendation {
     // 큐카드 기반이면 원본 큐카드(Schedule) id, 회복 수단 기반이면 null
     @Column(name = "source_schedule_id")
     private Long sourceScheduleId;
+
+    // 매칭 순위 스냅샷 (EXACT/ADJACENT/DEADLINE) — 컨디션 멘트의 적합도 문장이 [현재 상태 × 순위]로 결정되므로 보존.
+    // 회복 수단 후보·큐카드 7일 추천처럼 태그 매칭을 거치지 않은 추천은 null.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "match_tier")
+    private MatchTier matchTier;
 
     // 추천 목록 내 노출 순서 (0부터). 바텀시트가 "추천 일정 1", "1/3"처럼 순서대로 페이지네이션되므로
     // (Figma UI & Prototype, 최대 3개는 PM 확정 2026-07-04), 엔진 정렬 결과를 저장해 재조회 시에도 같은 순서를 보장한다.

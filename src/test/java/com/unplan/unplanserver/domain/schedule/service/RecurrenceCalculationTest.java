@@ -19,7 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RecurrenceCalculationTest {
 
-    private final ScheduleService service = new ScheduleService(null, null, null);
+    // 날짜 계산만 검증하므로 모든 의존성(TagService 포함)은 null 로 둔다.
+    private final ScheduleService service = new ScheduleService(null, null, null, null);
 
     @SuppressWarnings("unchecked")
     private List<LocalDate> calc(LocalDate original, RecurrenceRule rule, LocalDate start, LocalDate end) {

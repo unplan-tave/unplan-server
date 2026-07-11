@@ -42,6 +42,7 @@ public enum ErrorCode {
     AI_API_UNAVAILABLE(HttpStatus.INTERNAL_SERVER_ERROR, "AI_API_UNAVAILABLE", "AI 서비스에 연결할 수 없습니다."),
     AI_RESPONSE_PARSE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_RESPONSE_PARSE_ERROR", "AI 응답을 처리할 수 없습니다."),
 
+    PERSONAL_TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PERSONAL_TAG_LIMIT_EXCEEDED", "개인 태그는 계정당 최대 100개까지 생성할 수 있습니다."),
 
     // --- [컨디션 관련 에러] ---
     CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),

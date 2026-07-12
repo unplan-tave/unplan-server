@@ -7,6 +7,8 @@ import com.unplan.unplanserver.domain.schedule.enums.RemindType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,6 +40,9 @@ public class ScheduleCreateRequest {
 
     @Schema(example = "10:00")
     private LocalTime endTime;
+
+    // 0/음수 소요시간은 추천 소요시간 필터를 무의미하게 통과하므로 차단
+    @Positive
     private Integer estimatedTime;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -46,7 +51,9 @@ public class ScheduleCreateRequest {
     @NotNull
     private Boolean isRemindOn;
 
+    @PositiveOrZero
     private Integer remindMinutes;
+
     private RemindType remindType;
     private RemindSoundType remindSoundType;
     private RecurrenceRequest recurrence;

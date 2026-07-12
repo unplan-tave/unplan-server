@@ -39,12 +39,19 @@ public enum ErrorCode {
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_NOT_FOUND", "존재하지 않는 일정입니다."),
     INVALID_MONTH_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_MONTH_FORMAT", "월 형식이 올바르지 않습니다. (yyyy-MM)"),
     INVALID_RECURRENCE(HttpStatus.BAD_REQUEST, "INVALID_RECURRENCE", "반복 설정 형식이 올바르지 않습니다. by_month_day는 1~31 숫자, by_day는 요일(MON,TUE...) 또는 N번째 요일(2WED) 형식이어야 합니다."),
+    INVALID_SCHEDULE_TIME(HttpStatus.BAD_REQUEST, "INVALID_SCHEDULE_TIME", "일정 시간이 올바르지 않습니다. 시작/종료 시간은 함께 입력해야 하며, 시작 시간은 종료 시간보다 이전이어야 합니다."),
+    NOT_A_QUEUE_CARD(HttpStatus.BAD_REQUEST, "NOT_A_QUEUE_CARD", "큐 카드가 아닌 일정에는 추천 시간대를 제공할 수 없습니다."),
     PERSONAL_TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PERSONAL_TAG_LIMIT_EXCEEDED", "개인 태그는 계정당 최대 100개까지 생성할 수 있습니다."),
 
     // --- [컨디션 관련 에러] ---
     CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),
     SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다."),
     SLEEP_TIME_OVERLAP(HttpStatus.BAD_REQUEST, "SLEEP_TIME_OVERLAP", "수면 시간대와 컨디션 시간이 겹칩니다."),
+
+    // --- [추천 관련 에러] ---
+    RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RECOMMENDATION_404", "존재하지 않는 추천입니다."),
+    RECOMMENDATION_ALREADY_PROCESSED(HttpStatus.CONFLICT, "RECOMMENDATION_409", "이미 수락된 추천입니다."),
+    RECOVERY_MEAN_INVALID(HttpStatus.BAD_REQUEST, "RECOVERY_MEAN_400", "선택한 회복 수단이 올바르지 않습니다."),
 
     // --- [설정 관련 에러] ---
     INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE", "종료시간이 시작시간보다 빠릅니다."),

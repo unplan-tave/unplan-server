@@ -12,8 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -42,34 +44,50 @@ public class TagService {
     public List<String> attachTags(Schedule schedule, Long memberId, List<String> tagNames) {
         if (tagNames == null || tagNames.isEmpty()) return List.of();
 
-        Set<String> seen = new LinkedHashSet<>(); // 요청 내 대소문자 무시 중복 제거용
+        // 멤버 태그를 한 번에 조회해 메모리에서 매칭 (루프마다 개별 DB 조회하던 것을 단일 조회로).
+        // 한 멤버 태그는 최대 100개라 전체 로드 비용이 작다.
+        Map<String, PersonalTag> byLowerName = new HashMap<>();
+        for (PersonalTag tag : personalTagRepository.findByMemberIdOrderByName(memberId)) {
+            byLowerName.put(tag.getName().toLowerCase(), tag);
+        }
+        int tagCount = byLowerName.size();
+
+        Set<String> seen = new LinkedHashSet<>(); // 요청 내 대소문자 무시 중복 제거용 (연결 순서 보존)
+        List<PersonalTag> newTags = new ArrayList<>();
         List<String> linked = new ArrayList<>();
         for (String raw : tagNames) {
             if (raw == null) continue;
             String name = raw.trim();
             if (name.isEmpty()) continue;
-            if (!seen.add(name.toLowerCase())) continue;
+            String lower = name.toLowerCase();
+            if (!seen.add(lower)) continue;
 
-            PersonalTag tag = personalTagRepository.findByMemberIdAndNameIgnoreCase(memberId, name)
-                    .orElseGet(() -> createTag(memberId, name));
-
-            schedulePersonalTagRepository.save(SchedulePersonalTag.builder()
-                    .schedule(schedule)
-                    .personalTag(tag)
-                    .build());
+            PersonalTag tag = byLowerName.get(lower);
+            if (tag == null) { // 없으면 새로 생성 — 계정당 100개 한도
+                if (tagCount >= MAX_TAGS_PER_MEMBER) {
+                    throw new CustomException(ErrorCode.PERSONAL_TAG_LIMIT_EXCEEDED);
+                }
+                tag = PersonalTag.builder().memberId(memberId).name(name).build();
+                byLowerName.put(lower, tag);
+                newTags.add(tag);
+                tagCount++;
+            }
             linked.add(tag.getName());
         }
-        return linked;
-    }
 
-    private PersonalTag createTag(Long memberId, String name) {
-        if (personalTagRepository.countByMemberId(memberId) >= MAX_TAGS_PER_MEMBER) {
-            throw new CustomException(ErrorCode.PERSONAL_TAG_LIMIT_EXCEEDED);
+        // 새 태그·조인 행을 각각 한 번에 배치 저장 (루프 내 개별 save 제거)
+        if (!newTags.isEmpty()) {
+            personalTagRepository.saveAll(newTags);
         }
-        return personalTagRepository.save(PersonalTag.builder()
-                .memberId(memberId)
-                .name(name)
-                .build());
+        if (!seen.isEmpty()) {
+            schedulePersonalTagRepository.saveAll(seen.stream()
+                    .map(lower -> SchedulePersonalTag.builder()
+                            .schedule(schedule)
+                            .personalTag(byLowerName.get(lower))
+                            .build())
+                    .toList());
+        }
+        return linked;
     }
 
     /** 일정 삭제 시 해당 일정의 태그 연결을 모두 제거 (조인 행이 FK로 남는 것 방지) */
@@ -84,11 +102,9 @@ public class TagService {
         return personalTagRepository.findByMemberIdOrderByName(memberId);
     }
 
-    /** 일정 상세 조회 시 해당 일정에 연결된 태그 이름 목록 */
+    /** 일정 상세 조회 시 해당 일정에 연결된 태그 이름 목록 (단일 JOIN 쿼리 — N+1 방지) */
     @Transactional(readOnly = true)
     public List<String> getTagNamesBySchedule(Schedule schedule) {
-        return schedulePersonalTagRepository.findBySchedule(schedule).stream()
-                .map(spt -> spt.getPersonalTag().getName())
-                .toList();
+        return schedulePersonalTagRepository.findTagNamesBySchedule(schedule);
     }
 }

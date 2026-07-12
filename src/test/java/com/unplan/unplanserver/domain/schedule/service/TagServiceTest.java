@@ -10,13 +10,14 @@ import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -38,30 +39,37 @@ class TagServiceTest {
     private final Schedule schedule = Schedule.builder().scheduleId(1L).memberId(1L).build();
 
     @Test
-    @DisplayName("attachTags — 공백/중복(대소문자 무시)/빈값/null 토큰을 정리하고 새 태그를 생성·연결")
+    @DisplayName("attachTags — 공백/중복(대소문자 무시)/빈값/null 토큰을 정리하고 새 태그를 배치 생성·연결")
     void attachTagsNormalizesAndCreates() {
-        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(eq(1L), anyString())).thenReturn(Optional.empty());
-        when(personalTagRepository.save(any(PersonalTag.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(personalTagRepository.findByMemberIdOrderByName(1L)).thenReturn(List.of());
 
         List<String> linked = tagService.attachTags(schedule, 1L,
                 Arrays.asList("건강", " 건강 ", "자기계발", "", null));
 
         assertEquals(List.of("건강", "자기계발"), linked); // 중복(건강) 1회, 공백/null 제거
-        verify(personalTagRepository, times(2)).save(any(PersonalTag.class));
-        verify(schedulePersonalTagRepository, times(2)).save(any(SchedulePersonalTag.class));
+
+        // 새 태그 2개를 한 번의 saveAll 로 저장 (루프 내 개별 save 아님)
+        ArgumentCaptor<List<PersonalTag>> tagCaptor = ArgumentCaptor.forClass(List.class);
+        verify(personalTagRepository, times(1)).saveAll(tagCaptor.capture());
+        assertEquals(List.of("건강", "자기계발"),
+                tagCaptor.getValue().stream().map(PersonalTag::getName).toList());
+        // 조인 행 2개도 한 번의 saveAll 로 저장
+        ArgumentCaptor<List<SchedulePersonalTag>> linkCaptor = ArgumentCaptor.forClass(List.class);
+        verify(schedulePersonalTagRepository, times(1)).saveAll(linkCaptor.capture());
+        assertEquals(2, linkCaptor.getValue().size());
     }
 
     @Test
     @DisplayName("attachTags — 이미 존재하는 태그는 재사용(새로 저장하지 않음)하고 저장된 표기를 반환")
     void attachTagsReusesExisting() {
         PersonalTag existing = PersonalTag.builder().personalTagId(5L).memberId(1L).name("건강").build();
-        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "건강")).thenReturn(Optional.of(existing));
+        when(personalTagRepository.findByMemberIdOrderByName(1L)).thenReturn(List.of(existing));
 
         List<String> linked = tagService.attachTags(schedule, 1L, List.of("건강"));
 
         assertEquals(List.of("건강"), linked);
-        verify(personalTagRepository, never()).save(any(PersonalTag.class)); // 재사용 → 생성 안 함
-        verify(schedulePersonalTagRepository, times(1)).save(any(SchedulePersonalTag.class));
+        verify(personalTagRepository, never()).saveAll(anyList()); // 재사용 → 새 태그 저장 없음
+        verify(schedulePersonalTagRepository, times(1)).saveAll(anyList());
     }
 
     @Test
@@ -75,35 +83,43 @@ class TagServiceTest {
     @Test
     @DisplayName("attachTags — 계정당 태그 100개 도달 후 새 태그 생성 시 PERSONAL_TAG_LIMIT_EXCEEDED")
     void attachTagsLimitExceeded() {
-        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "새태그")).thenReturn(Optional.empty());
-        when(personalTagRepository.countByMemberId(1L)).thenReturn(100L);
+        when(personalTagRepository.findByMemberIdOrderByName(1L)).thenReturn(tagsNamed(100));
 
         CustomException e = assertThrows(CustomException.class,
                 () -> tagService.attachTags(schedule, 1L, List.of("새태그")));
 
         assertEquals(ErrorCode.PERSONAL_TAG_LIMIT_EXCEEDED, e.getErrorCode());
-        verify(personalTagRepository, never()).save(any(PersonalTag.class));
-        verify(schedulePersonalTagRepository, never()).save(any(SchedulePersonalTag.class));
+        verify(personalTagRepository, never()).saveAll(anyList());
+        verify(schedulePersonalTagRepository, never()).saveAll(anyList());
     }
 
     @Test
     @DisplayName("attachTags — 99개까지는 새 태그 생성 허용 (한도 경계)")
     void attachTagsAllowedBelowLimit() {
-        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "새태그")).thenReturn(Optional.empty());
-        when(personalTagRepository.countByMemberId(1L)).thenReturn(99L);
-        when(personalTagRepository.save(any(PersonalTag.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(personalTagRepository.findByMemberIdOrderByName(1L)).thenReturn(tagsNamed(99));
 
         assertEquals(List.of("새태그"), tagService.attachTags(schedule, 1L, List.of("새태그")));
+        verify(personalTagRepository, times(1)).saveAll(anyList());
     }
 
     @Test
-    @DisplayName("attachTags — 한도에 도달해도 기존 태그 재사용은 허용 (생성이 아니므로 카운트 검사 안 함)")
+    @DisplayName("attachTags — 한도에 도달해도 기존 태그 재사용은 허용 (생성이 아니므로 새 태그 저장 없음)")
     void attachTagsReuseAllowedAtLimit() {
-        PersonalTag existing = PersonalTag.builder().personalTagId(5L).memberId(1L).name("건강").build();
-        when(personalTagRepository.findByMemberIdAndNameIgnoreCase(1L, "건강")).thenReturn(Optional.of(existing));
+        List<PersonalTag> full = tagsNamed(100);
+        full.set(0, PersonalTag.builder().personalTagId(0L).memberId(1L).name("건강").build());
+        when(personalTagRepository.findByMemberIdOrderByName(1L)).thenReturn(full);
 
         assertEquals(List.of("건강"), tagService.attachTags(schedule, 1L, List.of("건강")));
-        verify(personalTagRepository, never()).countByMemberId(anyLong());
+        verify(personalTagRepository, never()).saveAll(anyList());
+    }
+
+    /** 이름이 "태그0..태그n-1" 인 PersonalTag n개 (한도 경계 테스트용) */
+    private List<PersonalTag> tagsNamed(int n) {
+        List<PersonalTag> tags = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            tags.add(PersonalTag.builder().personalTagId((long) i).memberId(1L).name("태그" + i).build());
+        }
+        return tags;
     }
 
     @Test

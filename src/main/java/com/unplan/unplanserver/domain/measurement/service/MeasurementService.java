@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PagedRecords;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PaginationInfo;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.entity.Condition;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
@@ -21,7 +23,11 @@ import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +99,15 @@ public class MeasurementService {
     }
 
     public MeasurementRecordResponse getDailyRecord(Long memberId, LocalDate date) {
+        return getDailyRecord(memberId, date, 0, 0);
+    }
+
+    public MeasurementRecordResponse getDailyRecord(
+            Long memberId,
+            LocalDate date,
+            Integer conditionPage,
+            Integer sleepPage
+    ) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
@@ -101,11 +116,11 @@ public class MeasurementService {
 
         List<Condition> conditions = conditionRepository.findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(member, start, end)
                 .stream()
-                .sorted(Comparator.comparing(Condition::getMeasuredAt))
+                .sorted(Comparator.comparing(Condition::getMeasuredAt).reversed())
                 .toList();
         List<Sleep> sleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(memberId, start, end)
                 .stream()
-                .sorted(Comparator.comparing(Sleep::getWakeUpTime))
+                .sorted(Comparator.comparing(Sleep::getWakeUpTime).reversed())
                 .toList();
 
         ConditionScoreSource conditionScoreSource = resolveConditionScoreSource(memberId, conditions, start);
@@ -129,12 +144,18 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                conditions.stream()
-                        .map(this::toConditionRecord)
-                        .toList(),
-                sleeps.stream()
-                        .map(this::toSleepRecord)
-                        .toList()
+                toPagedRecords(
+                        conditions.stream()
+                                .map(this::toConditionRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(conditionPage)
+                ),
+                toPagedRecords(
+                        sleeps.stream()
+                                .map(this::toSleepRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(sleepPage)
+                )
         );
     }
 
@@ -299,12 +320,37 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                conditions.stream()
-                        .map(this::toConditionRecord)
-                        .toList(),
-                sleeps.stream()
-                        .map(this::toSleepRecord)
-                        .toList()
+                toPagedRecords(
+                        conditions.stream()
+                                .map(this::toConditionRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(0)
+                ),
+                toPagedRecords(
+                        sleeps.stream()
+                                .map(this::toSleepRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(0)
+                )
+        );
+    }
+
+    private <T> PagedRecords<T> toPagedRecords(List<T> records, PageRequest pageRequest) {
+        int start = (int) pageRequest.getOffset();
+        int end = Math.min(start + pageRequest.getPageSize(), records.size());
+        List<T> content = start >= records.size() ? List.of() : records.subList(start, end);
+        Page<T> page = new PageImpl<>(content, pageRequest, records.size());
+
+        return new PagedRecords<>(
+                page.getContent(),
+                new PaginationInfo(
+                        page.getNumber(),
+                        page.getSize(),
+                        page.getTotalElements(),
+                        page.getTotalPages(),
+                        page.hasNext(),
+                        page.hasPrevious()
+                )
         );
     }
 

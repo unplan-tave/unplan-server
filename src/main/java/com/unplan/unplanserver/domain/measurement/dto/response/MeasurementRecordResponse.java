@@ -16,9 +16,25 @@ public record MeasurementRecordResponse(
         int mindScorePercent,
         int sleepScore,
         int sleepDurationMinutes,
-        List<ConditionRecord> conditions,
-        List<SleepRecord> sleeps
+        PagedRecords<ConditionRecord> conditions,
+        PagedRecords<SleepRecord> sleeps
 ) {
+
+    public record PagedRecords<T>(
+            List<T> data,
+            PaginationInfo pagination
+    ) {
+    }
+
+    public record PaginationInfo(
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext,
+            boolean hasPrevious
+    ) {
+    }
 
     public record ConditionRecord(
             Long conditionId,

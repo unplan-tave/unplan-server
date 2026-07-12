@@ -1,6 +1,8 @@
 package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PagedRecords;
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PaginationInfo;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
 import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
@@ -84,7 +86,14 @@ class RecommendationServiceTest {
     private void givenConditionTag(String label) {
         when(measurementService.getDailyRecord(eq(MEMBER_ID), eq(TODAY)))
                 .thenReturn(new MeasurementRecordResponse(TODAY, 80, "집중 가능", label,
-                        80, 80, 80, 420, List.of(), List.of()));
+                        80, 80, 80, 420, emptyPage(), emptyPage()));
+    }
+
+    private static <T> PagedRecords<T> emptyPage() {
+        return new PagedRecords<>(
+                List.of(),
+                new PaginationInfo(0, 30, 0, 0, false, false)
+        );
     }
 
     private void givenSaveReturnsArgument() {

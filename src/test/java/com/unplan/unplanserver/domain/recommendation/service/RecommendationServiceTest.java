@@ -24,6 +24,8 @@ import com.unplan.unplanserver.domain.setting.entity.Setting;
 import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.PageResponse;
+import com.unplan.unplanserver.global.response.PageResponse.PaginationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -84,7 +86,14 @@ class RecommendationServiceTest {
     private void givenConditionTag(String label) {
         when(measurementService.getDailyRecord(eq(MEMBER_ID), eq(TODAY)))
                 .thenReturn(new MeasurementRecordResponse(TODAY, 80, "집중 가능", label,
-                        80, 80, 80, 420, List.of(), List.of()));
+                        80, 80, 80, 420, emptyPage(), emptyPage()));
+    }
+
+    private static <T> PageResponse<T> emptyPage() {
+        return new PageResponse<>(
+                List.of(),
+                new PaginationInfo(0, 30, 0, 0, false, false)
+        );
     }
 
     private void givenSaveReturnsArgument() {

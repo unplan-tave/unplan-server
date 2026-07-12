@@ -38,11 +38,13 @@ public class MeasurementController {
     @GetMapping
     public ResponseEntity<ApiResponse<MeasurementRecordResponse>> getDailyRecord(
             @AuthenticationPrincipal Long memberId,
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "conditionPage", required = false) Integer conditionPage,
+            @RequestParam(value = "sleepPage", required = false) Integer sleepPage
     ) {
 
         MeasurementRecordResponse response =
-                measurementService.getDailyRecord(memberId, date);
+                measurementService.getDailyRecord(memberId, date, conditionPage, sleepPage);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

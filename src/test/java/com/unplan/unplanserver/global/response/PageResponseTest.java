@@ -8,7 +8,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class PagedResponseTest {
+class PageResponseTest {
 
     @Test
     void ofPageReturnsContentAndPagination() {
@@ -18,10 +18,8 @@ class PagedResponseTest {
                 100
         );
 
-        PagedResponse<String> response = PagedResponse.of(page);
+        PageResponse<String> response = PageResponse.of(page);
 
-        assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getMessage()).isEqualTo("요청 성공");
         assertThat(response.getData()).containsExactly("a", "b");
         assertThat(response.getPagination().getPage()).isZero();
         assertThat(response.getPagination().getSize()).isEqualTo(30);
@@ -40,7 +38,7 @@ class PagedResponseTest {
         );
         List<String> content = List.of("one", "two");
 
-        PagedResponse<String> response = PagedResponse.of(content, page);
+        PageResponse<String> response = PageResponse.of(content, page);
 
         assertThat(response.getData()).containsExactly("one", "two");
         assertThat(response.getPagination().getPage()).isEqualTo(2);

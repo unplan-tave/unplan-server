@@ -1,8 +1,6 @@
 package com.unplan.unplanserver.domain.recommendation.service;
 
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PagedRecords;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PaginationInfo;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
 import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
@@ -26,6 +24,8 @@ import com.unplan.unplanserver.domain.setting.entity.Setting;
 import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.PageResponse;
+import com.unplan.unplanserver.global.response.PageResponse.PaginationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,8 +89,8 @@ class RecommendationServiceTest {
                         80, 80, 80, 420, emptyPage(), emptyPage()));
     }
 
-    private static <T> PagedRecords<T> emptyPage() {
-        return new PagedRecords<>(
+    private static <T> PageResponse<T> emptyPage() {
+        return new PageResponse<>(
                 List.of(),
                 new PaginationInfo(0, 30, 0, 0, false, false)
         );

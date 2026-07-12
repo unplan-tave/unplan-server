@@ -4,11 +4,11 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.AverageItem;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PagedRecords;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PaginationInfo;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.global.exception.GlobalExceptionHandler;
+import com.unplan.unplanserver.global.response.PageResponse;
+import com.unplan.unplanserver.global.response.PageResponse.PaginationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -318,7 +318,7 @@ class MeasurementControllerTest {
         }
     }
 
-    private static <T> PagedRecords<T> pagedRecords(
+    private static <T> PageResponse<T> pagedRecords(
             List<T> data,
             int page,
             int size,
@@ -327,7 +327,7 @@ class MeasurementControllerTest {
             boolean hasNext,
             boolean hasPrevious
     ) {
-        return new PagedRecords<>(
+        return new PageResponse<>(
                 data,
                 new PaginationInfo(page, size, totalElements, totalPages, hasNext, hasPrevious)
         );

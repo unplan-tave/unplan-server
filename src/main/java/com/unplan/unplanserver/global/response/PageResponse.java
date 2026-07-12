@@ -8,23 +8,25 @@ import java.util.List;
 
 @Getter
 @AllArgsConstructor
-public class PagedResponse<T> {
+public class PageResponse<T> {
 
-    private static final String SUCCESS_MESSAGE = "요청 성공";
-
-    private boolean success;
-    private String message;
     private List<T> data;
     private PaginationInfo pagination;
 
-    public static <T> PagedResponse<T> of(Page<T> page) {
+    public List<T> data() {
+        return data;
+    }
+
+    public PaginationInfo pagination() {
+        return pagination;
+    }
+
+    public static <T> PageResponse<T> of(Page<T> page) {
         return of(page.getContent(), page);
     }
 
-    public static <T> PagedResponse<T> of(List<T> content, Page<?> page) {
-        return new PagedResponse<>(
-                true,
-                SUCCESS_MESSAGE,
+    public static <T> PageResponse<T> of(List<T> content, Page<?> page) {
+        return new PageResponse<>(
                 content,
                 PaginationInfo.from(page)
         );
@@ -40,6 +42,30 @@ public class PagedResponse<T> {
         private int totalPages;
         private boolean hasNext;
         private boolean hasPrevious;
+
+        public int page() {
+            return page;
+        }
+
+        public int size() {
+            return size;
+        }
+
+        public long totalElements() {
+            return totalElements;
+        }
+
+        public int totalPages() {
+            return totalPages;
+        }
+
+        public boolean hasNext() {
+            return hasNext;
+        }
+
+        public boolean hasPrevious() {
+            return hasPrevious;
+        }
 
         private static PaginationInfo from(Page<?> page) {
             return new PaginationInfo(

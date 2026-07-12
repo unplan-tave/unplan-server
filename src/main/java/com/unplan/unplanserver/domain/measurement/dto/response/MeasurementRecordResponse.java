@@ -2,6 +2,7 @@ package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.unplan.unplanserver.global.response.PageResponse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,25 +17,9 @@ public record MeasurementRecordResponse(
         int mindScorePercent,
         int sleepScore,
         int sleepDurationMinutes,
-        PagedRecords<ConditionRecord> conditions,
-        PagedRecords<SleepRecord> sleeps
+        PageResponse<ConditionRecord> conditions,
+        PageResponse<SleepRecord> sleeps
 ) {
-
-    public record PagedRecords<T>(
-            List<T> data,
-            PaginationInfo pagination
-    ) {
-    }
-
-    public record PaginationInfo(
-            int page,
-            int size,
-            long totalElements,
-            int totalPages,
-            boolean hasNext,
-            boolean hasPrevious
-    ) {
-    }
 
     public record ConditionRecord(
             Long conditionId,

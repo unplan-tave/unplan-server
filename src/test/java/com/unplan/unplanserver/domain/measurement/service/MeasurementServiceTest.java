@@ -719,6 +719,48 @@ class MeasurementServiceTest {
     }
 
     @Test
+    void getDailyRecordReturnsEmptyConditionDataWhenConditionPageOffsetExceedsIntRange() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 5);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, Integer.MAX_VALUE, 0);
+
+        assertThat(response.conditions().data()).isEmpty();
+        assertThat(response.conditions().pagination().page()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(response.conditions().pagination().size()).isEqualTo(30);
+        assertThat(response.conditions().pagination().totalElements()).isEqualTo(35);
+        assertThat(response.conditions().pagination().totalPages()).isEqualTo(2);
+        assertThat(response.sleeps().data()).hasSize(5);
+    }
+
+    @Test
+    void getDailyRecordReturnsEmptySleepDataWhenSleepPageOffsetExceedsIntRange() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 5);
+        List<Sleep> sleeps = createSleeps(member, date, 35);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, 0, Integer.MAX_VALUE);
+
+        assertThat(response.sleeps().data()).isEmpty();
+        assertThat(response.sleeps().pagination().page()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(response.sleeps().pagination().size()).isEqualTo(30);
+        assertThat(response.sleeps().pagination().totalElements()).isEqualTo(35);
+        assertThat(response.sleeps().pagination().totalPages()).isEqualTo(2);
+        assertThat(response.conditions().data()).hasSize(5);
+    }
+
+    @Test
     void getAverageRecordsGroupsByDay() {
         Long memberId = 1L;
         Member member = new Member();

@@ -6,8 +6,6 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PagedRecords;
-import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.PaginationInfo;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.entity.Condition;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
@@ -23,6 +21,7 @@ import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.PageResponse;
 import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -144,13 +143,13 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                toPagedRecords(
+                toPageResponse(
                         conditions.stream()
                                 .map(this::toConditionRecord)
                                 .toList(),
                         PagingUtils.pageRequest(conditionPage)
                 ),
-                toPagedRecords(
+                toPageResponse(
                         sleeps.stream()
                                 .map(this::toSleepRecord)
                                 .toList(),
@@ -320,13 +319,13 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                toPagedRecords(
+                toPageResponse(
                         conditions.stream()
                                 .map(this::toConditionRecord)
                                 .toList(),
                         PagingUtils.pageRequest(0)
                 ),
-                toPagedRecords(
+                toPageResponse(
                         sleeps.stream()
                                 .map(this::toSleepRecord)
                                 .toList(),
@@ -335,23 +334,20 @@ public class MeasurementService {
         );
     }
 
-    private <T> PagedRecords<T> toPagedRecords(List<T> records, PageRequest pageRequest) {
-        int start = (int) pageRequest.getOffset();
-        int end = Math.min(start + pageRequest.getPageSize(), records.size());
-        List<T> content = start >= records.size() ? List.of() : records.subList(start, end);
+    private <T> PageResponse<T> toPageResponse(List<T> records, PageRequest pageRequest) {
+        long offset = pageRequest.getOffset();
+
+        List<T> content;
+        if (offset >= records.size()) {
+            content = List.of();
+        } else {
+            int start = (int) offset;
+            int end = Math.min(start + pageRequest.getPageSize(), records.size());
+            content = records.subList(start, end);
+        }
         Page<T> page = new PageImpl<>(content, pageRequest, records.size());
 
-        return new PagedRecords<>(
-                page.getContent(),
-                new PaginationInfo(
-                        page.getNumber(),
-                        page.getSize(),
-                        page.getTotalElements(),
-                        page.getTotalPages(),
-                        page.hasNext(),
-                        page.hasPrevious()
-                )
-        );
+        return PageResponse.of(page);
     }
 
     private ConditionScoreSource resolveConditionScoreSourceFromPreloadedData(

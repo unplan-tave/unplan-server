@@ -56,6 +56,9 @@ public class ScheduleService {
         // 시작/종료 시간 검증 — 한쪽만 있는 '반쪽 핀 카드'나 역전된 구간이 저장되면
         // 추천 빈 시간 계산(busy 매핑)이 깨지므로 저장 전에 차단한다.
         validateTimePair(request.getStartTime(), request.getEndTime());
+        // 핀 카드는 같은 날짜의 기존 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다.
+        validatePinNotOverlapping(memberId, request.getDate(),
+                request.getStartTime(), request.getEndTime(), null);
 
         // 1. Schedule 엔티티 생성
         // Request DTO에서 값을 꺼내서 Schedule entity를 만듦
@@ -160,6 +163,9 @@ public class ScheduleService {
         // 부분 수정(PATCH) 결과가 반쪽 핀 카드/역전 구간이 되지 않는지 최종 상태로 검증.
         // 검증 실패 시 예외로 트랜잭션이 롤백되어 변경이 반영되지 않는다.
         validateTimePair(schedule.getStartTime(), schedule.getEndTime());
+        // 수정 후에도 같은 날짜의 다른 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다(자기 자신 제외).
+        validatePinNotOverlapping(memberId, schedule.getDate(),
+                schedule.getStartTime(), schedule.getEndTime(), scheduleId);
 
         // personalTags가 요청에 포함된 경우에만 태그 전체 교체 (null = 기존 유지, 빈 배열 = 전체 해제)
         List<String> tagNames;
@@ -252,6 +258,24 @@ public class ScheduleService {
         }
         if (startTime != null && !startTime.isBefore(endTime)) {
             throw new CustomException(ErrorCode.INVALID_SCHEDULE_TIME);
+        }
+    }
+
+    /**
+     * 핀 카드 시간 겹침 검증 — 같은 날짜에 시간이 1분이라도 겹치는 핀 카드가 있으면 등록/수정을 막는다.
+     * 반복 일정의 해당 날짜 인스턴스도 점유 시간으로 간주한다({@code findSchedulesWithRecurring} 가 함께 반환).
+     * 큐 카드(시간 미지정)는 겹침 대상이 아니며, 수정 시에는 자기 자신({@code excludeId})을 제외한다.
+     * 맞닿는 경계(예: 10:00~11:00 과 11:00~12:00)는 겹침으로 보지 않는다.
+     */
+    private void validatePinNotOverlapping(Long memberId, LocalDate date,
+                                           LocalTime start, LocalTime end, Long excludeId) {
+        if (start == null || end == null || date == null) return; // 핀 카드가 아니면 겹침 없음
+        for (Schedule other : findSchedulesWithRecurring(memberId, date)) {
+            if (excludeId != null && excludeId.equals(other.getScheduleId())) continue; // 자기 자신(반복 인스턴스 포함)
+            if (other.getStartTime() == null || other.getEndTime() == null) continue;   // 큐 카드 제외
+            if (start.isBefore(other.getEndTime()) && other.getStartTime().isBefore(end)) {
+                throw new CustomException(ErrorCode.TIME_RANGE_OVERLAP);
+            }
         }
     }
 

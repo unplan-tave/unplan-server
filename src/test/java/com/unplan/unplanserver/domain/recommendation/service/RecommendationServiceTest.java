@@ -18,6 +18,7 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.domain.schedule.service.TagService;
 import com.unplan.unplanserver.domain.setting.dto.EmptyTimeSettingRequestDto;
 import com.unplan.unplanserver.domain.setting.entity.Setting;
 import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
@@ -60,6 +61,7 @@ class RecommendationServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 3, 14, 0);
 
     @Mock private ScheduleService scheduleService;
+    @Mock private TagService tagService;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private RecommendationRepository recommendationRepository;
     @Mock private MeasurementService measurementService;
@@ -72,7 +74,7 @@ class RecommendationServiceTest {
     @BeforeEach
     void setUp() {
         // settingRepository 는 기본이 Optional.empty() = 설정 없는 회원(제약 없음). 설정 반영 테스트에서만 스텁.
-        service = new RecommendationService(scheduleService, scheduleRepository, recommendationRepository,
+        service = new RecommendationService(scheduleService, tagService, scheduleRepository, recommendationRepository,
                 measurementService, recoverService, biorhythmRepository, settingRepository,
                 new EmptyTimeFinder(), new RecommendationMatcher());
     }
@@ -523,6 +525,7 @@ class RecommendationServiceTest {
         when(recommendationRepository.findByRecommendIdAndMemberId(500L, MEMBER_ID)).thenReturn(Optional.of(rec));
         when(scheduleRepository.findByScheduleIdAndMemberId(99L, MEMBER_ID)).thenReturn(Optional.of(source));
         when(scheduleRepository.save(any())).thenReturn(persistedPin);
+        when(tagService.getTagNamesBySchedule(source)).thenReturn(List.of("업무", "중요"));
 
         RecommendationAcceptResponse res = service.accept(MEMBER_ID, 500L, true, null);
 
@@ -542,6 +545,8 @@ class RecommendationServiceTest {
         assertThat(saved.getDate()).isEqualTo(TODAY);
         assertThat(saved.getStartTime()).isEqualTo(LocalTime.parse("14:00"));
         assertThat(saved.getEndTime()).isEqualTo(LocalTime.parse("14:30"));
+        // 원본 큐 카드의 개인 태그도 복제된 핀 카드에 그대로 연결
+        verify(tagService).attachTags(persistedPin, MEMBER_ID, List.of("업무", "중요"));
         // 추천은 ACCEPTED(거절 아님) → 원본 큐 카드는 재추천 후보로 유지
         assertThat(rec.getAcceptedScheduleId()).isEqualTo(300L);
     }

@@ -24,6 +24,7 @@ import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
+import com.unplan.unplanserver.domain.schedule.service.TagService;
 import com.unplan.unplanserver.domain.setting.repository.SettingRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
@@ -74,6 +75,7 @@ public class RecommendationService {
     static final int BIORHYTHM_TIMELINE_HOURS = 24;
 
     private final ScheduleService scheduleService;
+    private final TagService tagService;
     private final ScheduleRepository scheduleRepository;
     private final RecommendationRepository recommendationRepository;
     private final MeasurementService measurementService;
@@ -392,6 +394,8 @@ public class RecommendationService {
                 // 큐 카드는 그대로 두고 핀 카드를 복제 생성 → 같은 일정이 큐+핀으로 공존
                 Schedule pin = scheduleRepository.save(
                         pinCopyOf(memberId, source, rec.getDate(), rec.getStartTime(), endTime));
+                // 개인 태그도 원본 그대로 복제본에 연결 (멤버 단위 태그라 find-or-create로 재사용됨)
+                tagService.attachTags(pin, memberId, tagService.getTagNamesBySchedule(source));
                 scheduleId = pin.getScheduleId();
                 created = true;
             } else {
@@ -436,6 +440,7 @@ public class RecommendationService {
     /**
      * 큐 카드를 핀 카드로 복제한다. 제목·컨디션 태그·위치·메모·알림 설정은 원본 그대로 유지하고
      * 날짜·시간만 부여해 핀 카드로 만든다(Figma "제목/태그/위치/메모는 원래 큐 카드대로 유지").
+     * 개인 태그(schedule_personal_tag) 연결은 저장 후 호출부에서 attachTags로 복제한다.
      * 반복 설정은 복제하지 않는다(단발성 핀 카드).
      */
     private Schedule pinCopyOf(Long memberId, Schedule source, LocalDate date, LocalTime start, LocalTime end) {

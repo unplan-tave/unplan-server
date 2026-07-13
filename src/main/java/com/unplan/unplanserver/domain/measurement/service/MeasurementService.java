@@ -411,8 +411,8 @@ public class MeasurementService {
                     .orElse(DEFAULT_MIND_SCORE);
 
             return new ConditionPercentSource(
-                    calculateRawScorePercent(bodyScoreAverage),
-                    calculateRawScorePercent(mindScoreAverage)
+                    ConditionScoreCalculator.calculateRawScorePercent(bodyScoreAverage),
+                    ConditionScoreCalculator.calculateRawScorePercent(mindScoreAverage)
             );
         }
 
@@ -426,10 +426,6 @@ public class MeasurementService {
                 ConditionScoreCalculator.calculateBodyScorePercent(fallbackSource.bodyScore()),
                 ConditionScoreCalculator.calculateMindScorePercent(fallbackSource.mindScore())
         );
-    }
-
-    private int calculateRawScorePercent(double score) {
-        return (int) Math.round(score / 6.0 * 100);
     }
 
     private int resolveSleepScoreFromPreloadedData(
@@ -631,35 +627,17 @@ public class MeasurementService {
         return new SleepRecord(
                 sleep.getSleepId(),
                 sleep.getDurationMinutes(),
-                resolveTotalDurationMinutes(sleep),
+                sleep.getEffectiveTotalDurationMinutes(),
                 sleep.getBedTime(),
                 sleep.getWakeUpTime(),
-                resolveOriginalBedTime(sleep),
-                resolveOriginalWakeUpTime(sleep),
+                sleep.getEffectiveOriginalBedTime(),
+                sleep.getEffectiveOriginalWakeUpTime(),
                 sleep.getNap(),
                 sleep.getAllNight(),
                 sleep.isContinuousSleep(),
                 sleep.getContinuousSleepGroupId(),
                 sleep.getCreatedAt()
         );
-    }
-
-    private Integer resolveTotalDurationMinutes(Sleep sleep) {
-        return sleep.getTotalDurationMinutes() != null
-                ? sleep.getTotalDurationMinutes()
-                : sleep.getDurationMinutes();
-    }
-
-    private LocalDateTime resolveOriginalBedTime(Sleep sleep) {
-        return sleep.getOriginalBedTime() != null
-                ? sleep.getOriginalBedTime()
-                : sleep.getBedTime();
-    }
-
-    private LocalDateTime resolveOriginalWakeUpTime(Sleep sleep) {
-        return sleep.getOriginalWakeUpTime() != null
-                ? sleep.getOriginalWakeUpTime()
-                : sleep.getWakeUpTime();
     }
 
     private int resolveSleepScore(Long memberId, List<Sleep> sleeps, LocalDate date) {

@@ -132,4 +132,22 @@ public class Sleep {
     public boolean isContinuousSleep() {
         return continuousSleepGroupId != null;
     }
+
+    public Integer getEffectiveTotalDurationMinutes() {
+        return totalDurationMinutes != null
+                ? totalDurationMinutes
+                : durationMinutes;
+    }
+
+    public LocalDateTime getEffectiveOriginalBedTime() {
+        return originalBedTime != null
+                ? originalBedTime
+                : bedTime;
+    }
+
+    public LocalDateTime getEffectiveOriginalWakeUpTime() {
+        return originalWakeUpTime != null
+                ? originalWakeUpTime
+                : wakeUpTime;
+    }
 }

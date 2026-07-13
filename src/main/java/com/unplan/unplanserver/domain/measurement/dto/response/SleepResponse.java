@@ -51,34 +51,16 @@ public class SleepResponse {
         return SleepResponse.builder()
                 .sleepId(sleep.getSleepId())
                 .durationMinutes(sleep.getDurationMinutes())
-                .totalDurationMinutes(resolveTotalDurationMinutes(sleep))
+                .totalDurationMinutes(sleep.getEffectiveTotalDurationMinutes())
                 .bedTime(sleep.getBedTime())
                 .wakeUpTime(sleep.getWakeUpTime())
-                .originalBedTime(resolveOriginalBedTime(sleep))
-                .originalWakeUpTime(resolveOriginalWakeUpTime(sleep))
+                .originalBedTime(sleep.getEffectiveOriginalBedTime())
+                .originalWakeUpTime(sleep.getEffectiveOriginalWakeUpTime())
                 .isNap(sleep.getNap())
                 .isAllNight(sleep.getAllNight())
                 .isContinuousSleep(sleep.isContinuousSleep())
                 .continuousSleepGroupId(sleep.getContinuousSleepGroupId())
                 .createdAt(sleep.getCreatedAt())
                 .build();
-    }
-
-    private static Integer resolveTotalDurationMinutes(Sleep sleep) {
-        return sleep.getTotalDurationMinutes() != null
-                ? sleep.getTotalDurationMinutes()
-                : sleep.getDurationMinutes();
-    }
-
-    private static LocalDateTime resolveOriginalBedTime(Sleep sleep) {
-        return sleep.getOriginalBedTime() != null
-                ? sleep.getOriginalBedTime()
-                : sleep.getBedTime();
-    }
-
-    private static LocalDateTime resolveOriginalWakeUpTime(Sleep sleep) {
-        return sleep.getOriginalWakeUpTime() != null
-                ? sleep.getOriginalWakeUpTime()
-                : sleep.getWakeUpTime();
     }
 }

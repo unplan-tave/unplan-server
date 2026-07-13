@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,6 +62,27 @@ class SleepServiceTest {
         assertThat(response.getIsNap()).isFalse();
         assertThat(response.getIsAllNight()).isFalse();
         verify(sleepRepository).findBySleepIdAndMemberMemberId(sleepId, memberId);
+    }
+
+    @Test
+    void getSleepFallsBackToSleepFieldsWhenContinuousMetadataIsNull() {
+        Long memberId = 1L;
+        Long sleepId = 45L;
+        LocalDateTime bedTime = LocalDateTime.of(2026, 6, 23, 23, 0);
+        LocalDateTime wakeUpTime = LocalDateTime.of(2026, 6, 24, 7, 30);
+        Sleep sleep = new Sleep(new Member(), 510, bedTime, wakeUpTime, false);
+        ReflectionTestUtils.setField(sleep, "totalDurationMinutes", null);
+        ReflectionTestUtils.setField(sleep, "originalBedTime", null);
+        ReflectionTestUtils.setField(sleep, "originalWakeUpTime", null);
+
+        when(sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId))
+                .thenReturn(Optional.of(sleep));
+
+        SleepResponse response = sleepService.getSleep(memberId, sleepId);
+
+        assertThat(response.getTotalDurationMinutes()).isEqualTo(510);
+        assertThat(response.getOriginalBedTime()).isEqualTo(bedTime);
+        assertThat(response.getOriginalWakeUpTime()).isEqualTo(wakeUpTime);
     }
 
     @Test
@@ -250,7 +272,7 @@ class SleepServiceTest {
     }
 
     @Test
-    void updateSleepReplacesAllContinuousSleepSegments() {
+    void updateContinuousSleepPreservesRequestedSleepIdAndDeletesOnlyUnusedSegments() {
         Long memberId = 1L;
         Long sleepId = 45L;
         Member member = new Member();
@@ -278,6 +300,8 @@ class SleepServiceTest {
                 LocalDateTime.of(2026, 6, 25, 7, 30),
                 "group-1"
         );
+        setSleepId(firstSegment, sleepId);
+        setSleepId(secondSegment, 46L);
         SleepRequest.SleepUpdate request = new SleepRequest.SleepUpdate(
                 LocalDateTime.of(2026, 6, 23, 22, 0),
                 LocalDateTime.of(2026, 6, 24, 6, 0),
@@ -294,14 +318,125 @@ class SleepServiceTest {
                 request.bedTime(),
                 request.wakeUpTime()
         )).thenReturn(false);
+
+        SleepResponse response = sleepService.updateSleep(memberId, sleepId, request);
+
+        verify(sleepRepository).deleteAll(List.of(secondSegment));
+        assertThat(response.getSleepId()).isEqualTo(sleepId);
+        assertThat(response.getDurationMinutes()).isEqualTo(480);
+        assertThat(response.getIsContinuousSleep()).isFalse();
+        assertThat(response.getContinuousSleepGroupId()).isNull();
+        assertThat(firstSegment.getSleepId()).isEqualTo(sleepId);
+        assertThat(firstSegment.getDurationMinutes()).isEqualTo(480);
+        assertThat(firstSegment.getContinuousSleepGroupId()).isNull();
+    }
+
+    @Test
+    void getSleepReturnsUpdatedContinuousSleepAfterPatchWithoutNotFound() {
+        Long memberId = 1L;
+        Long sleepId = 45L;
+        Member member = new Member();
+        Sleep firstSegment = new Sleep(
+                member,
+                1440,
+                LocalDateTime.of(2026, 6, 23, 23, 0),
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                false,
+                false,
+                1950,
+                LocalDateTime.of(2026, 6, 23, 23, 0),
+                LocalDateTime.of(2026, 6, 25, 7, 30),
+                "group-1"
+        );
+        Sleep secondSegment = new Sleep(
+                member,
+                510,
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                LocalDateTime.of(2026, 6, 25, 7, 30),
+                false,
+                false,
+                1950,
+                LocalDateTime.of(2026, 6, 23, 23, 0),
+                LocalDateTime.of(2026, 6, 25, 7, 30),
+                "group-1"
+        );
+        setSleepId(firstSegment, sleepId);
+        setSleepId(secondSegment, 46L);
+        SleepRequest.SleepUpdate request = new SleepRequest.SleepUpdate(
+                LocalDateTime.of(2026, 6, 23, 22, 0),
+                LocalDateTime.of(2026, 6, 24, 6, 0),
+                false,
+                false
+        );
+
+        when(sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId))
+                .thenReturn(Optional.of(firstSegment));
+        when(sleepRepository.findAllByMemberMemberIdAndContinuousSleepGroupId(memberId, "group-1"))
+                .thenReturn(List.of(firstSegment, secondSegment));
+        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+                member,
+                request.bedTime(),
+                request.wakeUpTime()
+        )).thenReturn(false);
+
+        SleepResponse patchResponse = sleepService.updateSleep(memberId, sleepId, request);
+        SleepResponse getResponse = sleepService.getSleep(memberId, sleepId);
+
+        assertThat(patchResponse.getSleepId()).isEqualTo(sleepId);
+        assertThat(getResponse.getSleepId()).isEqualTo(sleepId);
+        assertThat(getResponse.getDurationMinutes()).isEqualTo(480);
+        assertThat(getResponse.getWakeUpTime()).isEqualTo(request.wakeUpTime());
+    }
+
+    @Test
+    void updateSingleSleepToContinuousSleepPreservesRequestedSleepIdAndCreatesOnlyAdditionalSegments() {
+        Long memberId = 1L;
+        Long sleepId = 45L;
+        Member member = new Member();
+        Sleep sleep = new Sleep(
+                member,
+                480,
+                LocalDateTime.of(2026, 6, 23, 23, 0),
+                LocalDateTime.of(2026, 6, 24, 7, 0),
+                false
+        );
+        setSleepId(sleep, sleepId);
+        SleepRequest.SleepUpdate request = new SleepRequest.SleepUpdate(
+                LocalDateTime.of(2026, 6, 23, 23, 0),
+                LocalDateTime.of(2026, 6, 25, 7, 30),
+                false,
+                false
+        );
+
+        when(sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId))
+                .thenReturn(Optional.of(sleep));
+        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+                member,
+                request.bedTime(),
+                request.wakeUpTime()
+        )).thenReturn(false);
         when(sleepRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         SleepResponse response = sleepService.updateSleep(memberId, sleepId, request);
 
-        verify(sleepRepository).deleteAll(List.of(firstSegment, secondSegment));
-        assertThat(response.getDurationMinutes()).isEqualTo(480);
-        assertThat(response.getIsContinuousSleep()).isFalse();
-        assertThat(response.getContinuousSleepGroupId()).isNull();
+        ArgumentCaptor<List<Sleep>> captor = ArgumentCaptor.forClass(List.class);
+        verify(sleepRepository).saveAll(captor.capture());
+        List<Sleep> addedSegments = captor.getValue();
+
+        assertThat(response.getSleepId()).isEqualTo(sleepId);
+        assertThat(response.getDurationMinutes()).isEqualTo(1440);
+        assertThat(response.getTotalDurationMinutes()).isEqualTo(1950);
+        assertThat(response.getOriginalBedTime()).isEqualTo(request.bedTime());
+        assertThat(response.getOriginalWakeUpTime()).isEqualTo(request.wakeUpTime());
+        assertThat(response.getIsContinuousSleep()).isTrue();
+        assertThat(response.getContinuousSleepGroupId()).isNotBlank();
+        assertThat(sleep.getSleepId()).isEqualTo(sleepId);
+        assertThat(addedSegments).hasSize(1);
+        assertThat(addedSegments.get(0).getDurationMinutes()).isEqualTo(510);
+        assertThat(addedSegments.get(0).getContinuousSleepGroupId()).isEqualTo(response.getContinuousSleepGroupId());
+        assertThat(addedSegments.get(0).getOriginalBedTime()).isEqualTo(request.bedTime());
+        assertThat(addedSegments.get(0).getOriginalWakeUpTime()).isEqualTo(request.wakeUpTime());
+        assertThat(addedSegments.get(0).getTotalDurationMinutes()).isEqualTo(1950);
     }
 
     @Test
@@ -356,5 +491,9 @@ class SleepServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.SLEEP_NOT_FOUND);
+    }
+
+    private void setSleepId(Sleep sleep, Long sleepId) {
+        ReflectionTestUtils.setField(sleep, "sleepId", sleepId);
     }
 }

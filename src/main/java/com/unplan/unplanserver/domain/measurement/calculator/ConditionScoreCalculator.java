@@ -24,6 +24,11 @@ public final class ConditionScoreCalculator {
         return calculateRawScorePercent(mindScore);
     }
 
+    public static int calculateRawScorePercent(double score) {
+        validateRawScore(score, "score");
+        return round(score / MAX_RAW_SCORE * MAX_PERCENT_SCORE);
+    }
+
     public static int calculateSleepScore(
             Integer sleepAmountScore,
             Integer sleepPatternScore,
@@ -202,10 +207,6 @@ public final class ConditionScoreCalculator {
         );
     }
 
-    private static int calculateRawScorePercent(int score) {
-        return round(score / (double) MAX_RAW_SCORE * MAX_PERCENT_SCORE);
-    }
-
     private static long calculateCircularTimeDiffMinutes(LocalTime first, LocalTime second) {
         long diff = Math.abs(ChronoUnit.MINUTES.between(first, second));
         return Math.min(diff, MINUTES_PER_DAY - diff);
@@ -255,6 +256,12 @@ public final class ConditionScoreCalculator {
     private static void validateNonNegative(double value, String name) {
         if (Double.isNaN(value) || value < 0) {
             throw new IllegalArgumentException(name + " must be greater than or equal to 0");
+        }
+    }
+
+    private static void validateRawScore(double value, String name) {
+        if (Double.isNaN(value) || value < MIN_RAW_SCORE || value > MAX_RAW_SCORE) {
+            throw new IllegalArgumentException(name + " must be between " + MIN_RAW_SCORE + " and " + MAX_RAW_SCORE);
         }
     }
 

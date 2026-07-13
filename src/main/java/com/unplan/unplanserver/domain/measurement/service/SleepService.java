@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -99,19 +101,15 @@ public class SleepService {
         }
 
         if (sleep.isContinuousSleep() || sleepInput.durationMinutes() > MAX_SLEEP_DURATION_MINUTES) {
-            List<Sleep> targetSleeps = findTargetSleeps(memberId, sleep);
-            sleepRepository.deleteAll(targetSleeps);
-
-            List<Sleep> replacementSleeps = createSleepSegments(
-                    sleep.getMember(),
+            return updateSleepSegments(
+                    memberId,
+                    sleep,
                     sleepInput.durationMinutes(),
                     request.bedTime(),
                     request.wakeUpTime(),
                     request.isNap(),
                     request.isAllNight()
             );
-
-            return SleepResponse.from(sleepRepository.saveAll(replacementSleeps).get(0));
         }
 
         sleep.updateSleep(
@@ -177,9 +175,115 @@ public class SleepService {
             Boolean isNap,
             Boolean isAllNight
     ) {
+        String groupId = totalDurationMinutes > MAX_SLEEP_DURATION_MINUTES
+                ? UUID.randomUUID().toString()
+                : null;
+
+        return createSleepSegmentSpecs(
+                totalDurationMinutes,
+                originalBedTime,
+                originalWakeUpTime,
+                isNap,
+                isAllNight,
+                groupId
+        ).stream()
+                .map(segment -> new Sleep(
+                        member,
+                        segment.durationMinutes(),
+                        segment.bedTime(),
+                        segment.wakeUpTime(),
+                        segment.isNap(),
+                        segment.isAllNight(),
+                        segment.totalDurationMinutes(),
+                        segment.originalBedTime(),
+                        segment.originalWakeUpTime(),
+                        segment.continuousSleepGroupId()
+                ))
+                .toList();
+    }
+
+    private SleepResponse updateSleepSegments(
+            Long memberId,
+            Sleep targetSleep,
+            int totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            Boolean isNap,
+            Boolean isAllNight
+    ) {
+        List<Sleep> existingSegments = orderedTargetSleeps(memberId, targetSleep);
+        String groupId = resolveContinuousSleepGroupId(targetSleep, totalDurationMinutes);
+        List<SleepSegment> newSegments = createSleepSegmentSpecs(
+                totalDurationMinutes,
+                originalBedTime,
+                originalWakeUpTime,
+                isNap,
+                isAllNight,
+                groupId
+        );
+
+        updateSleep(targetSleep, newSegments.get(0));
+
+        List<Sleep> reusableSegments = existingSegments.stream()
+                .filter(existingSegment -> !isSameSleep(existingSegment, targetSleep))
+                .toList();
+        List<Sleep> additionalSegments = new ArrayList<>();
+        for (int index = 1; index < newSegments.size(); index++) {
+            SleepSegment segment = newSegments.get(index);
+            int reusableIndex = index - 1;
+            if (reusableIndex < reusableSegments.size()) {
+                updateSleep(reusableSegments.get(reusableIndex), segment);
+                continue;
+            }
+
+            additionalSegments.add(new Sleep(
+                    targetSleep.getMember(),
+                    segment.durationMinutes(),
+                    segment.bedTime(),
+                    segment.wakeUpTime(),
+                    segment.isNap(),
+                    segment.isAllNight(),
+                    segment.totalDurationMinutes(),
+                    segment.originalBedTime(),
+                    segment.originalWakeUpTime(),
+                    segment.continuousSleepGroupId()
+            ));
+        }
+
+        if (newSegments.size() - 1 < reusableSegments.size()) {
+            sleepRepository.deleteAll(reusableSegments.subList(newSegments.size() - 1, reusableSegments.size()));
+        }
+        if (!additionalSegments.isEmpty()) {
+            sleepRepository.saveAll(additionalSegments);
+        }
+
+        return SleepResponse.from(targetSleep);
+    }
+
+    private void updateSleep(Sleep sleep, SleepSegment segment) {
+        sleep.updateSleep(
+                segment.durationMinutes(),
+                segment.bedTime(),
+                segment.wakeUpTime(),
+                segment.isNap(),
+                segment.isAllNight(),
+                segment.totalDurationMinutes(),
+                segment.originalBedTime(),
+                segment.originalWakeUpTime(),
+                segment.continuousSleepGroupId()
+        );
+    }
+
+    private List<SleepSegment> createSleepSegmentSpecs(
+            int totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            Boolean isNap,
+            Boolean isAllNight,
+            String groupId
+    ) {
         if (totalDurationMinutes <= MAX_SLEEP_DURATION_MINUTES) {
-            return List.of(new Sleep(
-                    member,
+            return List.of(new SleepSegment(
                     totalDurationMinutes,
                     originalBedTime,
                     originalWakeUpTime,
@@ -192,16 +296,14 @@ public class SleepService {
             ));
         }
 
-        String groupId = UUID.randomUUID().toString();
         LocalDateTime segmentStart = originalBedTime;
         int remainingMinutes = totalDurationMinutes;
-        List<Sleep> segments = new java.util.ArrayList<>();
+        List<SleepSegment> segments = new ArrayList<>();
 
         while (remainingMinutes > 0) {
             int segmentDurationMinutes = Math.min(remainingMinutes, MAX_SLEEP_DURATION_MINUTES);
             LocalDateTime segmentEnd = segmentStart.plusMinutes(segmentDurationMinutes);
-            segments.add(new Sleep(
-                    member,
+            segments.add(new SleepSegment(
                     segmentDurationMinutes,
                     segmentStart,
                     segmentEnd,
@@ -220,6 +322,31 @@ public class SleepService {
         return segments;
     }
 
+    private List<Sleep> orderedTargetSleeps(Long memberId, Sleep targetSleep) {
+        List<Sleep> targetSleeps = new ArrayList<>(findTargetSleeps(memberId, targetSleep));
+        targetSleeps.sort(Comparator.comparing(Sleep::getBedTime));
+        targetSleeps.removeIf(sleep -> isSameSleep(sleep, targetSleep));
+        targetSleeps.add(0, targetSleep);
+        return targetSleeps;
+    }
+
+    private boolean isSameSleep(Sleep left, Sleep right) {
+        if (left == right) {
+            return true;
+        }
+        return left.getSleepId() != null && left.getSleepId().equals(right.getSleepId());
+    }
+
+    private String resolveContinuousSleepGroupId(Sleep targetSleep, int totalDurationMinutes) {
+        if (totalDurationMinutes <= MAX_SLEEP_DURATION_MINUTES) {
+            return null;
+        }
+        if (targetSleep.getContinuousSleepGroupId() != null) {
+            return targetSleep.getContinuousSleepGroupId();
+        }
+        return UUID.randomUUID().toString();
+    }
+
     private List<Sleep> findTargetSleeps(Long memberId, Sleep sleep) {
         if (!sleep.isContinuousSleep()) {
             return List.of(sleep);
@@ -236,5 +363,18 @@ public class SleepService {
     }
 
     private record SleepInput(int durationMinutes) {
+    }
+
+    private record SleepSegment(
+            int durationMinutes,
+            LocalDateTime bedTime,
+            LocalDateTime wakeUpTime,
+            Boolean isNap,
+            Boolean isAllNight,
+            int totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            String continuousSleepGroupId
+    ) {
     }
 }

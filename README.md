@@ -1,8 +1,6 @@
 # Unplan Backend
 
-<!--
 <img src="assets/unplan-main.png" alt="Unplan 앱 소개" width="100%" />
--->
 
 <br />
 

@@ -16,8 +16,10 @@
 
 | 구분 | URL |
 |------|-----|
-| Swagger UI | `http://localhost:8080/swagger-ui/index.html` |
-| Dev Swagger | `https://dev-api.un-plan.com/swagger-ui/index.html` |
+| Local Swagger | `http://localhost:8080/swagger-ui/index.html` |
+| Dev Swagger | `https://dev-api.un-plan.com/swagger-ui.html` |
+
+> 운영 환경에서는 Swagger UI와 OpenAPI docs가 비활성화되어 있습니다.
 
 <br />
 
@@ -123,7 +125,7 @@ src/main/java/com/unplan/unplanserver/
     
   util/               # 공통 유틸
 
-  webclient/          # 외부 API 연동
+  webclient/          # 외부 API 연동 클라이언트
 ```
 
 <br />
@@ -132,7 +134,7 @@ src/main/java/com/unplan/unplanserver/
 
 ### 요구사항
 
-- Java
+- Java 21
 - Docker
 - PostgreSQL
 - Gradle Wrapper 사용 권장
@@ -146,8 +148,33 @@ cd unplan-server
 
 ### 로컬 실행
 
+로컬 기본 프로필은 `local`입니다. PostgreSQL이 필요하며, `docker-compose.yml`로 로컬 DB와 앱을 함께 실행할 수 있습니다.
+
+```bash
+docker compose up -d postgres
+```
+
+애플리케이션을 직접 실행할 때는 최소한 다음 환경변수를 설정합니다.
+
+```bash
+export JWT_SECRET=your-local-jwt-secret
+export GOOGLE_CLIENT_ID=your-google-client-id
+```
+
+Gemini 연동 기능을 사용할 경우 다음 값도 설정합니다.
+
+```bash
+export GEMINI_API_KEY=your-gemini-api-key
+```
+
 ```bash
 ./gradlew bootRun
+```
+
+Docker Compose로 앱까지 함께 실행할 수도 있습니다.
+
+```bash
+docker compose up --build
 ```
 
 ### 테스트

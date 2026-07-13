@@ -9,10 +9,11 @@ import com.google.genai.types.Part;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Optional;
-
+@Slf4j
 @Component
 public class GeminiClient {
     private final Client client;
@@ -78,6 +79,7 @@ public class GeminiClient {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            log.error("Gemini API 호출 중 오류가 발생했습니다. title: {}", title, e);
             throw new CustomException(ErrorCode.AI_API_UNAVAILABLE);
         }
     }

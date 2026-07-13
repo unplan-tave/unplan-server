@@ -1,8 +1,9 @@
 package com.unplan.unplanserver.domain.schedule.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record TagRecommendationRequestDto(
-        @NotBlank String title
+        @NotBlank @Size(max = 50) String title
 ) {
 }

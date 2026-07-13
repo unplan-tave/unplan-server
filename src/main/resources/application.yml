@@ -8,7 +8,7 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 gemini:
-  api-key: ${GEMINI_API_KEY}
+  api-key: ${GEMINI_API_KEY:}
 server:
   port: ${PORT:8080}
   address: 0.0.0.0

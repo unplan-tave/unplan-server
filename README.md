@@ -2,8 +2,6 @@
 
 <img src="assets/unplan-main.png" alt="Unplan 앱 소개" width="100%" />
 
-<br />
-
 > 컨디션과 일정 흐름 사이의 문제를 해결하는 스케줄러 앱
 
 <br />

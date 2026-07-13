@@ -663,13 +663,13 @@ public class MeasurementService {
     }
 
     private int resolveSleepScore(Long memberId, List<Sleep> sleeps, LocalDate date) {
-        SleepTarget sleepTarget = resolveSleepTarget(memberId);
-
         if (!sleeps.isEmpty()) {
+            SleepTarget sleepTarget = resolveSleepTarget(memberId);
             return calculateSleepScore(memberId, sleeps, date.plusDays(1).atStartOfDay(), sleepTarget);
         }
 
-        if (isPastSleepAbsenceCutoff(date, sleepTarget)) {
+        SleepTimelineTarget timelineTarget = resolveSleepTimelineTarget(memberId);
+        if (isPastSleepAbsenceCutoff(date, timelineTarget)) {
             return 0;
         }
 
@@ -685,6 +685,7 @@ public class MeasurementService {
             return DEFAULT_SLEEP_SCORE;
         }
 
+        SleepTarget sleepTarget = resolveSleepTarget(memberId);
         return calculateSleepScore(memberId, previousDaySleeps, previousDayEnd, sleepTarget);
     }
 
@@ -772,6 +773,11 @@ public class MeasurementService {
 
     private boolean isPastSleepAbsenceCutoff(LocalDate date, SleepTarget sleepTarget) {
         LocalDateTime cutoff = date.atTime(sleepTarget.targetWakeUpTime()).plusHours(6);
+        return LocalDateTime.now().isAfter(cutoff);
+    }
+
+    private boolean isPastSleepAbsenceCutoff(LocalDate date, SleepTimelineTarget sleepTimelineTarget) {
+        LocalDateTime cutoff = date.atTime(sleepTimelineTarget.targetWakeUpTime()).plusHours(6);
         return LocalDateTime.now().isAfter(cutoff);
     }
 

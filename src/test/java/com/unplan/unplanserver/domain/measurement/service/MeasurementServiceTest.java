@@ -208,7 +208,7 @@ class MeasurementServiceTest {
         Member member = new Member();
 
         stubRangeBasedMeasurementData(memberId, member, List.of(), List.of());
-        stubSleepTarget(memberId, 480, "111111111111111111111110");
+        stubSleepTimeline(memberId, "111111111111111111111110");
 
         MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
 
@@ -1397,6 +1397,10 @@ class MeasurementServiceTest {
     private void stubSleepTarget(Long memberId, int targetDuration, String sleepTimeline) {
         when(sleepConditionService.getSleepCondition(memberId))
                 .thenReturn(new SleepConditionResponse(memberId, targetDuration, List.of()));
+        stubSleepTimeline(memberId, sleepTimeline);
+    }
+
+    private void stubSleepTimeline(Long memberId, String sleepTimeline) {
         when(biorhythmService.getBiorhythm(memberId))
                 .thenReturn(new BiorhythmResponse.GetBiorhythm(
                         memberId,

@@ -1,5 +1,9 @@
 package com.unplan.unplanserver.domain.schedule.service;
 
+import com.unplan.unplanserver.domain.schedule.dto.request.TagRecommendationRequestDto;
+import com.unplan.unplanserver.domain.schedule.dto.response.TagRecommendationResponseDto;
+import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.webclient.GeminiClient;
 import com.unplan.unplanserver.domain.schedule.entity.PersonalTag;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.entity.SchedulePersonalTag;
@@ -11,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -25,12 +30,22 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class TagService {
-
+    private final GeminiClient geminiClient;
     // Figma 스펙: 한 계정당 개인 태그 100개까지 생성 가능 (기존 태그 재사용은 한도와 무관)
     private static final int MAX_TAGS_PER_MEMBER = 100;
 
     private final PersonalTagRepository personalTagRepository;
     private final SchedulePersonalTagRepository schedulePersonalTagRepository;
+
+    // DB작업이 없어서 트랜잭션 걸지 않음
+    public TagRecommendationResponseDto recommendTag(TagRecommendationRequestDto requestDto) {
+        // AI api 호출
+        String title = requestDto.title();
+        // AI를 이용하여 태그 추천받기
+        Optional<ConditionTag> conditionTag = geminiClient.getRecommendedTag(title);
+        String recommendedTag = conditionTag.map(ConditionTag::name).orElse("NONE");
+        return new TagRecommendationResponseDto(recommendedTag);
+    }
 
     /**
      * 일정 생성·수정 시 호출. 태그 이름 목록을 받아 멤버 태그를 find-or-create 하고 일정에 연결한다.

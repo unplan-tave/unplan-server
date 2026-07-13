@@ -172,8 +172,14 @@ public class MeasurementService {
         List<MeasurementRecordResponse> dailyRecords = new ArrayList<>();
         LocalDate current = period.periodStart();
         while (!current.isAfter(calculationEnd)) {
-            dailyRecords.add(calculateDailyRecordFromPreloadedData(current, preloadedData));
+            if (hasAverageTargetRecords(current, type, preloadedData)) {
+                dailyRecords.add(calculateDailyAverageRecordFromPreloadedData(current, preloadedData));
+            }
             current = current.plusDays(1);
+        }
+
+        if (dailyRecords.isEmpty()) {
+            return List.of();
         }
 
         int divisor = dailyRecords.size();
@@ -273,7 +279,7 @@ public class MeasurementService {
         );
     }
 
-    private MeasurementRecordResponse calculateDailyRecordFromPreloadedData(
+    private MeasurementRecordResponse calculateDailyAverageRecordFromPreloadedData(
             LocalDate date,
             PreloadedMeasurementData preloadedData
     ) {
@@ -288,7 +294,7 @@ public class MeasurementService {
                 .sorted(Comparator.comparing(Sleep::getWakeUpTime))
                 .toList();
 
-        ConditionScoreSource conditionScoreSource = resolveConditionScoreSourceFromPreloadedData(
+        ConditionPercentSource conditionPercentSource = resolveConditionPercentSourceForAverage(
                 conditions,
                 preloadedData.conditions(),
                 date.atStartOfDay()
@@ -304,20 +310,24 @@ public class MeasurementService {
                 preloadedData.sleepTarget()
         );
 
-        ConditionScoreResult scoreResult = ConditionScoreCalculator.calculateConditionScore(
-                conditionScoreSource.bodyScore(),
-                conditionScoreSource.mindScore(),
+        int finalConditionScore = ConditionScoreCalculator.calculateFinalConditionScore(
+                conditionPercentSource.bodyScorePercent(),
+                conditionPercentSource.mindScorePercent(),
                 sleepScore
         );
 
         return new MeasurementRecordResponse(
                 date,
-                scoreResult.finalConditionScore(),
-                scoreResult.conditionLevel(),
-                scoreResult.conditionTag(),
-                scoreResult.bodyScorePercent(),
-                scoreResult.mindScorePercent(),
-                scoreResult.sleepScore(),
+                finalConditionScore,
+                ConditionScoreCalculator.calculateConditionLevel(finalConditionScore),
+                ConditionScoreCalculator.calculateConditionTag(
+                        conditionPercentSource.bodyScorePercent(),
+                        conditionPercentSource.mindScorePercent(),
+                        sleepScore
+                ),
+                conditionPercentSource.bodyScorePercent(),
+                conditionPercentSource.mindScorePercent(),
+                sleepScore,
                 sleepDurationMinutes,
                 toPageResponse(
                         conditions.stream()
@@ -332,6 +342,25 @@ public class MeasurementService {
                         PagingUtils.pageRequest(0)
                 )
         );
+    }
+
+    private boolean hasAverageTargetRecords(
+            LocalDate date,
+            AverageType type,
+            PreloadedMeasurementData preloadedData
+    ) {
+        boolean hasConditions = !preloadedData.conditionsByDate()
+                .getOrDefault(date, List.of())
+                .isEmpty();
+        boolean hasSleeps = !preloadedData.sleepsByWakeUpDate()
+                .getOrDefault(date, List.of())
+                .isEmpty();
+
+        return switch (type) {
+            case ALL -> hasConditions || hasSleeps;
+            case CONDITION -> hasConditions;
+            case SLEEP -> hasSleeps;
+        };
     }
 
     private <T> PageResponse<T> toPageResponse(List<T> records, PageRequest pageRequest) {
@@ -366,6 +395,43 @@ public class MeasurementService {
                         .orElseGet(() -> new ConditionScoreSource(DEFAULT_BODY_SCORE, DEFAULT_MIND_SCORE)));
     }
 
+    private ConditionPercentSource resolveConditionPercentSourceForAverage(
+            List<Condition> conditions,
+            List<Condition> allConditions,
+            LocalDateTime dateStart
+    ) {
+        if (!conditions.isEmpty()) {
+            double bodyScoreAverage = conditions.stream()
+                    .mapToInt(Condition::getBodyScore)
+                    .average()
+                    .orElse(DEFAULT_BODY_SCORE);
+            double mindScoreAverage = conditions.stream()
+                    .mapToInt(Condition::getMindScore)
+                    .average()
+                    .orElse(DEFAULT_MIND_SCORE);
+
+            return new ConditionPercentSource(
+                    calculateRawScorePercent(bodyScoreAverage),
+                    calculateRawScorePercent(mindScoreAverage)
+            );
+        }
+
+        ConditionScoreSource fallbackSource = resolveConditionScoreSourceFromPreloadedData(
+                conditions,
+                allConditions,
+                dateStart
+        );
+
+        return new ConditionPercentSource(
+                ConditionScoreCalculator.calculateBodyScorePercent(fallbackSource.bodyScore()),
+                ConditionScoreCalculator.calculateMindScorePercent(fallbackSource.mindScore())
+        );
+    }
+
+    private int calculateRawScorePercent(double score) {
+        return (int) Math.round(score / 6.0 * 100);
+    }
+
     private int resolveSleepScoreFromPreloadedData(
             List<Sleep> sleeps,
             LocalDate date,
@@ -379,6 +445,10 @@ public class MeasurementService {
                     sleepTarget,
                     findRecentSleeps(allSleeps, date.plusDays(1).atStartOfDay())
             );
+        }
+
+        if (isPastSleepAbsenceCutoff(date, sleepTarget)) {
+            return 0;
         }
 
         List<Sleep> previousDaySleeps = sleepsByWakeUpDate.getOrDefault(date.minusDays(1), List.of());
@@ -561,17 +631,46 @@ public class MeasurementService {
         return new SleepRecord(
                 sleep.getSleepId(),
                 sleep.getDurationMinutes(),
+                resolveTotalDurationMinutes(sleep),
                 sleep.getBedTime(),
                 sleep.getWakeUpTime(),
+                resolveOriginalBedTime(sleep),
+                resolveOriginalWakeUpTime(sleep),
                 sleep.getNap(),
                 sleep.getAllNight(),
+                sleep.isContinuousSleep(),
+                sleep.getContinuousSleepGroupId(),
                 sleep.getCreatedAt()
         );
     }
 
+    private Integer resolveTotalDurationMinutes(Sleep sleep) {
+        return sleep.getTotalDurationMinutes() != null
+                ? sleep.getTotalDurationMinutes()
+                : sleep.getDurationMinutes();
+    }
+
+    private LocalDateTime resolveOriginalBedTime(Sleep sleep) {
+        return sleep.getOriginalBedTime() != null
+                ? sleep.getOriginalBedTime()
+                : sleep.getBedTime();
+    }
+
+    private LocalDateTime resolveOriginalWakeUpTime(Sleep sleep) {
+        return sleep.getOriginalWakeUpTime() != null
+                ? sleep.getOriginalWakeUpTime()
+                : sleep.getWakeUpTime();
+    }
+
     private int resolveSleepScore(Long memberId, List<Sleep> sleeps, LocalDate date) {
+        SleepTarget sleepTarget = resolveSleepTarget(memberId);
+
         if (!sleeps.isEmpty()) {
-            return calculateSleepScore(memberId, sleeps, date.plusDays(1).atStartOfDay());
+            return calculateSleepScore(memberId, sleeps, date.plusDays(1).atStartOfDay(), sleepTarget);
+        }
+
+        if (isPastSleepAbsenceCutoff(date, sleepTarget)) {
+            return 0;
         }
 
         LocalDateTime previousDayStart = date.minusDays(1).atStartOfDay();
@@ -586,15 +685,19 @@ public class MeasurementService {
             return DEFAULT_SLEEP_SCORE;
         }
 
-        return calculateSleepScore(memberId, previousDaySleeps, previousDayEnd);
+        return calculateSleepScore(memberId, previousDaySleeps, previousDayEnd, sleepTarget);
     }
 
-    private int calculateSleepScore(Long memberId, List<Sleep> sleeps, LocalDateTime recentSleepBoundary) {
+    private int calculateSleepScore(
+            Long memberId,
+            List<Sleep> sleeps,
+            LocalDateTime recentSleepBoundary,
+            SleepTarget sleepTarget
+    ) {
         if (hasAllNightSleep(sleeps)) {
             return 0;
         }
 
-        SleepTarget sleepTarget = resolveSleepTarget(memberId);
         int totalSleepMinutes = sleeps.stream()
                 .mapToInt(Sleep::getDurationMinutes)
                 .sum();
@@ -631,7 +734,7 @@ public class MeasurementService {
     private int resolveTargetSleepMinutes(Long memberId) {
         try {
             SleepConditionResponse sleepCondition = sleepConditionService.getSleepCondition(memberId);
-            if (sleepCondition.targetDuration() != null) {
+            if (sleepCondition != null && sleepCondition.targetDuration() != null) {
                 return sleepCondition.targetDuration();
             }
         } catch (CustomException e) {
@@ -644,6 +747,9 @@ public class MeasurementService {
     private SleepTimelineTarget resolveSleepTimelineTarget(Long memberId) {
         try {
             BiorhythmResponse.GetBiorhythm biorhythm = biorhythmService.getBiorhythm(memberId);
+            if (biorhythm == null) {
+                return new SleepTimelineTarget(DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME);
+            }
             String sleepTimeline = biorhythm.sleepTimeline();
 
             if (sleepTimeline != null
@@ -662,6 +768,11 @@ public class MeasurementService {
         }
 
         return new SleepTimelineTarget(DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME);
+    }
+
+    private boolean isPastSleepAbsenceCutoff(LocalDate date, SleepTarget sleepTarget) {
+        LocalDateTime cutoff = date.atTime(sleepTarget.targetWakeUpTime()).plusHours(6);
+        return LocalDateTime.now().isAfter(cutoff);
     }
 
     private int findSleepStartHour(String sleepTimeline) {
@@ -757,6 +868,12 @@ public class MeasurementService {
     private record ConditionScoreSource(
             int bodyScore,
             int mindScore
+    ) {
+    }
+
+    private record ConditionPercentSource(
+            int bodyScorePercent,
+            int mindScorePercent
     ) {
     }
 

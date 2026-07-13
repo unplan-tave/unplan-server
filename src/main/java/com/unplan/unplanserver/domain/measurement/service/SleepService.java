@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +58,7 @@ public class SleepService {
             throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
         }
 
-        Sleep sleep = new Sleep(
+        List<Sleep> sleeps = createSleepSegments(
                 member,
                 sleepInput.durationMinutes(),
                 request.bedTime(),
@@ -65,9 +67,9 @@ public class SleepService {
                 request.isAllNight()
         );
 
-        Sleep savedSleep = sleepRepository.save(sleep);
+        List<Sleep> savedSleeps = sleepRepository.saveAll(sleeps);
 
-        return SleepResponse.from(savedSleep);
+        return SleepResponse.from(savedSleeps.get(0));
     }
 
     @Transactional
@@ -96,12 +98,32 @@ public class SleepService {
             throw new CustomException(ErrorCode.SLEEP_TIME_OVERLAP);
         }
 
+        if (sleep.isContinuousSleep() || sleepInput.durationMinutes() > MAX_SLEEP_DURATION_MINUTES) {
+            List<Sleep> targetSleeps = findTargetSleeps(memberId, sleep);
+            sleepRepository.deleteAll(targetSleeps);
+
+            List<Sleep> replacementSleeps = createSleepSegments(
+                    sleep.getMember(),
+                    sleepInput.durationMinutes(),
+                    request.bedTime(),
+                    request.wakeUpTime(),
+                    request.isNap(),
+                    request.isAllNight()
+            );
+
+            return SleepResponse.from(sleepRepository.saveAll(replacementSleeps).get(0));
+        }
+
         sleep.updateSleep(
                 sleepInput.durationMinutes(),
                 request.bedTime(),
                 request.wakeUpTime(),
                 request.isNap(),
-                request.isAllNight()
+                request.isAllNight(),
+                sleepInput.durationMinutes(),
+                request.bedTime(),
+                request.wakeUpTime(),
+                null
         );
 
         return SleepResponse.from(sleep);
@@ -113,9 +135,7 @@ public class SleepService {
         Sleep sleep = sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_NOT_FOUND));
 
-        sleepRepository.delete(sleep);
-
-        // TODO: 기록 조회/흐름 조회 API 구현 시 수면 패널티 및 종합 컨디션 점수 재계산 로직 연결
+        sleepRepository.deleteAll(findTargetSleeps(memberId, sleep));
     }
 
     private SleepInput validateSleepInput(
@@ -139,9 +159,6 @@ public class SleepService {
         }
 
         long durationMinutes = Duration.between(bedTime, wakeUpTime).toMinutes();
-        if (durationMinutes > MAX_SLEEP_DURATION_MINUTES) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
         if (Boolean.TRUE.equals(isAllNight)) {
             return new SleepInput(0);
         }
@@ -150,6 +167,72 @@ public class SleepService {
         }
 
         return new SleepInput((int) durationMinutes);
+    }
+
+    private List<Sleep> createSleepSegments(
+            Member member,
+            int totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            Boolean isNap,
+            Boolean isAllNight
+    ) {
+        if (totalDurationMinutes <= MAX_SLEEP_DURATION_MINUTES) {
+            return List.of(new Sleep(
+                    member,
+                    totalDurationMinutes,
+                    originalBedTime,
+                    originalWakeUpTime,
+                    isNap,
+                    isAllNight,
+                    totalDurationMinutes,
+                    originalBedTime,
+                    originalWakeUpTime,
+                    null
+            ));
+        }
+
+        String groupId = UUID.randomUUID().toString();
+        LocalDateTime segmentStart = originalBedTime;
+        int remainingMinutes = totalDurationMinutes;
+        List<Sleep> segments = new java.util.ArrayList<>();
+
+        while (remainingMinutes > 0) {
+            int segmentDurationMinutes = Math.min(remainingMinutes, MAX_SLEEP_DURATION_MINUTES);
+            LocalDateTime segmentEnd = segmentStart.plusMinutes(segmentDurationMinutes);
+            segments.add(new Sleep(
+                    member,
+                    segmentDurationMinutes,
+                    segmentStart,
+                    segmentEnd,
+                    isNap,
+                    false,
+                    totalDurationMinutes,
+                    originalBedTime,
+                    originalWakeUpTime,
+                    groupId
+            ));
+
+            remainingMinutes -= segmentDurationMinutes;
+            segmentStart = segmentEnd;
+        }
+
+        return segments;
+    }
+
+    private List<Sleep> findTargetSleeps(Long memberId, Sleep sleep) {
+        if (!sleep.isContinuousSleep()) {
+            return List.of(sleep);
+        }
+
+        List<Sleep> targetSleeps = sleepRepository.findAllByMemberMemberIdAndContinuousSleepGroupId(
+                memberId,
+                sleep.getContinuousSleepGroupId()
+        );
+        if (targetSleeps.isEmpty()) {
+            return List.of(sleep);
+        }
+        return targetSleeps;
     }
 
     private record SleepInput(int durationMinutes) {

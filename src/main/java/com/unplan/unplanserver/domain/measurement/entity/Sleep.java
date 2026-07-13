@@ -46,6 +46,18 @@ public class Sleep {
     @Column(name = "is_all_night", nullable = false)
     private Boolean allNight = false;
 
+    @Column(name = "total_duration_minutes")
+    private Integer totalDurationMinutes;
+
+    @Column(name = "original_bed_time")
+    private LocalDateTime originalBedTime;
+
+    @Column(name = "original_wake_up_time")
+    private LocalDateTime originalWakeUpTime;
+
+    @Column(name = "continuous_sleep_group_id")
+    private String continuousSleepGroupId;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -68,12 +80,31 @@ public class Sleep {
             Boolean nap,
             Boolean allNight
     ) {
+        this(member, durationMinutes, bedTime, wakeUpTime, nap, allNight, durationMinutes, bedTime, wakeUpTime, null);
+    }
+
+    public Sleep(
+            Member member,
+            Integer durationMinutes,
+            LocalDateTime bedTime,
+            LocalDateTime wakeUpTime,
+            Boolean nap,
+            Boolean allNight,
+            Integer totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            String continuousSleepGroupId
+    ) {
         this.member = member;
         this.durationMinutes = durationMinutes;
         this.bedTime = bedTime;
         this.wakeUpTime = wakeUpTime;
         this.nap = nap;
         this.allNight = allNight;
+        this.totalDurationMinutes = totalDurationMinutes;
+        this.originalBedTime = originalBedTime;
+        this.originalWakeUpTime = originalWakeUpTime;
+        this.continuousSleepGroupId = continuousSleepGroupId;
     }
 
     public void updateSleep(
@@ -81,12 +112,24 @@ public class Sleep {
             LocalDateTime bedTime,
             LocalDateTime wakeUpTime,
             Boolean nap,
-            Boolean allNight
+            Boolean allNight,
+            Integer totalDurationMinutes,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
+            String continuousSleepGroupId
     ) {
         this.durationMinutes = durationMinutes;
         this.bedTime = bedTime;
         this.wakeUpTime = wakeUpTime;
         this.nap = nap;
         this.allNight = allNight;
+        this.totalDurationMinutes = totalDurationMinutes;
+        this.originalBedTime = originalBedTime;
+        this.originalWakeUpTime = originalWakeUpTime;
+        this.continuousSleepGroupId = continuousSleepGroupId;
+    }
+
+    public boolean isContinuousSleep() {
+        return continuousSleepGroupId != null;
     }
 }

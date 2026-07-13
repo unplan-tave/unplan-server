@@ -111,7 +111,7 @@ class MeasurementServiceTest {
     }
 
     @Test
-    void getDailyRecordUsesDefaultScoresWhenNoRecordsExist() {
+    void getDailyRecordSetsSleepScoreZeroWhenNoRecordsExistAfterAbsenceCutoff() {
         Long memberId = 1L;
         LocalDate date = LocalDate.of(2026, 6, 24);
         Member member = new Member();
@@ -132,18 +132,12 @@ class MeasurementServiceTest {
                 date.atStartOfDay(),
                 date.plusDays(1).atStartOfDay()
         )).thenReturn(List.of());
-        when(sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
-                memberId,
-                date.minusDays(1).atStartOfDay(),
-                date.atStartOfDay()
-        )).thenReturn(List.of());
-
         MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
 
         assertThat(response.bodyScorePercent()).isEqualTo(50);
         assertThat(response.mindScorePercent()).isEqualTo(50);
-        assertThat(response.sleepScore()).isEqualTo(70);
-        assertThat(response.finalConditionScore()).isEqualTo(54);
+        assertThat(response.sleepScore()).isZero();
+        assertThat(response.finalConditionScore()).isEqualTo(40);
         assertThat(response.conditions().data()).isEmpty();
         assertThat(response.sleeps().data()).isEmpty();
     }
@@ -176,18 +170,50 @@ class MeasurementServiceTest {
                 date.atStartOfDay(),
                 date.plusDays(1).atStartOfDay()
         )).thenReturn(List.of());
-        when(sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(
-                memberId,
-                date.minusDays(1).atStartOfDay(),
-                date.atStartOfDay()
-        )).thenReturn(List.of());
-
         MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
 
         assertThat(response.bodyScorePercent()).isEqualTo(100);
         assertThat(response.mindScorePercent()).isEqualTo(100);
+        assertThat(response.sleepScore()).isZero();
+        assertThat(response.finalConditionScore()).isEqualTo(80);
+    }
+
+    @Test
+    void getDailyRecordUsesPreviousDaySleepScoreWhenNoSleepRecordsBeforeAbsenceCutoff() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.now();
+        Member member = new Member();
+        Sleep previousDaySleep = new Sleep(
+                member,
+                480,
+                date.minusDays(1).atTime(23, 0),
+                date.minusDays(1).atTime(23, 30),
+                false
+        );
+
+        stubRangeBasedMeasurementData(memberId, member, List.of(), List.of(previousDaySleep));
+        stubSleepTarget(memberId, 480, "111111111111111111111110");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
+
+        assertThat(response.sleeps().data()).isEmpty();
+        assertThat(response.sleepScore()).isNotEqualTo(70);
+        assertThat(response.sleepScore()).isGreaterThan(0);
+    }
+
+    @Test
+    void getDailyRecordUsesDefaultSleepScoreWhenNoSleepRecordsBeforeAbsenceCutoffAndNoPreviousSleep() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.now();
+        Member member = new Member();
+
+        stubRangeBasedMeasurementData(memberId, member, List.of(), List.of());
+        stubSleepTarget(memberId, 480, "111111111111111111111110");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
+
         assertThat(response.sleepScore()).isEqualTo(70);
-        assertThat(response.finalConditionScore()).isEqualTo(94);
+        assertThat(response.sleepDurationMinutes()).isZero();
     }
 
     @Test
@@ -598,6 +624,57 @@ class MeasurementServiceTest {
     }
 
     @Test
+    void getDailyRecordShowsContinuousSleepSegmentByWakeUpDate() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDateTime originalBedTime = LocalDateTime.of(2026, 6, 23, 23, 0);
+        LocalDateTime originalWakeUpTime = LocalDateTime.of(2026, 6, 25, 7, 30);
+        Sleep firstSegment = new Sleep(
+                member,
+                1440,
+                originalBedTime,
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                false,
+                false,
+                1950,
+                originalBedTime,
+                originalWakeUpTime,
+                "group-1"
+        );
+        Sleep secondSegment = new Sleep(
+                member,
+                510,
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                originalWakeUpTime,
+                false,
+                false,
+                1950,
+                originalBedTime,
+                originalWakeUpTime,
+                "group-1"
+        );
+
+        stubRangeBasedMeasurementData(memberId, member, List.of(), List.of(firstSegment, secondSegment));
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse june24 = measurementService.getDailyRecord(memberId, LocalDate.of(2026, 6, 24));
+        MeasurementRecordResponse june25 = measurementService.getDailyRecord(memberId, LocalDate.of(2026, 6, 25));
+
+        assertThat(june24.sleepDurationMinutes()).isEqualTo(1440);
+        assertThat(june24.sleeps().data()).hasSize(1);
+        assertThat(june24.sleeps().data().get(0).durationMinutes()).isEqualTo(1440);
+        assertThat(june24.sleeps().data().get(0).totalDurationMinutes()).isEqualTo(1950);
+        assertThat(june24.sleeps().data().get(0).originalBedTime()).isEqualTo(originalBedTime);
+        assertThat(june24.sleeps().data().get(0).originalWakeUpTime()).isEqualTo(originalWakeUpTime);
+        assertThat(june24.sleeps().data().get(0).isContinuousSleep()).isTrue();
+        assertThat(june24.sleeps().data().get(0).continuousSleepGroupId()).isEqualTo("group-1");
+        assertThat(june25.sleepDurationMinutes()).isEqualTo(510);
+        assertThat(june25.sleeps().data()).hasSize(1);
+        assertThat(june25.sleeps().data().get(0).durationMinutes()).isEqualTo(510);
+        assertThat(june25.sleeps().data().get(0).totalDurationMinutes()).isEqualTo(1950);
+    }
+
+    @Test
     void getDailyRecordUsesFirstPageWhenPagesAreNull() {
         Long memberId = 1L;
         LocalDate date = LocalDate.of(2026, 6, 24);
@@ -765,7 +842,9 @@ class MeasurementServiceTest {
         Long memberId = 1L;
         Member member = new Member();
         LocalDate first = LocalDate.of(2026, 5, 1);
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        Condition condition = new Condition(member, 3, 3, first.atTime(10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, first.atTime(0, 0), first.atTime(0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(allNightSleep));
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
@@ -775,19 +854,20 @@ class MeasurementServiceTest {
                 "DAY"
         );
 
-        assertThat(response.items()).hasSize(2);
+        assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).periodStart()).isEqualTo(first);
         assertThat(response.items().get(0).periodEnd()).isEqualTo(first);
         assertThat(response.items().get(0).label()).isEqualTo("5/1");
-        assertThat(response.items().get(0).finalConditionScoreAverage()).isEqualTo(54);
-        assertThat(response.items().get(1).label()).isEqualTo("5/2");
+        assertThat(response.items().get(0).finalConditionScoreAverage()).isEqualTo(40);
     }
 
     @Test
     void getAverageRecordsGroupsByWeekFromSundayToSaturday() {
         Long memberId = 1L;
         Member member = new Member();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        Condition condition = new Condition(member, 3, 3, LocalDateTime.of(2026, 5, 1, 10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, LocalDateTime.of(2026, 5, 1, 0, 0), LocalDateTime.of(2026, 5, 1, 0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(allNightSleep));
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
@@ -797,7 +877,7 @@ class MeasurementServiceTest {
                 "WEEK"
         );
 
-        assertThat(response.items()).hasSize(6);
+        assertThat(response.items()).hasSize(1);
         AverageItem firstWeek = response.items().get(0);
         assertThat(firstWeek.periodStart()).isEqualTo(LocalDate.of(2026, 4, 26));
         assertThat(firstWeek.periodEnd()).isEqualTo(LocalDate.of(2026, 5, 2));
@@ -808,7 +888,9 @@ class MeasurementServiceTest {
     void getAverageRecordsGroupsByMonth() {
         Long memberId = 1L;
         Member member = new Member();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        Condition condition = new Condition(member, 3, 3, LocalDateTime.of(2026, 5, 10, 10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, LocalDateTime.of(2026, 5, 10, 0, 0), LocalDateTime.of(2026, 5, 10, 0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(allNightSleep));
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
@@ -818,11 +900,10 @@ class MeasurementServiceTest {
                 "MONTH"
         );
 
-        assertThat(response.items()).hasSize(2);
+        assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).periodStart()).isEqualTo(LocalDate.of(2026, 5, 1));
         assertThat(response.items().get(0).periodEnd()).isEqualTo(LocalDate.of(2026, 5, 31));
         assertThat(response.items().get(0).label()).isEqualTo("2026.05");
-        assertThat(response.items().get(1).label()).isEqualTo("2026.06");
     }
 
     @Test
@@ -830,7 +911,8 @@ class MeasurementServiceTest {
         Long memberId = 1L;
         Member member = new Member();
         LocalDate today = LocalDate.now();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        Condition condition = new Condition(member, 3, 3, today.atTime(10, 0));
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of());
 
         MeasurementAverageResponse response = measurementService.getAverageRecords(
                 memberId,
@@ -848,7 +930,10 @@ class MeasurementServiceTest {
     void getAverageRecordsReturnsAllTypeFields() {
         Long memberId = 1L;
         Member member = new Member();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        LocalDate date = LocalDate.of(2026, 5, 1);
+        Condition condition = new Condition(member, 3, 3, date.atTime(10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, date.atTime(0, 0), date.atTime(0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(allNightSleep));
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
@@ -858,10 +943,10 @@ class MeasurementServiceTest {
                 "DAY"
         ).items().get(0);
 
-        assertThat(item.finalConditionScoreAverage()).isEqualTo(54);
+        assertThat(item.finalConditionScoreAverage()).isEqualTo(40);
         assertThat(item.bodyScorePercentAverage()).isEqualTo(50);
         assertThat(item.mindScorePercentAverage()).isEqualTo(50);
-        assertThat(item.sleepScoreAverage()).isEqualTo(70);
+        assertThat(item.sleepScoreAverage()).isZero();
         assertThat(item.sleepDurationMinutesAverage()).isZero();
     }
 
@@ -869,7 +954,9 @@ class MeasurementServiceTest {
     void getAverageRecordsReturnsConditionTypeFieldsOnly() {
         Long memberId = 1L;
         Member member = new Member();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        LocalDate date = LocalDate.of(2026, 5, 1);
+        Condition condition = new Condition(member, 3, 3, date.atTime(10, 0));
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of());
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
@@ -879,7 +966,7 @@ class MeasurementServiceTest {
                 "DAY"
         ).items().get(0);
 
-        assertThat(item.finalConditionScoreAverage()).isEqualTo(54);
+        assertThat(item.finalConditionScoreAverage()).isEqualTo(40);
         assertThat(item.bodyScorePercentAverage()).isEqualTo(50);
         assertThat(item.mindScorePercentAverage()).isEqualTo(50);
         assertThat(item.sleepScoreAverage()).isNull();
@@ -890,7 +977,9 @@ class MeasurementServiceTest {
     void getAverageRecordsReturnsSleepTypeFieldsOnly() {
         Long memberId = 1L;
         Member member = new Member();
-        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+        LocalDate date = LocalDate.of(2026, 5, 1);
+        Sleep allNightSleep = new Sleep(member, 0, date.atTime(0, 0), date.atTime(0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(), List.of(allNightSleep));
 
         AverageItem item = measurementService.getAverageRecords(
                 memberId,
@@ -903,8 +992,90 @@ class MeasurementServiceTest {
         assertThat(item.finalConditionScoreAverage()).isNull();
         assertThat(item.bodyScorePercentAverage()).isNull();
         assertThat(item.mindScorePercentAverage()).isNull();
-        assertThat(item.sleepScoreAverage()).isEqualTo(70);
+        assertThat(item.sleepScoreAverage()).isZero();
         assertThat(item.sleepDurationMinutesAverage()).isZero();
+    }
+
+    @Test
+    void getAverageRecordsUsesDailyBodyMindAveragesInsteadOfLatestCondition() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate date = LocalDate.of(2026, 5, 1);
+        Condition lowCondition = new Condition(member, 0, 0, date.atTime(9, 0));
+        Condition highCondition = new Condition(member, 6, 6, date.atTime(10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, date.atTime(0, 0), date.atTime(0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(lowCondition, highCondition), List.of(allNightSleep));
+
+        AverageItem item = measurementService.getAverageRecords(
+                memberId,
+                date,
+                date,
+                "ALL",
+                "DAY"
+        ).items().get(0);
+
+        assertThat(item.bodyScorePercentAverage()).isEqualTo(50);
+        assertThat(item.mindScorePercentAverage()).isEqualTo(50);
+        assertThat(item.finalConditionScoreAverage()).isEqualTo(40);
+    }
+
+    @Test
+    void getAverageRecordsExcludesDaysWithoutRecordsFromAverageDenominator() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate recordedDate = LocalDate.of(2026, 5, 1);
+        Condition condition = new Condition(member, 6, 6, recordedDate.atTime(10, 0));
+        Sleep allNightSleep = new Sleep(member, 0, recordedDate.atTime(0, 0), recordedDate.atTime(0, 1), false, true);
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(allNightSleep));
+
+        AverageItem item = measurementService.getAverageRecords(
+                memberId,
+                recordedDate,
+                recordedDate.plusDays(1),
+                "ALL",
+                "DAY"
+        ).items().get(0);
+
+        assertThat(item.finalConditionScoreAverage()).isEqualTo(80);
+        assertThat(item.bodyScorePercentAverage()).isEqualTo(100);
+        assertThat(item.mindScorePercentAverage()).isEqualTo(100);
+        assertThat(item.sleepScoreAverage()).isZero();
+    }
+
+    @Test
+    void getAverageRecordsUsesRecordExistingDaysForWeeklyAndMonthlyAverages() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate first = LocalDate.of(2026, 5, 1);
+        LocalDate second = LocalDate.of(2026, 5, 2);
+        Condition highCondition = new Condition(member, 6, 6, first.atTime(10, 0));
+        Condition lowCondition = new Condition(member, 0, 0, second.atTime(10, 0));
+        Sleep firstAllNightSleep = new Sleep(member, 0, first.atTime(0, 0), first.atTime(0, 1), false, true);
+        Sleep secondAllNightSleep = new Sleep(member, 0, second.atTime(0, 0), second.atTime(0, 1), false, true);
+        stubAveragePreloadedData(
+                memberId,
+                member,
+                List.of(highCondition, lowCondition),
+                List.of(firstAllNightSleep, secondAllNightSleep)
+        );
+
+        AverageItem weeklyItem = measurementService.getAverageRecords(
+                memberId,
+                first,
+                second,
+                "ALL",
+                "WEEK"
+        ).items().get(0);
+        AverageItem monthlyItem = measurementService.getAverageRecords(
+                memberId,
+                first,
+                second,
+                "ALL",
+                "MONTH"
+        ).items().get(0);
+
+        assertThat(weeklyItem.finalConditionScoreAverage()).isEqualTo(40);
+        assertThat(monthlyItem.finalConditionScoreAverage()).isEqualTo(40);
     }
 
     @Test
@@ -926,7 +1097,7 @@ class MeasurementServiceTest {
     }
 
     @Test
-    void getAverageRecordsForSingleDayMatchesDailyRecordWithFallbackPolicies() {
+    void getAverageRecordsExcludesDateWithOnlyFallbackRecords() {
         Long memberId = 1L;
         LocalDate date = LocalDate.of(2026, 6, 24);
         Member member = new Member();
@@ -964,24 +1135,20 @@ class MeasurementServiceTest {
         stubSleepTarget(memberId, 480, "111111100000000000000001");
 
         MeasurementRecordResponse dailyRecord = measurementService.getDailyRecord(memberId, date);
-        AverageItem averageItem = measurementService.getAverageRecords(
+        List<AverageItem> averageItems = measurementService.getAverageRecords(
                 memberId,
                 date,
                 date,
                 "ALL",
                 "DAY"
-        ).items().get(0);
+        ).items();
 
         assertThat(dailyRecord.conditions().data()).isEmpty();
         assertThat(dailyRecord.sleeps().data()).isEmpty();
         assertThat(dailyRecord.bodyScorePercent()).isEqualTo(100);
         assertThat(dailyRecord.mindScorePercent()).isEqualTo(33);
         assertThat(dailyRecord.sleepDurationMinutes()).isZero();
-        assertThat(averageItem.finalConditionScoreAverage()).isEqualTo(dailyRecord.finalConditionScore());
-        assertThat(averageItem.bodyScorePercentAverage()).isEqualTo(dailyRecord.bodyScorePercent());
-        assertThat(averageItem.mindScorePercentAverage()).isEqualTo(dailyRecord.mindScorePercent());
-        assertThat(averageItem.sleepScoreAverage()).isEqualTo(dailyRecord.sleepScore());
-        assertThat(averageItem.sleepDurationMinutesAverage()).isEqualTo(dailyRecord.sleepDurationMinutes());
+        assertThat(averageItems).isEmpty();
     }
 
     @Test
@@ -1035,6 +1202,54 @@ class MeasurementServiceTest {
         assertThat(item.bodyScorePercentAverage()).isEqualTo(50);
         assertThat(item.mindScorePercentAverage()).isEqualTo(50);
         assertThat(item.sleepDurationMinutesAverage()).isEqualTo(60);
+    }
+
+    @Test
+    void getAverageRecordsUsesContinuousSleepSegmentsByWakeUpDate() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDateTime originalBedTime = LocalDateTime.of(2026, 6, 23, 23, 0);
+        LocalDateTime originalWakeUpTime = LocalDateTime.of(2026, 6, 25, 7, 30);
+        Sleep firstSegment = new Sleep(
+                member,
+                1440,
+                originalBedTime,
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                false,
+                false,
+                1950,
+                originalBedTime,
+                originalWakeUpTime,
+                "group-1"
+        );
+        Sleep secondSegment = new Sleep(
+                member,
+                510,
+                LocalDateTime.of(2026, 6, 24, 23, 0),
+                originalWakeUpTime,
+                false,
+                false,
+                1950,
+                originalBedTime,
+                originalWakeUpTime,
+                "group-1"
+        );
+
+        stubAveragePreloadedData(memberId, member, List.of(), List.of(firstSegment, secondSegment));
+
+        MeasurementAverageResponse response = measurementService.getAverageRecords(
+                memberId,
+                LocalDate.of(2026, 6, 24),
+                LocalDate.of(2026, 6, 25),
+                "SLEEP",
+                "DAY"
+        );
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).periodStart()).isEqualTo(LocalDate.of(2026, 6, 24));
+        assertThat(response.items().get(0).sleepDurationMinutesAverage()).isEqualTo(1440);
+        assertThat(response.items().get(1).periodStart()).isEqualTo(LocalDate.of(2026, 6, 25));
+        assertThat(response.items().get(1).sleepDurationMinutesAverage()).isEqualTo(510);
     }
 
     @Test

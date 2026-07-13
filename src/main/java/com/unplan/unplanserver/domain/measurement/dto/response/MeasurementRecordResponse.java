@@ -34,12 +34,18 @@ public record MeasurementRecordResponse(
     public record SleepRecord(
             Long sleepId,
             Integer durationMinutes,
+            Integer totalDurationMinutes,
             LocalDateTime bedTime,
             LocalDateTime wakeUpTime,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
             @JsonProperty("isNap")
             Boolean isNap,
             @JsonProperty("isAllNight")
             Boolean isAllNight,
+            @JsonProperty("isContinuousSleep")
+            Boolean isContinuousSleep,
+            String continuousSleepGroupId,
             LocalDateTime createdAt
     ) {
     }

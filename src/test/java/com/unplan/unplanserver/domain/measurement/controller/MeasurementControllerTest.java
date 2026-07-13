@@ -70,10 +70,15 @@ class MeasurementControllerTest {
                 pagedRecords(List.of(new SleepRecord(
                         45L,
                         420,
+                        420,
+                        LocalDateTime.of(2026, 6, 23, 23, 30),
+                        LocalDateTime.of(2026, 6, 24, 6, 30),
                         LocalDateTime.of(2026, 6, 23, 23, 30),
                         LocalDateTime.of(2026, 6, 24, 6, 30),
                         false,
                         false,
+                        false,
+                        null,
                         LocalDateTime.of(2026, 6, 24, 7, 0)
                 )), 0, 30, 1, 1, false, false)
         );
@@ -104,8 +109,12 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.conditions.pagination.hasNext").value(false))
                 .andExpect(jsonPath("$.data.conditions.pagination.hasPrevious").value(false))
                 .andExpect(jsonPath("$.data.sleeps.data[0].sleepId").value(45))
+                .andExpect(jsonPath("$.data.sleeps.data[0].totalDurationMinutes").value(420))
+                .andExpect(jsonPath("$.data.sleeps.data[0].originalBedTime").value("2026-06-23T23:30:00"))
+                .andExpect(jsonPath("$.data.sleeps.data[0].originalWakeUpTime").value("2026-06-24T06:30:00"))
                 .andExpect(jsonPath("$.data.sleeps.data[0].isNap").value(false))
                 .andExpect(jsonPath("$.data.sleeps.data[0].isAllNight").value(false))
+                .andExpect(jsonPath("$.data.sleeps.data[0].isContinuousSleep").value(false))
                 .andExpect(jsonPath("$.data.sleeps.pagination.page").value(0))
                 .andExpect(jsonPath("$.data.sleeps.pagination.size").value(30))
                 .andExpect(jsonPath("$.data.sleeps.pagination.totalElements").value(1))

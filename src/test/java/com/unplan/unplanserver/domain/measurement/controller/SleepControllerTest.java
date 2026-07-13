@@ -52,10 +52,14 @@ class SleepControllerTest {
         SleepResponse response = SleepResponse.builder()
                 .sleepId(sleepId)
                 .durationMinutes(450)
+                .totalDurationMinutes(450)
                 .bedTime(LocalDateTime.of(2026, 6, 23, 23, 0))
                 .wakeUpTime(LocalDateTime.of(2026, 6, 24, 7, 30))
+                .originalBedTime(LocalDateTime.of(2026, 6, 23, 23, 0))
+                .originalWakeUpTime(LocalDateTime.of(2026, 6, 24, 7, 30))
                 .isNap(false)
                 .isAllNight(false)
+                .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 24, 22, 15))
                 .build();
 
@@ -68,10 +72,14 @@ class SleepControllerTest {
                 .andExpect(jsonPath("$.message").value("요청 성공"))
                 .andExpect(jsonPath("$.data.sleepId").value(45))
                 .andExpect(jsonPath("$.data.durationMinutes").value(450))
+                .andExpect(jsonPath("$.data.totalDurationMinutes").value(450))
                 .andExpect(jsonPath("$.data.bedTime").value("2026-06-23T23:00:00"))
                 .andExpect(jsonPath("$.data.wakeUpTime").value("2026-06-24T07:30:00"))
+                .andExpect(jsonPath("$.data.originalBedTime").value("2026-06-23T23:00:00"))
+                .andExpect(jsonPath("$.data.originalWakeUpTime").value("2026-06-24T07:30:00"))
                 .andExpect(jsonPath("$.data.isNap").value(false))
                 .andExpect(jsonPath("$.data.isAllNight").value(false))
+                .andExpect(jsonPath("$.data.isContinuousSleep").value(false))
                 .andExpect(jsonPath("$.data.createdAt").value("2026-06-24T22:15:00"));
     }
 
@@ -80,10 +88,14 @@ class SleepControllerTest {
         SleepResponse response = SleepResponse.builder()
                 .sleepId(45L)
                 .durationMinutes(600)
+                .totalDurationMinutes(600)
                 .bedTime(LocalDateTime.of(2026, 6, 18, 23, 41))
                 .wakeUpTime(LocalDateTime.of(2026, 6, 19, 9, 41))
+                .originalBedTime(LocalDateTime.of(2026, 6, 18, 23, 41))
+                .originalWakeUpTime(LocalDateTime.of(2026, 6, 19, 9, 41))
                 .isNap(false)
                 .isAllNight(false)
+                .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 19, 9, 41))
                 .build();
 
@@ -102,8 +114,10 @@ class SleepControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.durationMinutes").value(600))
+                .andExpect(jsonPath("$.data.totalDurationMinutes").value(600))
                 .andExpect(jsonPath("$.data.isNap").value(false))
-                .andExpect(jsonPath("$.data.isAllNight").value(false));
+                .andExpect(jsonPath("$.data.isAllNight").value(false))
+                .andExpect(jsonPath("$.data.isContinuousSleep").value(false));
     }
 
     @Test
@@ -112,10 +126,14 @@ class SleepControllerTest {
         SleepResponse response = SleepResponse.builder()
                 .sleepId(sleepId)
                 .durationMinutes(0)
+                .totalDurationMinutes(0)
                 .bedTime(LocalDateTime.of(2026, 6, 18, 0, 0))
                 .wakeUpTime(LocalDateTime.of(2026, 6, 19, 0, 0))
+                .originalBedTime(LocalDateTime.of(2026, 6, 18, 0, 0))
+                .originalWakeUpTime(LocalDateTime.of(2026, 6, 19, 0, 0))
                 .isNap(false)
                 .isAllNight(true)
+                .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 19, 0, 0))
                 .build();
 

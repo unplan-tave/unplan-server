@@ -17,17 +17,32 @@ public class SleepResponse {
     @JsonProperty("durationMinutes")
     private Integer durationMinutes;
 
+    @JsonProperty("totalDurationMinutes")
+    private Integer totalDurationMinutes;
+
     @JsonProperty("bedTime")
     private LocalDateTime bedTime;
 
     @JsonProperty("wakeUpTime")
     private LocalDateTime wakeUpTime;
 
+    @JsonProperty("originalBedTime")
+    private LocalDateTime originalBedTime;
+
+    @JsonProperty("originalWakeUpTime")
+    private LocalDateTime originalWakeUpTime;
+
     @JsonProperty("isNap")
     private Boolean isNap;
 
     @JsonProperty("isAllNight")
     private Boolean isAllNight;
+
+    @JsonProperty("isContinuousSleep")
+    private Boolean isContinuousSleep;
+
+    @JsonProperty("continuousSleepGroupId")
+    private String continuousSleepGroupId;
 
     @JsonProperty("createdAt")
     private LocalDateTime createdAt;
@@ -36,10 +51,15 @@ public class SleepResponse {
         return SleepResponse.builder()
                 .sleepId(sleep.getSleepId())
                 .durationMinutes(sleep.getDurationMinutes())
+                .totalDurationMinutes(sleep.getEffectiveTotalDurationMinutes())
                 .bedTime(sleep.getBedTime())
                 .wakeUpTime(sleep.getWakeUpTime())
+                .originalBedTime(sleep.getEffectiveOriginalBedTime())
+                .originalWakeUpTime(sleep.getEffectiveOriginalWakeUpTime())
                 .isNap(sleep.getNap())
                 .isAllNight(sleep.getAllNight())
+                .isContinuousSleep(sleep.isContinuousSleep())
+                .continuousSleepGroupId(sleep.getContinuousSleepGroupId())
                 .createdAt(sleep.getCreatedAt())
                 .build();
     }

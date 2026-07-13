@@ -64,4 +64,17 @@ public class RecoverService {
 
         return RecoverResponse.GetMethods.from(recoverEntities);
     }
+
+    /**
+     * 회원이 설정한 컨디션 회복 수단의 표시명 목록 (저장 순서 보존).
+     * 기본 방법은 한글 설명("짧은 낮잠" 등), 직접 입력은 그 문자열을 그대로 사용한다.
+     * '기력 회복' 추천의 회복 수단 후보 옵션 노출·선택 검증에 쓰인다.
+     */
+    @Transactional(readOnly = true)
+    public List<String> getRecoveryMeanLabels(Long memberId) {
+        return recoverRepository.findByMemberIdOrderByIdAsc(memberId).stream()
+                .map(r -> r.getDefaultMethod() != null ? r.getDefaultMethod().getDescription() : r.getCustomMethod())
+                .filter(label -> label != null && !label.isBlank())
+                .toList();
+    }
 }

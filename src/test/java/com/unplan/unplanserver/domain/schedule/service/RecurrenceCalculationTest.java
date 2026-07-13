@@ -19,7 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RecurrenceCalculationTest {
 
-    private final ScheduleService service = new ScheduleService(null, null, null);
+    // 날짜 계산만 검증하므로 모든 의존성(TagService 포함)은 null 로 둔다.
+    private final ScheduleService service = new ScheduleService(null, null, null, null);
 
     @SuppressWarnings("unchecked")
     private List<LocalDate> calc(LocalDate original, RecurrenceRule rule, LocalDate start, LocalDate end) {
@@ -201,8 +202,23 @@ class RecurrenceCalculationTest {
                 .freq(RecurrenceFreq.WEEKLY).interval(1).byDay("SUN,WED").build();
         LocalDate orig = d("2026-06-17"); // 수요일
         List<LocalDate> got = calc(orig, rule, d("2026-06-15"), d("2026-06-30"));
-        // 생성 순서는 06-24(WED) → 06-21(SUN) → 06-28(SUN) 이지만 정렬되어 반환되어야 함
         assertEquals(List.of(d("2026-06-21"), d("2026-06-24"), d("2026-06-28")), got);
+    }
+
+    @Test
+    @DisplayName("WEEKLY 'SUN,WED' + count — 절단이 연대순으로 적용됨 (일요일이 잘리고 수요일이 남으면 안 됨)")
+    void weeklyCountCutsChronologically() {
+        // 원본 2026-07-01(수). 연대순 다음 인스턴스는 07-05(일) → count=2 면 07-05 하나만 추가되어야 한다.
+        // 요일을 ISO 순서(월…일)로 돌면 07-08(수)이 먼저 생성되어 07-05가 잘리는 버그가 있었음.
+        RecurrenceRule count2 = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.WEEKLY).interval(1).byDay("SUN,WED").count(2).build();
+        assertEquals(List.of(d("2026-07-05")),
+                calc(d("2026-07-01"), count2, d("2026-07-01"), d("2026-07-31")));
+
+        RecurrenceRule count3 = RecurrenceRule.builder()
+                .freq(RecurrenceFreq.WEEKLY).interval(1).byDay("SUN,WED").count(3).build();
+        assertEquals(List.of(d("2026-07-05"), d("2026-07-08")),
+                calc(d("2026-07-01"), count3, d("2026-07-01"), d("2026-07-31")));
     }
 
     // ─────────────────────────── interval 0/음수 무한 루프 방어 (코드리뷰 critical) ───────────────────────────

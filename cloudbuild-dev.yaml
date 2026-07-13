@@ -15,8 +15,10 @@ steps:
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
           --set-env-vars "JWT_ACCESS_EXPIRATION=3600000" \
           --set-env-vars "JWT_REFRESH_EXPIRATION=2592000000" \
-          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID"
-    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID']
+          --set-env-vars "GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID" \
+          --set-env-vars "DEVELOP_SERVER_URL=https://dev-api.un-plan.com" \
+          --set-env-vars "GEMINI_API_KEY=$$GEMINI_API_KEY"
+    secretEnv: ['DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GEMINI_API_KEY']
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -31,3 +33,5 @@ availableSecrets:
       env: 'JWT_SECRET'
     - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_google_client_id/versions/latest
       env: 'GOOGLE_CLIENT_ID'
+    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/dev_gemini_api_key/versions/latest
+      env: 'GEMINI_API_KEY'

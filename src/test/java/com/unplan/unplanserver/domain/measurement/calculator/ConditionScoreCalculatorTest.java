@@ -25,6 +25,14 @@ class ConditionScoreCalculatorTest {
     }
 
     @Test
+    void calculateRawScorePercentFromAverageScore() {
+        assertThat(ConditionScoreCalculator.calculateRawScorePercent(3.0)).isEqualTo(50);
+        assertThat(ConditionScoreCalculator.calculateRawScorePercent(6.0)).isEqualTo(100);
+        assertThat(ConditionScoreCalculator.calculateRawScorePercent(2.0)).isEqualTo(33);
+        assertThat(ConditionScoreCalculator.calculateRawScorePercent(4.5)).isEqualTo(75);
+    }
+
+    @Test
     void calculateSleepScoreWithWeights() {
         int sleepScore = ConditionScoreCalculator.calculateSleepScore(100, 80, 40);
 

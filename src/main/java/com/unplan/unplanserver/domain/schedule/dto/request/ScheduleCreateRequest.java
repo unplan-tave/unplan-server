@@ -7,6 +7,9 @@ import com.unplan.unplanserver.domain.schedule.enums.RemindType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -25,7 +28,9 @@ public class ScheduleCreateRequest {
     @NotNull
     private ConditionTag conditionTag;
 
-    private List<String> personalTags;
+    @Schema(description = "개인 태그 이름 목록 (선택, 일정당 최대 10개, 각 1~25자). 같은 이름은 대소문자 무시하고 재사용됨", example = "[\"자기계발\", \"건강\"]")
+    @Size(max = 10, message = "개인 태그는 최대 10개까지 등록할 수 있습니다")
+    private List<@Size(max = 25, message = "태그 이름은 25자를 초과할 수 없습니다") String> personalTags;
 
     @Schema(example = "2026-06-20")
     private LocalDate date;
@@ -35,6 +40,9 @@ public class ScheduleCreateRequest {
 
     @Schema(example = "10:00")
     private LocalTime endTime;
+
+    // 0/음수 소요시간은 추천 소요시간 필터를 무의미하게 통과하므로 차단
+    @Positive
     private Integer estimatedTime;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -43,7 +51,9 @@ public class ScheduleCreateRequest {
     @NotNull
     private Boolean isRemindOn;
 
+    @PositiveOrZero
     private Integer remindMinutes;
+
     private RemindType remindType;
     private RemindSoundType remindSoundType;
     private RecurrenceRequest recurrence;

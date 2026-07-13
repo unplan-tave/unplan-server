@@ -2,6 +2,7 @@ package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.unplan.unplanserver.global.response.PageResponse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,8 +17,8 @@ public record MeasurementRecordResponse(
         int mindScorePercent,
         int sleepScore,
         int sleepDurationMinutes,
-        List<ConditionRecord> conditions,
-        List<SleepRecord> sleeps
+        PageResponse<ConditionRecord> conditions,
+        PageResponse<SleepRecord> sleeps
 ) {
 
     public record ConditionRecord(
@@ -33,12 +34,18 @@ public record MeasurementRecordResponse(
     public record SleepRecord(
             Long sleepId,
             Integer durationMinutes,
+            Integer totalDurationMinutes,
             LocalDateTime bedTime,
             LocalDateTime wakeUpTime,
+            LocalDateTime originalBedTime,
+            LocalDateTime originalWakeUpTime,
             @JsonProperty("isNap")
             Boolean isNap,
             @JsonProperty("isAllNight")
             Boolean isAllNight,
+            @JsonProperty("isContinuousSleep")
+            Boolean isContinuousSleep,
+            String continuousSleepGroupId,
             LocalDateTime createdAt
     ) {
     }

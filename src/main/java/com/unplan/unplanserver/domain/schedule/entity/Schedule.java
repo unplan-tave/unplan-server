@@ -103,6 +103,17 @@ public class Schedule {
         this.isQueue = (this.startTime == null && this.endTime == null);
     }
 
+    /**
+     * 추천 수락: 큐 카드에 날짜·시간을 부여해 핀 카드로 전환한다.
+     * 제목·태그·위치·메모는 큐 카드에 입력된 값 그대로 유지한다 (Figma "핀카드로 전환하기").
+     */
+    public void assignToPin(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        this.date = date;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.isQueue = (startTime == null && endTime == null);
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

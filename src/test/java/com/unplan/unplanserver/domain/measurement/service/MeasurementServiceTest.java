@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -102,11 +103,11 @@ class MeasurementServiceTest {
         assertThat(response.sleepScore()).isEqualTo(84);
         assertThat(response.finalConditionScore()).isEqualTo(50);
         assertThat(response.sleepDurationMinutes()).isEqualTo(420);
-        assertThat(response.conditions()).hasSize(1);
-        assertThat(response.conditions().get(0).bodyScorePercent()).isEqualTo(50);
-        assertThat(response.sleeps()).hasSize(1);
-        assertThat(response.sleeps().get(0).durationMinutes()).isEqualTo(420);
-        assertThat(response.sleeps().get(0).isAllNight()).isFalse();
+        assertThat(response.conditions().data()).hasSize(1);
+        assertThat(response.conditions().data().get(0).bodyScorePercent()).isEqualTo(50);
+        assertThat(response.sleeps().data()).hasSize(1);
+        assertThat(response.sleeps().data().get(0).durationMinutes()).isEqualTo(420);
+        assertThat(response.sleeps().data().get(0).isAllNight()).isFalse();
     }
 
     @Test
@@ -143,8 +144,8 @@ class MeasurementServiceTest {
         assertThat(response.mindScorePercent()).isEqualTo(50);
         assertThat(response.sleepScore()).isEqualTo(70);
         assertThat(response.finalConditionScore()).isEqualTo(54);
-        assertThat(response.conditions()).isEmpty();
-        assertThat(response.sleeps()).isEmpty();
+        assertThat(response.conditions().data()).isEmpty();
+        assertThat(response.sleeps().data()).isEmpty();
     }
 
     @Test
@@ -259,8 +260,8 @@ class MeasurementServiceTest {
         MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
 
         assertThat(response.sleepScore()).isZero();
-        assertThat(response.sleeps()).hasSize(1);
-        assertThat(response.sleeps().get(0).isAllNight()).isTrue();
+        assertThat(response.sleeps().data()).hasSize(1);
+        assertThat(response.sleeps().data().get(0).isAllNight()).isTrue();
     }
 
     @Test
@@ -589,11 +590,174 @@ class MeasurementServiceTest {
 
         MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date);
 
-        assertThat(response.conditions()).hasSize(1);
-        assertThat(response.conditions().get(0).dateTime()).isEqualTo(conditionAtDate.getMeasuredAt());
-        assertThat(response.sleeps()).hasSize(1);
-        assertThat(response.sleeps().get(0).wakeUpTime()).isEqualTo(sleepAtDate.getWakeUpTime());
+        assertThat(response.conditions().data()).hasSize(1);
+        assertThat(response.conditions().data().get(0).dateTime()).isEqualTo(conditionAtDate.getMeasuredAt());
+        assertThat(response.sleeps().data()).hasSize(1);
+        assertThat(response.sleeps().data().get(0).wakeUpTime()).isEqualTo(sleepAtDate.getWakeUpTime());
         assertThat(response.sleepDurationMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    void getDailyRecordUsesFirstPageWhenPagesAreNull() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 35);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, null, null);
+
+        assertThat(response.conditions().pagination().page()).isZero();
+        assertThat(response.conditions().pagination().size()).isEqualTo(30);
+        assertThat(response.conditions().data()).hasSize(30);
+        assertThat(response.sleeps().pagination().page()).isZero();
+        assertThat(response.sleeps().pagination().size()).isEqualTo(30);
+        assertThat(response.sleeps().data()).hasSize(30);
+    }
+
+    @Test
+    void getDailyRecordCorrectsNegativePagesToFirstPage() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 35);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, -1, -5);
+
+        assertThat(response.conditions().pagination().page()).isZero();
+        assertThat(response.conditions().pagination().size()).isEqualTo(30);
+        assertThat(response.conditions().data()).hasSize(30);
+        assertThat(response.sleeps().pagination().page()).isZero();
+        assertThat(response.sleeps().pagination().size()).isEqualTo(30);
+        assertThat(response.sleeps().data()).hasSize(30);
+    }
+
+    @Test
+    void getDailyRecordPaginatesConditionsByThirtyItemsAndKeepsScoreBasedOnAllRecords() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 3);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse firstPage = measurementService.getDailyRecord(memberId, date, 0, 0);
+        MeasurementRecordResponse secondPage = measurementService.getDailyRecord(memberId, date, 1, 0);
+
+        assertThat(firstPage.conditions().data()).hasSize(30);
+        assertThat(firstPage.conditions().pagination().page()).isZero();
+        assertThat(firstPage.conditions().pagination().size()).isEqualTo(30);
+        assertThat(firstPage.conditions().pagination().totalElements()).isEqualTo(35);
+        assertThat(firstPage.conditions().pagination().totalPages()).isEqualTo(2);
+        assertThat(firstPage.conditions().pagination().hasNext()).isTrue();
+        assertThat(firstPage.conditions().pagination().hasPrevious()).isFalse();
+        assertThat(secondPage.conditions().data()).hasSize(5);
+        assertThat(secondPage.conditions().pagination().page()).isEqualTo(1);
+        assertThat(secondPage.conditions().pagination().hasNext()).isFalse();
+        assertThat(secondPage.conditions().pagination().hasPrevious()).isTrue();
+        assertDailyScoreUnchanged(firstPage, secondPage);
+    }
+
+    @Test
+    void getDailyRecordPaginatesSleepsByThirtyItemsAndKeepsScoreBasedOnAllRecords() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 3);
+        List<Sleep> sleeps = createSleeps(member, date, 35);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse firstPage = measurementService.getDailyRecord(memberId, date, 0, 0);
+        MeasurementRecordResponse secondPage = measurementService.getDailyRecord(memberId, date, 0, 1);
+
+        assertThat(firstPage.sleeps().data()).hasSize(30);
+        assertThat(firstPage.sleeps().pagination().page()).isZero();
+        assertThat(firstPage.sleeps().pagination().size()).isEqualTo(30);
+        assertThat(firstPage.sleeps().pagination().totalElements()).isEqualTo(35);
+        assertThat(firstPage.sleeps().pagination().totalPages()).isEqualTo(2);
+        assertThat(firstPage.sleeps().pagination().hasNext()).isTrue();
+        assertThat(firstPage.sleeps().pagination().hasPrevious()).isFalse();
+        assertThat(secondPage.sleeps().data()).hasSize(5);
+        assertThat(secondPage.sleeps().pagination().page()).isEqualTo(1);
+        assertThat(secondPage.sleeps().pagination().hasNext()).isFalse();
+        assertThat(secondPage.sleeps().pagination().hasPrevious()).isTrue();
+        assertDailyScoreUnchanged(firstPage, secondPage);
+    }
+
+    @Test
+    void getDailyRecordHandlesConditionPageAndSleepPageIndependently() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 62);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, 1, 2);
+
+        assertThat(response.conditions().data()).hasSize(5);
+        assertThat(response.conditions().pagination().page()).isEqualTo(1);
+        assertThat(response.conditions().pagination().totalElements()).isEqualTo(35);
+        assertThat(response.conditions().pagination().totalPages()).isEqualTo(2);
+        assertThat(response.sleeps().data()).hasSize(2);
+        assertThat(response.sleeps().pagination().page()).isEqualTo(2);
+        assertThat(response.sleeps().pagination().totalElements()).isEqualTo(62);
+        assertThat(response.sleeps().pagination().totalPages()).isEqualTo(3);
+    }
+
+    @Test
+    void getDailyRecordReturnsEmptyConditionDataWhenConditionPageOffsetExceedsIntRange() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 35);
+        List<Sleep> sleeps = createSleeps(member, date, 5);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, Integer.MAX_VALUE, 0);
+
+        assertThat(response.conditions().data()).isEmpty();
+        assertThat(response.conditions().pagination().page()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(response.conditions().pagination().size()).isEqualTo(30);
+        assertThat(response.conditions().pagination().totalElements()).isEqualTo(35);
+        assertThat(response.conditions().pagination().totalPages()).isEqualTo(2);
+        assertThat(response.sleeps().data()).hasSize(5);
+    }
+
+    @Test
+    void getDailyRecordReturnsEmptySleepDataWhenSleepPageOffsetExceedsIntRange() {
+        Long memberId = 1L;
+        LocalDate date = LocalDate.of(2026, 6, 24);
+        Member member = new Member();
+        List<Condition> conditions = createConditions(member, date, 5);
+        List<Sleep> sleeps = createSleeps(member, date, 35);
+
+        stubRangeBasedMeasurementData(memberId, member, conditions, sleeps);
+        stubSleepTarget(memberId, 480, "111111100000000000000001");
+
+        MeasurementRecordResponse response = measurementService.getDailyRecord(memberId, date, 0, Integer.MAX_VALUE);
+
+        assertThat(response.sleeps().data()).isEmpty();
+        assertThat(response.sleeps().pagination().page()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(response.sleeps().pagination().size()).isEqualTo(30);
+        assertThat(response.sleeps().pagination().totalElements()).isEqualTo(35);
+        assertThat(response.sleeps().pagination().totalPages()).isEqualTo(2);
+        assertThat(response.conditions().data()).hasSize(5);
     }
 
     @Test
@@ -808,8 +972,8 @@ class MeasurementServiceTest {
                 "DAY"
         ).items().get(0);
 
-        assertThat(dailyRecord.conditions()).isEmpty();
-        assertThat(dailyRecord.sleeps()).isEmpty();
+        assertThat(dailyRecord.conditions().data()).isEmpty();
+        assertThat(dailyRecord.sleeps().data()).isEmpty();
         assertThat(dailyRecord.bodyScorePercent()).isEqualTo(100);
         assertThat(dailyRecord.mindScorePercent()).isEqualTo(33);
         assertThat(dailyRecord.sleepDurationMinutes()).isZero();
@@ -901,6 +1065,42 @@ class MeasurementServiceTest {
                 "ALL",
                 "BAD"
         )).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private List<Condition> createConditions(Member member, LocalDate date, int count) {
+        return IntStream.range(0, count)
+                .mapToObj(index -> new Condition(
+                        member,
+                        3,
+                        2,
+                        date.atStartOfDay().plusMinutes(index)
+                ))
+                .toList();
+    }
+
+    private List<Sleep> createSleeps(Member member, LocalDate date, int count) {
+        return IntStream.range(0, count)
+                .mapToObj(index -> new Sleep(
+                        member,
+                        10,
+                        date.atStartOfDay().plusMinutes(index),
+                        date.atStartOfDay().plusHours(1).plusMinutes(index),
+                        false
+                ))
+                .toList();
+    }
+
+    private void assertDailyScoreUnchanged(
+            MeasurementRecordResponse expected,
+            MeasurementRecordResponse actual
+    ) {
+        assertThat(actual.finalConditionScore()).isEqualTo(expected.finalConditionScore());
+        assertThat(actual.conditionLevel()).isEqualTo(expected.conditionLevel());
+        assertThat(actual.conditionTag()).isEqualTo(expected.conditionTag());
+        assertThat(actual.bodyScorePercent()).isEqualTo(expected.bodyScorePercent());
+        assertThat(actual.mindScorePercent()).isEqualTo(expected.mindScorePercent());
+        assertThat(actual.sleepScore()).isEqualTo(expected.sleepScore());
+        assertThat(actual.sleepDurationMinutes()).isEqualTo(expected.sleepDurationMinutes());
     }
 
     private void stubAveragePreloadedData(

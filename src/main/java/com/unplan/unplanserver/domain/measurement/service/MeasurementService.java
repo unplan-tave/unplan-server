@@ -21,7 +21,12 @@ import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.PageResponse;
+import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +98,15 @@ public class MeasurementService {
     }
 
     public MeasurementRecordResponse getDailyRecord(Long memberId, LocalDate date) {
+        return getDailyRecord(memberId, date, 0, 0);
+    }
+
+    public MeasurementRecordResponse getDailyRecord(
+            Long memberId,
+            LocalDate date,
+            Integer conditionPage,
+            Integer sleepPage
+    ) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
@@ -101,11 +115,11 @@ public class MeasurementService {
 
         List<Condition> conditions = conditionRepository.findAllByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(member, start, end)
                 .stream()
-                .sorted(Comparator.comparing(Condition::getMeasuredAt))
+                .sorted(Comparator.comparing(Condition::getMeasuredAt).reversed())
                 .toList();
         List<Sleep> sleeps = sleepRepository.findAllByMemberMemberIdAndWakeUpTimeGreaterThanEqualAndWakeUpTimeLessThan(memberId, start, end)
                 .stream()
-                .sorted(Comparator.comparing(Sleep::getWakeUpTime))
+                .sorted(Comparator.comparing(Sleep::getWakeUpTime).reversed())
                 .toList();
 
         ConditionScoreSource conditionScoreSource = resolveConditionScoreSource(memberId, conditions, start);
@@ -129,12 +143,18 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                conditions.stream()
-                        .map(this::toConditionRecord)
-                        .toList(),
-                sleeps.stream()
-                        .map(this::toSleepRecord)
-                        .toList()
+                toPageResponse(
+                        conditions.stream()
+                                .map(this::toConditionRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(conditionPage)
+                ),
+                toPageResponse(
+                        sleeps.stream()
+                                .map(this::toSleepRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(sleepPage)
+                )
         );
     }
 
@@ -299,13 +319,35 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                conditions.stream()
-                        .map(this::toConditionRecord)
-                        .toList(),
-                sleeps.stream()
-                        .map(this::toSleepRecord)
-                        .toList()
+                toPageResponse(
+                        conditions.stream()
+                                .map(this::toConditionRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(0)
+                ),
+                toPageResponse(
+                        sleeps.stream()
+                                .map(this::toSleepRecord)
+                                .toList(),
+                        PagingUtils.pageRequest(0)
+                )
         );
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> records, PageRequest pageRequest) {
+        long offset = pageRequest.getOffset();
+
+        List<T> content;
+        if (offset >= records.size()) {
+            content = List.of();
+        } else {
+            int start = (int) offset;
+            int end = Math.min(start + pageRequest.getPageSize(), records.size());
+            content = records.subList(start, end);
+        }
+        Page<T> page = new PageImpl<>(content, pageRequest, records.size());
+
+        return PageResponse.of(page);
     }
 
     private ConditionScoreSource resolveConditionScoreSourceFromPreloadedData(

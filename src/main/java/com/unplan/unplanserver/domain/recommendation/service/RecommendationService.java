@@ -604,6 +604,7 @@ public class RecommendationService {
         items.stream()
                 .filter(item -> MatchTier.ADJACENT.name().equals(item.matchTier()))
                 .map(ConditionRecommendationResponse.RecommendationItem::conditionTag)
+                .filter(tag -> tag != null)
                 .map(ConditionTag::valueOf)
                 .forEach(tags::add);
 
@@ -670,8 +671,8 @@ public class RecommendationService {
             return "스케줄의 빈 시간 내에 딱 맞게 끝낼 수 있어요";
         }
 
-        double marginRate = estimatedTime / (double) remaining * 100;
-        if (marginRate >= 50) {
+        double marginRate = remaining / (double) estimatedTime * 100;
+        if (marginRate >= 100) {
             return "일정이 2배 이상 길어져도 시간 여유가 괜찮아요";
         }
         if (marginRate >= 10) {

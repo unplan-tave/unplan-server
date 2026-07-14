@@ -366,7 +366,7 @@ class RecommendationServiceTest {
         assertThat(item.conditionTagLabel()).isEqualTo("핵심 작업");
         assertThat(item.matchTier()).isEqualTo("EXACT");
         assertThat(item.suitabilityMessage()).isEqualTo("깊게 몰입하기 좋은 컨디션이에요");
-        assertThat(item.timeMarginMessage()).isEqualTo("일정이 2배 이상 길어져도 시간 여유가 괜찮아요");
+        assertThat(item.timeMarginMessage()).isEqualTo("일정을 끝낸 후 약간 쉴 여유가 있어요");
     }
 
     @Test

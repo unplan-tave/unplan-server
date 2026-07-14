@@ -1,5 +1,6 @@
 package com.unplan.unplanserver.domain.recommendation.controller;
 
+import com.unplan.unplanserver.domain.recommendation.dto.response.ConditionRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse.EmptyTime;
@@ -75,6 +76,51 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].sourceType").value("QUEUE_CARD"))
                 .andExpect(jsonPath("$.recommendations[0].matchTier").value("EXACT"))
                 .andExpect(jsonPath("$.recommendations[0].displayOrder").value(0));
+    }
+
+    @Test
+    void 컨디션_기반_추천_조회는_ApiResponse로_감싸서_반환한다() throws Exception {
+        ConditionRecommendationResponse response = new ConditionRecommendationResponse(
+                DATE,
+                "SUCCESS",
+                "CORE_TASK",
+                "핵심 작업",
+                new ConditionRecommendationResponse.EmptyTime(LocalTime.of(14, 0), LocalTime.of(15, 30), 90),
+                "14:00 ~ 15:30까지, 1시간 30분 동안 스케줄이 비어 있어요\n핵심 작업에 좋은 컨디션이에요",
+                List.of(new ConditionRecommendationResponse.SummaryTag("CORE_TASK", "핵심 작업")),
+                List.of(new ConditionRecommendationResponse.RecommendationItem(
+                        1L,
+                        10L,
+                        "큐 카드 일정 제목",
+                        LocalTime.of(14, 0),
+                        LocalTime.of(15, 0),
+                        60,
+                        LocalDate.of(2026, 7, 20),
+                        "CORE_TASK",
+                        "핵심 작업",
+                        "QUEUE_CARD",
+                        "EXACT",
+                        0,
+                        "깊게 몰입하기 좋은 컨디션이에요",
+                        "일정을 끝낸 후 약간 쉴 여유가 있어요",
+                        null
+                ))
+        );
+        when(recommendationService.getConditionRecommendations(MEMBER_ID, DATE)).thenReturn(response);
+
+        mockMvc.perform(get("/schedule/recommendations/condition")
+                        .param("date", "2026-07-05")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("요청 성공"))
+                .andExpect(jsonPath("$.data.date").value("2026-07-05"))
+                .andExpect(jsonPath("$.data.resultType").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.conditionTagLabel").value("핵심 작업"))
+                .andExpect(jsonPath("$.data.summaryTags[0].tag").value("CORE_TASK"))
+                .andExpect(jsonPath("$.data.recommendations[0].sourceScheduleId").value(10))
+                .andExpect(jsonPath("$.data.recommendations[0].conditionTagLabel").value("핵심 작업"))
+                .andExpect(jsonPath("$.data.recommendations[0].suitabilityMessage").value("깊게 몰입하기 좋은 컨디션이에요"));
     }
 
     @Test

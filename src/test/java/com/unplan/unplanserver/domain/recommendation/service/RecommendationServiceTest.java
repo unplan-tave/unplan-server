@@ -5,6 +5,7 @@ import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
 import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.ConditionRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResult;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
@@ -336,6 +337,153 @@ class RecommendationServiceTest {
 
         assertThat(res.conditionTag()).isEqualTo("DAILY_TASK");
         assertThat(res.recommendations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 정확 일치 큐 카드와 바텀시트 문구를 반환한다")
+    void conditionRecommendationExactSuccess() {
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of(pin("15:30", "16:00")));
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(61L, "몰입 과제", ConditionTag.CORE_TASK, 60, LocalDate.parse("2026-07-04"))));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("SUCCESS");
+        assertThat(res.conditionTag()).isEqualTo("CORE_TASK");
+        assertThat(res.conditionTagLabel()).isEqualTo("핵심 작업");
+        assertThat(res.emptyTime().startTime()).isEqualTo(LocalTime.parse("14:00"));
+        assertThat(res.emptyTime().endTime()).isEqualTo(LocalTime.parse("15:15"));
+        assertThat(res.summaryMessage()).contains("14:00 ~ 15:15까지");
+        assertThat(res.summaryMessage()).contains("\n");
+        assertThat(res.summaryMessage()).doesNotContain("을/를");
+        assertThat(res.summaryMessage()).contains("핵심 작업에 좋은 컨디션이에요");
+        assertThat(res.summaryTags()).containsExactly(new ConditionRecommendationResponse.SummaryTag("CORE_TASK", "핵심 작업"));
+        assertThat(res.recommendations()).hasSize(1);
+        ConditionRecommendationResponse.RecommendationItem item = res.recommendations().get(0);
+        assertThat(item.sourceScheduleId()).isEqualTo(61L);
+        assertThat(item.conditionTagLabel()).isEqualTo("핵심 작업");
+        assertThat(item.matchTier()).isEqualTo("EXACT");
+        assertThat(item.suitabilityMessage()).isEqualTo("깊게 몰입하기 좋은 컨디션이에요");
+        assertThat(item.timeMarginMessage()).isEqualTo("일정이 2배 이상 길어져도 시간 여유가 괜찮아요");
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 일상 작업 정확 일치 문구는 조사를 노출하지 않는다")
+    void conditionRecommendationDailyTaskExactSummaryMessage() {
+        givenConditionTag("일상 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(62L, "일상 정리", ConditionTag.DAILY_TASK, 30, null)));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("SUCCESS");
+        assertThat(res.summaryMessage()).contains("\n");
+        assertThat(res.summaryMessage()).doesNotContain("을/를");
+        assertThat(res.summaryMessage()).contains("일상 작업에 좋은 컨디션이에요");
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 인접 태그 매칭은 실제 추천 태그만 summaryTags에 포함한다")
+    void conditionRecommendationAdjacentSummaryTags() {
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(71L, "문서 읽기", ConditionTag.BRAIN_WORK, 30, null),
+                queue(72L, "정리하기", ConditionTag.SIMPLE_TASK, 30, null)));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("SUCCESS");
+        assertThat(res.summaryTags()).containsExactly(
+                new ConditionRecommendationResponse.SummaryTag("CORE_TASK", "핵심 작업"),
+                new ConditionRecommendationResponse.SummaryTag("BRAIN_WORK", "두뇌 활동"),
+                new ConditionRecommendationResponse.SummaryTag("SIMPLE_TASK", "단순 노동")
+        );
+        assertThat(res.summaryMessage()).contains("핵심 작업, 두뇌 활동, 단순 노동 모두 괜찮아요");
+        assertThat(res.recommendations()).extracting(ConditionRecommendationResponse.RecommendationItem::matchTier)
+                .containsOnly("ADJACENT");
+        assertThat(res.recommendations().get(0).suitabilityMessage())
+                .isEqualTo("부담 없이 가볍게 시작하기 좋은 상태예요");
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 마감 임박 폴백은 summaryTags 없이 고정 문구를 반환한다")
+    void conditionRecommendationDeadlineFallback() {
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(81L, "긴급 확인", ConditionTag.URGENT, 30, LocalDate.parse("2026-07-04"))));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("SUCCESS");
+        assertThat(res.summaryTags()).isEmpty();
+        assertThat(res.summaryMessage()).contains("지금 컨디션과 별개로 마감이 임박한 일정이에요");
+        assertThat(res.recommendations().get(0).matchTier()).isEqualTo("DEADLINE");
+        assertThat(res.recommendations().get(0).suitabilityMessage())
+                .isEqualTo("지금 컨디션과 별개로 마감이 임박한 작업이에요");
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 기력 회복은 회복 큐 카드 뒤에 회복 수단 후보를 반환한다")
+    void conditionRecommendationRecovery() {
+        givenConditionTag("기력 회복");
+        givenSaveReturnsArgument();
+        when(recoverService.getRecoveryMeanLabels(MEMBER_ID)).thenReturn(List.of("짧은 낮잠", "음악 감상"));
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(91L, "휴식 큐카드", ConditionTag.RECOVERY, 30, null)));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("SUCCESS");
+        assertThat(res.summaryTags()).containsExactly(new ConditionRecommendationResponse.SummaryTag("RECOVERY", "기력 회복"));
+        assertThat(res.summaryMessage()).contains("기력 회복이 필요한 컨디션이에요");
+        assertThat(res.recommendations()).hasSize(2);
+        assertThat(res.recommendations().get(0).sourceType()).isEqualTo("QUEUE_CARD");
+        assertThat(res.recommendations().get(0).suitabilityMessage()).isEqualTo("온전한 휴식이 필요한 컨디션이에요.");
+        ConditionRecommendationResponse.RecommendationItem recoveryMean = res.recommendations().get(1);
+        assertThat(recoveryMean.sourceType()).isEqualTo("RECOVERY_MEAN");
+        assertThat(recoveryMean.estimatedTime()).isEqualTo(30);
+        assertThat(recoveryMean.recoveryMeans()).containsExactly("짧은 낮잠", "음악 감상");
+        assertThat(recoveryMean.suitabilityMessage()).isEqualTo("조금 쉬는 게 더 효율적인 타이밍이에요");
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 빈 시간이 없으면 NO_EMPTY_TIME")
+    void conditionRecommendationNoEmptyTime() {
+        givenConditionTag("핵심 작업");
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of(pin("14:00", "23:59")));
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("NO_EMPTY_TIME");
+        assertThat(res.emptyTime()).isNull();
+        assertThat(res.summaryMessage()).isNull();
+        assertThat(res.summaryTags()).isEmpty();
+        assertThat(res.recommendations()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 빈 시간은 있지만 후보가 없으면 NO_MATCHING_QUEUE_CARD")
+    void conditionRecommendationNoMatchingQueueCard() {
+        givenConditionTag("핵심 작업");
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of());
+
+        ConditionRecommendationResponse res = service.generateConditionRecommendations(MEMBER_ID, TODAY, NOW);
+
+        assertThat(res.resultType()).isEqualTo("NO_MATCHING_QUEUE_CARD");
+        assertThat(res.emptyTime()).isNotNull();
+        assertThat(res.summaryMessage()).isNull();
+        assertThat(res.summaryTags()).isEmpty();
+        assertThat(res.recommendations()).isEmpty();
     }
 
     @Test

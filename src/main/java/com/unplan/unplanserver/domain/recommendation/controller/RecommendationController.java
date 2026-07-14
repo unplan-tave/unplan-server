@@ -1,9 +1,11 @@
 package com.unplan.unplanserver.domain.recommendation.controller;
 
 import com.unplan.unplanserver.domain.recommendation.dto.request.RecommendationAcceptRequest;
+import com.unplan.unplanserver.domain.recommendation.dto.response.ConditionRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
 import com.unplan.unplanserver.domain.recommendation.service.RecommendationService;
+import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +24,19 @@ import java.time.LocalDate;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+
+    @Operation(summary = "컨디션 기반 추천 일정 조회",
+            description = "컨디션 탭 바텀시트에 노출할 빈 시간, 컨디션 태그, 추천 일정, 추천 문구를 조회합니다.")
+    @GetMapping("/condition")
+    public ResponseEntity<ApiResponse<ConditionRecommendationResponse>> getConditionRecommendations(
+            @AuthenticationPrincipal Long memberId,
+            @Parameter(description = "추천 대상 날짜 (yyyy-MM-dd)", example = "2026-05-06")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                recommendationService.getConditionRecommendations(memberId, date)
+        ));
+    }
 
     @Operation(summary = "추천 목록 조회",
             description = "빈 시간에 배치된 큐 카드 추천 목록을 조회합니다. 조회 시마다 현재 컨디션·큐 카드·핀 카드 기준으로 재생성됩니다.")

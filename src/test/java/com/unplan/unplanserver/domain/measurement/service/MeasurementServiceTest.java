@@ -987,8 +987,8 @@ class MeasurementServiceTest {
                 "DAY"
         ).items();
 
-        assertThat(dailyRecord.conditions().data()).isEmpty();
-        assertThat(dailyRecord.sleeps().data()).isEmpty();
+        assertThat(dailyRecord.conditions()).isEmpty();
+        assertThat(dailyRecord.sleeps()).isEmpty();
         assertThat(dailyRecord.bodyScorePercent()).isEqualTo(100);
         assertThat(dailyRecord.mindScorePercent()).isEqualTo(33);
         assertThat(dailyRecord.sleepDurationMinutes()).isZero();

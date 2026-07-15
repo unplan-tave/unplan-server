@@ -116,7 +116,7 @@ public class ScheduleController {
     }
 
     @GetMapping("/message")
-    public ResponseEntity<ApiResponse<DailyMessageResponseDto>> getDailyMessage(@AuthenticationPrincipal Long memberId, @RequestParam LocalDate date) {
+    public ResponseEntity<ApiResponse<DailyMessageResponseDto>> getDailyMessage(@AuthenticationPrincipal Long memberId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(ApiResponse.success(scheduleService.getDailyMessage(memberId, date)));
     }
 }

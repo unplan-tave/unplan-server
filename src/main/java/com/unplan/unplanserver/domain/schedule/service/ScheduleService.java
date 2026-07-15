@@ -513,10 +513,11 @@ public class ScheduleService {
         };
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public DailyMessageResponseDto getDailyMessage(Long memberId, LocalDate date) {
         MeasurementRecordResponse dailyRecord = measurementService.getDailyRecord(memberId, date);
-        DailyMessage dailyMessage = DailyMessage.fromLabel(dailyRecord.conditionTag());
+        ConditionTag conditionTag = ConditionTag.fromLabel(dailyRecord.conditionTag());
+        DailyMessage dailyMessage = DailyMessage.fromConditionTag(conditionTag);
         String message = dailyMessage.getPrescription() + "\n" + dailyMessage.getSuggestion();
         return new DailyMessageResponseDto(
                 date,

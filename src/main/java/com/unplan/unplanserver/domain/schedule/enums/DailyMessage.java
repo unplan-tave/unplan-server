@@ -21,10 +21,12 @@ public enum DailyMessage {
     private final String prescription;
     private final String suggestion;
 
-    public static DailyMessage fromLabel(String label) {
+
+
+    public static DailyMessage fromConditionTag(ConditionTag conditionTag) {
         return Arrays.stream(values())
-                .filter(tag->tag.label.equals(label))
+                .filter(msg -> msg.conditionTag == conditionTag)
                 .findFirst()
-                .orElseThrow(()->new CustomException(ErrorCode.CONDITION_TAG_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_TAG_NOT_FOUND));
     }
 }

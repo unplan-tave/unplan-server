@@ -59,15 +59,15 @@ class MeasurementControllerTest {
                 33,
                 84,
                 420,
-                pagedRecords(List.of(new ConditionRecord(
+                List.of(new ConditionRecord(
                         12L,
                         3,
                         2,
                         50,
                         33,
                         LocalDateTime.of(2026, 6, 24, 10, 0)
-                )), 0, 30, 1, 1, false, false),
-                pagedRecords(List.of(new SleepRecord(
+                )),
+                List.of(new SleepRecord(
                         45L,
                         420,
                         420,
@@ -80,10 +80,11 @@ class MeasurementControllerTest {
                         false,
                         null,
                         LocalDateTime.of(2026, 6, 24, 7, 0)
-                )), 0, 30, 1, 1, false, false)
+                )),
+                true,
+                true
         );
-
-        when(measurementService.getDailyRecord(authenticatedMemberId, date, null, null)).thenReturn(response);
+        when(measurementService.getDailyRecord(authenticatedMemberId, date)).thenReturn(response);
 
         mockMvc.perform(get("/measurements")
                         .param("date", "2026-06-24")
@@ -99,10 +100,9 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleepScore").value(84))
                 .andExpect(jsonPath("$.data.sleepDurationMinutes").value(420))
-                .andExpect(jsonPath("$.data.conditions.data[0].conditionId").value(12))
                 .andExpect(jsonPath("$.data.conditions.data[0].bodyScorePercent").value(50))
                 .andExpect(jsonPath("$.data.conditions.data[0].mindScorePercent").value(33))
-                .andExpect(jsonPath("$.data.conditions.pagination.page").value(0))
+                .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12))
                 .andExpect(jsonPath("$.data.conditions.pagination.size").value(30))
                 .andExpect(jsonPath("$.data.conditions.pagination.totalElements").value(1))
                 .andExpect(jsonPath("$.data.conditions.pagination.totalPages").value(1))
@@ -122,7 +122,7 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.sleeps.pagination.hasNext").value(false))
                 .andExpect(jsonPath("$.data.sleeps.pagination.hasPrevious").value(false));
 
-        verify(measurementService).getDailyRecord(authenticatedMemberId, date, null, null);
+        verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 
     @Test
@@ -137,11 +137,33 @@ class MeasurementControllerTest {
                 33,
                 84,
                 420,
-                pagedRecords(List.of(), 2, 30, 0, 0, false, true),
-                pagedRecords(List.of(), 1, 30, 0, 0, false, true)
+                List.of(new ConditionRecord(
+                        12L,
+                        3,
+                        2,
+                        50,
+                        33,
+                        LocalDateTime.of(2026, 6, 24, 10, 0)
+                )),
+                List.of(new SleepRecord(
+                        45L,
+                        420,
+                        420,
+                        LocalDateTime.of(2026, 6, 23, 23, 30),
+                        LocalDateTime.of(2026, 6, 24, 6, 30),
+                        LocalDateTime.of(2026, 6, 23, 23, 30),
+                        LocalDateTime.of(2026, 6, 24, 6, 30),
+                        false,
+                        false,
+                        false,
+                        null,
+                        LocalDateTime.of(2026, 6, 24, 7, 0)
+                )),
+                true,
+                true
         );
 
-        when(measurementService.getDailyRecord(authenticatedMemberId, date, 2, 1)).thenReturn(response);
+        when(measurementService.getDailyRecord(authenticatedMemberId, date)).thenReturn(response);
 
         mockMvc.perform(get("/measurements")
                         .param("date", "2026-06-24")
@@ -149,10 +171,8 @@ class MeasurementControllerTest {
                         .param("sleepPage", "1")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.conditions.pagination.page").value(2))
-                .andExpect(jsonPath("$.data.sleeps.pagination.page").value(1));
-
-        verify(measurementService).getDailyRecord(authenticatedMemberId, date, 2, 1);
+                .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12));
+        verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 
     @Test
@@ -327,18 +347,4 @@ class MeasurementControllerTest {
         }
     }
 
-    private static <T> PageResponse<T> pagedRecords(
-            List<T> data,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages,
-            boolean hasNext,
-            boolean hasPrevious
-    ) {
-        return new PageResponse<>(
-                data,
-                new PaginationInfo(page, size, totalElements, totalPages, hasNext, hasPrevious)
-        );
-    }
 }

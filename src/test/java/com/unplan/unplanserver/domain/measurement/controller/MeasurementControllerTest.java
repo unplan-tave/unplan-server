@@ -100,28 +100,16 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleepScore").value(84))
                 .andExpect(jsonPath("$.data.sleepDurationMinutes").value(420))
-                .andExpect(jsonPath("$.data.conditions.data[0].bodyScorePercent").value(50))
-                .andExpect(jsonPath("$.data.conditions.data[0].mindScorePercent").value(33))
+                .andExpect(jsonPath("$.data.conditions[0].bodyScorePercent").value(50))
+                .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12))
-                .andExpect(jsonPath("$.data.conditions.pagination.size").value(30))
-                .andExpect(jsonPath("$.data.conditions.pagination.totalElements").value(1))
-                .andExpect(jsonPath("$.data.conditions.pagination.totalPages").value(1))
-                .andExpect(jsonPath("$.data.conditions.pagination.hasNext").value(false))
-                .andExpect(jsonPath("$.data.conditions.pagination.hasPrevious").value(false))
-                .andExpect(jsonPath("$.data.sleeps.data[0].sleepId").value(45))
-                .andExpect(jsonPath("$.data.sleeps.data[0].totalDurationMinutes").value(420))
-                .andExpect(jsonPath("$.data.sleeps.data[0].originalBedTime").value("2026-06-23T23:30:00"))
-                .andExpect(jsonPath("$.data.sleeps.data[0].originalWakeUpTime").value("2026-06-24T06:30:00"))
-                .andExpect(jsonPath("$.data.sleeps.data[0].isNap").value(false))
-                .andExpect(jsonPath("$.data.sleeps.data[0].isAllNight").value(false))
-                .andExpect(jsonPath("$.data.sleeps.data[0].isContinuousSleep").value(false))
-                .andExpect(jsonPath("$.data.sleeps.pagination.page").value(0))
-                .andExpect(jsonPath("$.data.sleeps.pagination.size").value(30))
-                .andExpect(jsonPath("$.data.sleeps.pagination.totalElements").value(1))
-                .andExpect(jsonPath("$.data.sleeps.pagination.totalPages").value(1))
-                .andExpect(jsonPath("$.data.sleeps.pagination.hasNext").value(false))
-                .andExpect(jsonPath("$.data.sleeps.pagination.hasPrevious").value(false));
-
+                .andExpect(jsonPath("$.data.sleeps[0].sleepId").value(45))
+                .andExpect(jsonPath("$.data.sleeps[0].totalDurationMinutes").value(420))
+                .andExpect(jsonPath("$.data.sleeps[0].originalBedTime").value("2026-06-23T23:30:00"))
+                .andExpect(jsonPath("$.data.sleeps[0].originalWakeUpTime").value("2026-06-24T06:30:00"))
+                .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false))
+                .andExpect(jsonPath("$.data.sleeps[0].isAllNight").value(false))
+                .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false));
         verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 

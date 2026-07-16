@@ -31,6 +31,7 @@ public enum ConditionTag {
         return Arrays.stream(values())
                 .filter(tag -> tag.label.equals(label))
                 .findFirst()
-                .orElseThrow(() -> new CustomException(ErrorCode.CONDITION_TAG_NOT_FOUND));
+                .orElseThrow(() -> new IllegalArgumentException("알 수 없는 컨디션 태그: " + label));
+
     }
 }

@@ -7,6 +7,8 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,20 +27,20 @@ public final class ScheduleSpecifications {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("memberId"), memberId));
 
-            if (hasText(c.keyword())) {
+            if (StringUtils.hasText(c.keyword())) {
                 predicates.add(cb.like(cb.lower(root.get("title")),
                         "%" + c.keyword().trim().toLowerCase() + "%"));
             }
             if (c.isQueue() != null) {
                 predicates.add(cb.equal(root.get("isQueue"), c.isQueue()));
             }
-            if (isNotEmpty(c.statuses())) {
+            if (!CollectionUtils.isEmpty(c.statuses())) {
                 predicates.add(root.get("status").in(c.statuses()));
             }
-            if (isNotEmpty(c.conditionTags())) {
+            if (!CollectionUtils.isEmpty(c.conditionTags())) {
                 predicates.add(root.get("conditionTag").in(c.conditionTags()));
             }
-            if (isNotEmpty(c.personalTags())) {
+            if (!CollectionUtils.isEmpty(c.personalTags())) {
                 Subquery<Long> sub = query.subquery(Long.class);
                 Root<SchedulePersonalTag> spt = sub.from(SchedulePersonalTag.class);
                 sub.select(cb.literal(1L));
@@ -50,13 +52,5 @@ public final class ScheduleSpecifications {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-    }
-
-    private static boolean hasText(String s) {
-        return s != null && !s.trim().isEmpty();
-    }
-
-    private static boolean isNotEmpty(List<?> list) {
-        return list != null && !list.isEmpty();
     }
 }

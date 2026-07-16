@@ -49,7 +49,8 @@ public class ScheduleSearchService {
             return PageResponse.of(List.of(), found);
         }
 
-        List<Long> scheduleIds = found.getContent().stream().map(Schedule::getScheduleId).toList();
+        List<Schedule> schedules = found.getContent();
+        List<Long> scheduleIds = schedules.stream().map(Schedule::getScheduleId).toList();
 
         // 개인 태그·추천 여부를 각각 한 번에 조회해 매핑 (건별 조회 N+1 방지)
         Map<Long, List<String>> tagsByScheduleId = schedulePersonalTagRepository
@@ -60,7 +61,7 @@ public class ScheduleSearchService {
         Set<Long> recommendedIds = Set.copyOf(
                 recommendationRepository.findAcceptedScheduleIds(memberId, scheduleIds));
 
-        List<ScheduleSearchResponse> items = found.getContent().stream()
+        List<ScheduleSearchResponse> items = schedules.stream()
                 .map(s -> ScheduleSearchResponse.of(
                         s,
                         tagsByScheduleId.getOrDefault(s.getScheduleId(), List.of()),

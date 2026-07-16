@@ -2,13 +2,14 @@ package com.unplan.unplanserver.domain.schedule.repository;
 
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
 
-public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
+public interface ScheduleRepository extends JpaRepository<Schedule, Long>, JpaSpecificationExecutor<Schedule> {
 
     List<Schedule> findByMemberIdAndDate(Long memberId, LocalDate date);
 

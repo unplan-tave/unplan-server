@@ -77,7 +77,7 @@ class ConditionControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("존재하지 않는 컨디션 기록입니다."))
+                .andExpect(jsonPath("$.message").value("해당 조건을 만족하는 컨디션 정보를 찾을 수 없습니다."))
                 .andExpect(jsonPath("$.data").value(nullValue()));
     }
 

@@ -1,5 +1,8 @@
 package com.unplan.unplanserver.domain.schedule.enums;
 
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
+
 import java.util.Arrays;
 
 public enum ConditionTag {
@@ -29,5 +32,6 @@ public enum ConditionTag {
                 .filter(tag -> tag.label.equals(label))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("알 수 없는 컨디션 태그: " + label));
+
     }
 }

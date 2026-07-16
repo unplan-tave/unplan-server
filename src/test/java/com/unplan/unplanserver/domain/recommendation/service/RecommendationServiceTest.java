@@ -87,7 +87,7 @@ class RecommendationServiceTest {
     private void givenConditionTag(String label) {
         when(measurementService.getDailyRecord(eq(MEMBER_ID), eq(TODAY)))
                 .thenReturn(new MeasurementRecordResponse(TODAY, 80, "집중 가능", label,
-                        80, 80, 80, 420, emptyPage(), emptyPage()));
+                        80, 80, 80, 420, List.of(), List.of(), true, true));
     }
 
     private static <T> PageResponse<T> emptyPage() {

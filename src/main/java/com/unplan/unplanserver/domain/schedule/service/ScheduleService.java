@@ -1,16 +1,19 @@
 package com.unplan.unplanserver.domain.schedule.service;
 
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.entity.Condition;
+import com.unplan.unplanserver.domain.measurement.entity.Sleep;
+import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
+import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
+import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.PersonalTagResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.*;
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
+import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.domain.schedule.enums.DailyMessage;
 import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.LocationInfoRepository;
@@ -18,6 +21,7 @@ import com.unplan.unplanserver.domain.schedule.repository.RecurrenceRuleReposito
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +49,7 @@ public class ScheduleService {
     private final LocationInfoRepository locationInfoRepository;
     private final RecurrenceRuleRepository recurrenceRuleRepository;
     private final TagService tagService;
+    private final MeasurementService measurementService;
 
     @Transactional
     public ScheduleCreateResponse createSchedule(Long memberId, ScheduleCreateRequest request) {
@@ -506,5 +511,22 @@ public class ScheduleService {
             case "SAT" -> DayOfWeek.SATURDAY;
             default -> throw new IllegalArgumentException("Unknown day abbreviation: " + abbr);
         };
+    }
+
+    @Transactional(readOnly = true)
+    public DailyMessageResponseDto getDailyMessage(Long memberId, LocalDate date) {
+        MeasurementRecordResponse dailyRecord = measurementService.getDailyRecord(memberId, date);
+        ConditionTag conditionTag = ConditionTag.fromLabel(dailyRecord.conditionTag());
+        DailyMessage dailyMessage = DailyMessage.fromConditionTag(conditionTag);
+        String message = dailyMessage.getPrescription() + "\n" + dailyMessage.getSuggestion();
+        return new DailyMessageResponseDto(
+                date,
+                dailyMessage.getConditionTag(),
+                message,
+                dailyRecord.isEnergyRecorded(),
+                dailyRecord.isSleepRecorded()
+        );
+
+
     }
 }

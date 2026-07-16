@@ -97,15 +97,11 @@ public class MeasurementService {
         );
     }
 
-    public MeasurementRecordResponse getDailyRecord(Long memberId, LocalDate date) {
-        return getDailyRecord(memberId, date, 0, 0);
-    }
+
 
     public MeasurementRecordResponse getDailyRecord(
             Long memberId,
-            LocalDate date,
-            Integer conditionPage,
-            Integer sleepPage
+            LocalDate date
     ) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
@@ -143,18 +139,14 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                toPageResponse(
-                        conditions.stream()
-                                .map(this::toConditionRecord)
-                                .toList(),
-                        PagingUtils.pageRequest(conditionPage)
-                ),
-                toPageResponse(
-                        sleeps.stream()
-                                .map(this::toSleepRecord)
-                                .toList(),
-                        PagingUtils.pageRequest(sleepPage)
-                )
+                conditions.stream()
+                        .map(this::toConditionRecord)
+                        .toList(),
+                sleeps.stream()
+                        .map(this::toSleepRecord)
+                        .toList(),
+                !conditions.isEmpty(),
+                !sleeps.isEmpty()
         );
     }
 
@@ -329,18 +321,14 @@ public class MeasurementService {
                 conditionPercentSource.mindScorePercent(),
                 sleepScore,
                 sleepDurationMinutes,
-                toPageResponse(
-                        conditions.stream()
-                                .map(this::toConditionRecord)
-                                .toList(),
-                        PagingUtils.pageRequest(0)
-                ),
-                toPageResponse(
-                        sleeps.stream()
-                                .map(this::toSleepRecord)
-                                .toList(),
-                        PagingUtils.pageRequest(0)
-                )
+                conditions.stream()
+                        .map(this::toConditionRecord)
+                        .toList(),
+                sleeps.stream()
+                        .map(this::toSleepRecord)
+                        .toList(),
+                !conditions.isEmpty(),
+                !sleeps.isEmpty()
         );
     }
 

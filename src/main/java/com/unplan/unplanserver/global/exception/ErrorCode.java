@@ -47,9 +47,10 @@ public enum ErrorCode {
     PERSONAL_TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PERSONAL_TAG_LIMIT_EXCEEDED", "개인 태그는 계정당 최대 100개까지 생성할 수 있습니다."),
 
     // --- [컨디션 관련 에러] ---
-    CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "존재하지 않는 컨디션 기록입니다."),
+    CONDITION_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_NOT_FOUND", "해당 조건을 만족하는 컨디션 정보를 찾을 수 없습니다."),
     SLEEP_NOT_FOUND(HttpStatus.NOT_FOUND, "SLEEP_NOT_FOUND", "존재하지 않는 수면 기록입니다."),
     SLEEP_TIME_OVERLAP(HttpStatus.BAD_REQUEST, "SLEEP_TIME_OVERLAP", "수면 시간대와 컨디션 시간이 겹칩니다."),
+    CONDITION_TAG_NOT_FOUND(HttpStatus.NOT_FOUND, "CONDITION_TAG_NOT_FOUND", "컨디션 태그를 찾을 수 없습니다."),
 
     // --- [추천 관련 에러] ---
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RECOMMENDATION_404", "존재하지 않는 추천입니다."),

@@ -17,8 +17,10 @@ public record MeasurementRecordResponse(
         int mindScorePercent,
         int sleepScore,
         int sleepDurationMinutes,
-        PageResponse<ConditionRecord> conditions,
-        PageResponse<SleepRecord> sleeps
+        List<ConditionRecord> conditions,
+        List<SleepRecord> sleeps,
+        Boolean isEnergyRecorded,
+        Boolean isSleepRecorded
 ) {
 
     public record ConditionRecord(

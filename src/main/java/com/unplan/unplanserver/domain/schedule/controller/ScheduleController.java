@@ -2,15 +2,11 @@ package com.unplan.unplanserver.domain.schedule.controller;
 
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.PersonalTagResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.*;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -117,5 +113,10 @@ public class ScheduleController {
 
         scheduleService.deleteSchedule(memberId, scheduleId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/message")
+    public ResponseEntity<ApiResponse<DailyMessageResponseDto>> getDailyMessage(@AuthenticationPrincipal Long memberId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.success(scheduleService.getDailyMessage(memberId, date)));
     }
 }

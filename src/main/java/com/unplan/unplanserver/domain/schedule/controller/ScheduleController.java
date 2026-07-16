@@ -1,12 +1,17 @@
 package com.unplan.unplanserver.domain.schedule.controller;
 
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
+import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.response.*;
+import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
+import com.unplan.unplanserver.domain.schedule.service.ScheduleSearchService;
 import com.unplan.unplanserver.domain.schedule.service.ScheduleService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.global.response.ApiResponse;
+import com.unplan.unplanserver.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +34,26 @@ import java.util.List;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
+    private final ScheduleSearchService scheduleSearchService;
+
+    @Operation(summary = "일정 필터 검색",
+            description = "저장된 일정 카드를 키워드·필터로 검색해 날짜 오름차순으로 페이지네이션(30개)해 반환합니다. "
+                    + "필터는 넘어온 것만 AND 로 조합되며, status·conditionTags·personalTags 는 복수 지정 시 OR 입니다.")
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<PageResponse<ScheduleSearchResponse>>> searchSchedules(
+            @AuthenticationPrincipal Long memberId,
+            @Parameter(description = "제목 검색 키워드") @RequestParam(required = false) String keyword,
+            @Parameter(description = "true=큐 카드, false=핀 카드") @RequestParam(required = false) Boolean isQueue,
+            @Parameter(description = "진행 상태(TODO/IN_PROGRESS/DONE), 복수 가능") @RequestParam(required = false) List<ScheduleStatus> status,
+            @Parameter(description = "컨디션 태그, 복수 가능") @RequestParam(required = false) List<ConditionTag> conditionTags,
+            @Parameter(description = "개인 태그 이름, 복수 가능") @RequestParam(required = false) List<String> personalTags,
+            @Parameter(description = "페이지 번호(0부터, 기본 0)") @RequestParam(required = false) Integer page) {
+
+        ScheduleSearchCondition condition =
+                new ScheduleSearchCondition(keyword, isQueue, status, conditionTags, personalTags);
+        return ResponseEntity.ok(ApiResponse.success(
+                scheduleSearchService.search(memberId, condition, page)));
+    }
 
     @Operation(summary = "일정 생성", description = "새로운 일정을 생성합니다. 시작/종료 시간이 없으면 큐카드로 등록됩니다.")
     @PostMapping

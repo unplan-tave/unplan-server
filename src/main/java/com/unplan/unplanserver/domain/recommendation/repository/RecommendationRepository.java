@@ -7,12 +7,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface RecommendationRepository extends JpaRepository<Recommendation, Long> {
 
     // 수락 시 본인 소유 검증과 함께 조회
     Optional<Recommendation> findByRecommendIdAndMemberId(Long recommendId, Long memberId);
+
+    // 주어진 일정들 중 '추천으로 수락되어 생성된' 것(acceptedScheduleId 매칭)의 id 목록 — 검색 응답 isRecommended 배치 판정용
+    @Query("select r.acceptedScheduleId from Recommendation r " +
+            "where r.memberId = :memberId and r.acceptedScheduleId in :scheduleIds")
+    List<Long> findAcceptedScheduleIds(@Param("memberId") Long memberId,
+                                       @Param("scheduleIds") Collection<Long> scheduleIds);
 
     // 재생성 시 이전 노출분(미수락분) 정리. 수락 이력(acceptedScheduleId != null)은 남긴다.
     // 파생 delete(건별 SELECT 후 DELETE) 대신 벌크 DELETE 한 방으로 처리.

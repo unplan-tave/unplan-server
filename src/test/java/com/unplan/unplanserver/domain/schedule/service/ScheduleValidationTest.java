@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ScheduleValidationTest {
 
-    private final ScheduleService service = new ScheduleService(null, null, null, null);
+    private final ScheduleService service = new ScheduleService(null, null, null, null, null);
 
     private void validateTimePair(LocalTime start, LocalTime end) {
         invoke("validateTimePair", new Class<?>[]{LocalTime.class, LocalTime.class}, start, end);

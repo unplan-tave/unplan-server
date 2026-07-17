@@ -1,16 +1,19 @@
 package com.unplan.unplanserver.domain.schedule.service;
 
+import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse;
+import com.unplan.unplanserver.domain.measurement.entity.Condition;
+import com.unplan.unplanserver.domain.measurement.entity.Sleep;
+import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
+import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
+import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleCreateRequest;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleUpdateRequest;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleCreateResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleDetailResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleGetResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleWeeklyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.ScheduleMonthlyResponse;
-import com.unplan.unplanserver.domain.schedule.dto.response.PersonalTagResponse;
+import com.unplan.unplanserver.domain.schedule.dto.response.*;
 import com.unplan.unplanserver.domain.schedule.entity.LocationInfo;
 import com.unplan.unplanserver.domain.schedule.entity.RecurrenceRule;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
+import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
+import com.unplan.unplanserver.domain.schedule.enums.DailyMessage;
 import com.unplan.unplanserver.domain.schedule.enums.RecurrenceFreq;
 import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.LocationInfoRepository;
@@ -18,6 +21,7 @@ import com.unplan.unplanserver.domain.schedule.repository.RecurrenceRuleReposito
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
+import com.unplan.unplanserver.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +49,7 @@ public class ScheduleService {
     private final LocationInfoRepository locationInfoRepository;
     private final RecurrenceRuleRepository recurrenceRuleRepository;
     private final TagService tagService;
+    private final MeasurementService measurementService;
 
     @Transactional
     public ScheduleCreateResponse createSchedule(Long memberId, ScheduleCreateRequest request) {
@@ -56,6 +61,9 @@ public class ScheduleService {
         // 시작/종료 시간 검증 — 한쪽만 있는 '반쪽 핀 카드'나 역전된 구간이 저장되면
         // 추천 빈 시간 계산(busy 매핑)이 깨지므로 저장 전에 차단한다.
         validateTimePair(request.getStartTime(), request.getEndTime());
+        // 핀 카드는 같은 날짜의 기존 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다.
+        validatePinNotOverlapping(memberId, request.getDate(),
+                request.getStartTime(), request.getEndTime(), null);
 
         // 1. Schedule 엔티티 생성
         // Request DTO에서 값을 꺼내서 Schedule entity를 만듦
@@ -160,6 +168,9 @@ public class ScheduleService {
         // 부분 수정(PATCH) 결과가 반쪽 핀 카드/역전 구간이 되지 않는지 최종 상태로 검증.
         // 검증 실패 시 예외로 트랜잭션이 롤백되어 변경이 반영되지 않는다.
         validateTimePair(schedule.getStartTime(), schedule.getEndTime());
+        // 수정 후에도 같은 날짜의 다른 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다(자기 자신 제외).
+        validatePinNotOverlapping(memberId, schedule.getDate(),
+                schedule.getStartTime(), schedule.getEndTime(), scheduleId);
 
         // personalTags가 요청에 포함된 경우에만 태그 전체 교체 (null = 기존 유지, 빈 배열 = 전체 해제)
         List<String> tagNames;
@@ -178,7 +189,10 @@ public class ScheduleService {
     public void deleteSchedule(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
-        tagService.detachAll(schedule); // 조인 행(schedule_personal_tag)을 먼저 정리해 FK 위반 방지
+        // schedule_id 를 FK 로 참조하는 행들을 먼저 정리해 FK 위반 방지 (#120)
+        tagService.detachAll(schedule);
+        recurrenceRuleRepository.deleteBySchedule(schedule);
+        locationInfoRepository.deleteBySchedule(schedule);
         scheduleRepository.delete(schedule);
     }
 
@@ -255,6 +269,24 @@ public class ScheduleService {
         }
     }
 
+    /**
+     * 핀 카드 시간 겹침 검증 — 같은 날짜에 시간이 1분이라도 겹치는 핀 카드가 있으면 등록/수정을 막는다.
+     * 반복 일정의 해당 날짜 인스턴스도 점유 시간으로 간주한다({@code findSchedulesWithRecurring} 가 함께 반환).
+     * 큐 카드(시간 미지정)는 겹침 대상이 아니며, 수정 시에는 자기 자신({@code excludeId})을 제외한다.
+     * 맞닿는 경계(예: 10:00~11:00 과 11:00~12:00)는 겹침으로 보지 않는다.
+     */
+    private void validatePinNotOverlapping(Long memberId, LocalDate date,
+                                           LocalTime start, LocalTime end, Long excludeId) {
+        if (start == null || end == null || date == null) return; // 핀 카드가 아니면 겹침 없음
+        for (Schedule other : findSchedulesWithRecurring(memberId, date)) {
+            if (excludeId != null && excludeId.equals(other.getScheduleId())) continue; // 자기 자신(반복 인스턴스 포함)
+            if (other.getStartTime() == null || other.getEndTime() == null) continue;   // 큐 카드 제외
+            if (start.isBefore(other.getEndTime()) && other.getStartTime().isBefore(end)) {
+                throw new CustomException(ErrorCode.TIME_RANGE_OVERLAP);
+            }
+        }
+    }
+
     // 반복 규칙 형식 검증 — 잘못된 값이 저장되어 이후 조회 확장 시 예외를 일으키는 것을 차단
     private void validateRecurrence(ScheduleCreateRequest.RecurrenceRequest rec) {
         if (rec.getInterval() != null && rec.getInterval() < 1) {
@@ -308,20 +340,13 @@ public class ScheduleService {
     }
 
     private List<Schedule> expandRecurringInstances(Long memberId, LocalDate rangeStart, LocalDate rangeEnd) {
-        // 조회 범위 끝보다 늦게 시작하는 반복 원본은 인스턴스가 범위에 들어올 수 없으므로 DB 단계에서 제외
-        List<Schedule> originals =
-                scheduleRepository.findByMemberIdAndIsRecurringTrueAndDateLessThanEqual(memberId, rangeEnd);
-        if (originals.isEmpty()) return List.of();
-
-        Map<Long, RecurrenceRule> ruleMap = recurrenceRuleRepository.findByScheduleIn(originals)
-                .stream().collect(Collectors.toMap(r -> r.getSchedule().getScheduleId(), r -> r));
+        // 조회 범위에 인스턴스가 생길 수 있는 활성 반복만 규칙+원본을 단일 쿼리로 조회 (시작일<=rangeEnd, until null 이거나 >=rangeStart)
+        List<RecurrenceRule> rules =
+                recurrenceRuleRepository.findActiveRulesWithSchedule(memberId, rangeStart, rangeEnd);
 
         List<Schedule> expanded = new ArrayList<>();
-        for (Schedule original : originals) {
-            if (original.getDate() == null || original.getDate().isAfter(rangeEnd)) continue;
-            RecurrenceRule rule = ruleMap.get(original.getScheduleId());
-            if (rule == null) continue;
-            if (rule.getUntil() != null && rule.getUntil().isBefore(rangeStart)) continue;
+        for (RecurrenceRule rule : rules) {
+            Schedule original = rule.getSchedule();
 
             // 규칙 하나가 깨져도(과거에 저장된 비정상 데이터 등) 전체 조회가 실패하지 않도록 방어
             try {
@@ -506,5 +531,22 @@ public class ScheduleService {
             case "SAT" -> DayOfWeek.SATURDAY;
             default -> throw new IllegalArgumentException("Unknown day abbreviation: " + abbr);
         };
+    }
+
+    @Transactional(readOnly = true)
+    public DailyMessageResponseDto getDailyMessage(Long memberId, LocalDate date) {
+        MeasurementRecordResponse dailyRecord = measurementService.getDailyRecord(memberId, date);
+        ConditionTag conditionTag = ConditionTag.fromLabel(dailyRecord.conditionTag());
+        DailyMessage dailyMessage = DailyMessage.fromConditionTag(conditionTag);
+        String message = dailyMessage.getPrescription() + "\n" + dailyMessage.getSuggestion();
+        return new DailyMessageResponseDto(
+                date,
+                dailyMessage.getConditionTag(),
+                message,
+                dailyRecord.isEnergyRecorded(),
+                dailyRecord.isSleepRecorded()
+        );
+
+
     }
 }

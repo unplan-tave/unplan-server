@@ -4,6 +4,7 @@ import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
 import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
+import com.unplan.unplanserver.domain.recommendation.dto.response.ConditionRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResult;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
@@ -17,6 +18,7 @@ import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatche
 import com.unplan.unplanserver.domain.recommendation.engine.TimeRange;
 import com.unplan.unplanserver.domain.recommendation.engine.TimeSlot;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
+import com.unplan.unplanserver.domain.recommendation.enums.MatchTier;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
 import com.unplan.unplanserver.domain.recommendation.repository.RecommendationRepository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
@@ -37,6 +39,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -88,6 +91,72 @@ public class RecommendationService {
     @Transactional
     public RecommendationListResponse getRecommendations(Long memberId, LocalDate date) {
         return generate(memberId, date, LocalDateTime.now());
+    }
+
+    @Transactional
+    public ConditionRecommendationResponse getConditionRecommendations(Long memberId, LocalDate date) {
+        return generateConditionRecommendations(memberId, date, LocalDateTime.now());
+    }
+
+    /** now 를 주입받는 내부 진입점 (테스트 용이성) */
+    @Transactional
+    public ConditionRecommendationResponse generateConditionRecommendations(Long memberId, LocalDate date, LocalDateTime now) {
+        ConditionTag current = currentConditionTag(memberId, now.toLocalDate());
+
+        if (date.isBefore(now.toLocalDate())) {
+            return emptyConditionResponse(date, current, "NO_EMPTY_TIME", null);
+        }
+
+        recommendationRepository.deleteByMemberIdAndDateAndAcceptedScheduleIdIsNull(memberId, date);
+
+        EmptyTimeSettings settings = emptyTimeSettings(memberId);
+        LocalTime windowStart = date.equals(now.toLocalDate()) ? now.toLocalTime() : LocalTime.MIDNIGHT;
+        List<TimeRange> busy = scheduleService.findSchedulesWithRecurring(memberId, date).stream()
+                .filter(s -> s.getStartTime() != null && s.getEndTime() != null)
+                .map(s -> new TimeRange(s.getStartTime(), s.getEndTime()))
+                .toList();
+        List<TimeSlot> slots = emptyTimeFinder.findFreeSlots(
+                date, windowStart, LocalTime.MIDNIGHT, busy, BUFFER_MINUTES,
+                settings.minGapMinutes(), settings.banRanges());
+
+        if (slots.isEmpty()) {
+            return emptyConditionResponse(date, current, "NO_EMPTY_TIME", null);
+        }
+
+        Map<Long, Schedule> candidateById = scheduleRepository.findActiveQueueCards(memberId).stream()
+                .collect(Collectors.toMap(Schedule::getScheduleId, Function.identity()));
+        List<QueueCard> cards = candidateById.values().stream()
+                .map(s -> new QueueCard(s.getScheduleId(), s.getConditionTag(),
+                        s.getEstimatedTime(), s.getDate(), s.getCreatedAt()))
+                .toList();
+        List<String> recoveryMeans = current == RECOVERY
+                ? recoverService.getRecoveryMeanLabels(memberId) : List.of();
+
+        TimeSlot firstEmptySlot = slots.get(0);
+        for (TimeSlot slot : slots) {
+            List<QueueCard> fitting = cards.stream()
+                    .filter(c -> c.estimatedMinutes() != null)
+                    .filter(c -> c.estimatedMinutes() <= slot.durationMinutes())
+                    .toList();
+            List<MatchedCard> top = matcher.match(current, fitting, MAX_RECOMMENDATIONS, slot.durationMinutes());
+            boolean addRecoveryMean = current == RECOVERY
+                    && top.size() < MAX_RECOMMENDATIONS && !recoveryMeans.isEmpty();
+            if (top.isEmpty() && !addRecoveryMean) {
+                continue;
+            }
+
+            return persistAndRespondForCondition(
+                    memberId,
+                    date,
+                    current,
+                    slot,
+                    top,
+                    candidateById,
+                    addRecoveryMean ? recoveryMeans : List.of()
+            );
+        }
+
+        return emptyConditionResponse(date, current, "NO_MATCHING_QUEUE_CARD", firstEmptySlot);
     }
 
     /** now 를 주입받는 내부 진입점 (테스트 용이성) */
@@ -358,6 +427,270 @@ public class RecommendationService {
 
         EmptyTime emptyTime = new EmptyTime(slot.start(), slot.end(), slot.durationMinutes());
         return new RecommendationListResponse(date, current.name(), emptyTime, items);
+    }
+
+    private ConditionRecommendationResponse persistAndRespondForCondition(
+            Long memberId,
+            LocalDate date,
+            ConditionTag current,
+            TimeSlot slot,
+            List<MatchedCard> top,
+            Map<Long, Schedule> candidateById,
+            List<String> recoveryMeans
+    ) {
+        List<ConditionRecommendationResponse.RecommendationItem> items = new ArrayList<>();
+        int order = 0;
+        for (; order < top.size(); order++) {
+            MatchedCard matched = top.get(order);
+            QueueCard card = matched.card();
+            Schedule source = candidateById.get(card.scheduleId());
+            LocalTime startTime = slot.start();
+            LocalTime endTime = startTime.plusMinutes(card.estimatedMinutes());
+
+            Recommendation saved = recommendationRepository.save(Recommendation.builder()
+                    .memberId(memberId)
+                    .date(date)
+                    .title(source.getTitle())
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .conditionTag(card.conditionTag())
+                    .sourceType(RecommendationSourceType.QUEUE_CARD)
+                    .sourceScheduleId(card.scheduleId())
+                    .matchTier(matched.tier())
+                    .displayOrder(order)
+                    .build());
+
+            items.add(new ConditionRecommendationResponse.RecommendationItem(
+                    saved.getRecommendId(),
+                    card.scheduleId(),
+                    source.getTitle(),
+                    startTime,
+                    endTime,
+                    card.estimatedMinutes(),
+                    card.deadline(),
+                    card.conditionTag() != null ? card.conditionTag().name() : null,
+                    card.conditionTag() != null ? card.conditionTag().getLabel() : null,
+                    RecommendationSourceType.QUEUE_CARD.name(),
+                    matched.tier().name(),
+                    order,
+                    suitabilityMessage(current, matched.tier(), RecommendationSourceType.QUEUE_CARD),
+                    timeMarginMessage(card.estimatedMinutes(), slot.durationMinutes()),
+                    null
+            ));
+        }
+
+        if (!recoveryMeans.isEmpty()) {
+            LocalTime startTime = slot.start();
+            int length = Math.min(slot.durationMinutes(), RECOVERY_MEAN_MAX_MINUTES);
+            LocalTime endTime = startTime.plusMinutes(length);
+
+            Recommendation saved = recommendationRepository.save(Recommendation.builder()
+                    .memberId(memberId)
+                    .date(date)
+                    .title(null)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .conditionTag(RECOVERY)
+                    .sourceType(RecommendationSourceType.RECOVERY_MEAN)
+                    .sourceScheduleId(null)
+                    .displayOrder(order)
+                    .build());
+
+            items.add(new ConditionRecommendationResponse.RecommendationItem(
+                    saved.getRecommendId(),
+                    null,
+                    null,
+                    startTime,
+                    endTime,
+                    length,
+                    null,
+                    RECOVERY.name(),
+                    RECOVERY.getLabel(),
+                    RecommendationSourceType.RECOVERY_MEAN.name(),
+                    null,
+                    order,
+                    suitabilityMessage(current, null, RecommendationSourceType.RECOVERY_MEAN),
+                    timeMarginMessage(length, slot.durationMinutes()),
+                    recoveryMeans
+            ));
+        }
+
+        ConditionRecommendationResponse.EmptyTime emptyTime =
+                new ConditionRecommendationResponse.EmptyTime(slot.start(), slot.end(), slot.durationMinutes());
+        List<ConditionRecommendationResponse.SummaryTag> summaryTags = summaryTags(current, items);
+        return new ConditionRecommendationResponse(
+                date,
+                "SUCCESS",
+                current.name(),
+                current.getLabel(),
+                emptyTime,
+                summaryMessage(slot, summaryText(current, items, summaryTags)),
+                summaryTags,
+                items
+        );
+    }
+
+    private ConditionRecommendationResponse emptyConditionResponse(
+            LocalDate date,
+            ConditionTag current,
+            String resultType,
+            TimeSlot emptySlot
+    ) {
+        ConditionRecommendationResponse.EmptyTime emptyTime = emptySlot == null
+                ? null
+                : new ConditionRecommendationResponse.EmptyTime(
+                        emptySlot.start(),
+                        emptySlot.end(),
+                        emptySlot.durationMinutes()
+                );
+        return new ConditionRecommendationResponse(
+                date,
+                resultType,
+                current.name(),
+                current.getLabel(),
+                emptyTime,
+                null,
+                List.of(),
+                List.of()
+        );
+    }
+
+    private String summaryMessage(TimeSlot slot, String secondSentence) {
+        return slot.start() + " ~ " + slot.end() + "까지, "
+                + formatDuration(slot.durationMinutes()) + " 동안 스케줄이 비어 있어요\n"
+                + secondSentence;
+    }
+
+    private String summaryText(
+            ConditionTag current,
+            List<ConditionRecommendationResponse.RecommendationItem> items,
+            List<ConditionRecommendationResponse.SummaryTag> summaryTags
+    ) {
+        if (current == RECOVERY) {
+            return "기력 회복이 필요한 컨디션이에요";
+        }
+
+        MatchTier firstTier = firstMatchTier(items);
+        if (firstTier == MatchTier.EXACT) {
+            return current.getLabel() + "에 좋은 컨디션이에요";
+        }
+        if (firstTier == MatchTier.ADJACENT) {
+            String labels = summaryTags.stream()
+                    .map(ConditionRecommendationResponse.SummaryTag::label)
+                    .collect(Collectors.joining(", "));
+            return labels + " 모두 괜찮아요";
+        }
+        return "지금 컨디션과 별개로 마감이 임박한 일정이에요";
+    }
+
+    private List<ConditionRecommendationResponse.SummaryTag> summaryTags(
+            ConditionTag current,
+            List<ConditionRecommendationResponse.RecommendationItem> items
+    ) {
+        if (current == RECOVERY) {
+            return List.of(summaryTag(RECOVERY));
+        }
+
+        MatchTier firstTier = firstMatchTier(items);
+        if (firstTier == MatchTier.EXACT) {
+            return List.of(summaryTag(current));
+        }
+        if (firstTier != MatchTier.ADJACENT) {
+            return List.of();
+        }
+
+        LinkedHashSet<ConditionTag> tags = new LinkedHashSet<>();
+        tags.add(current);
+        items.stream()
+                .filter(item -> MatchTier.ADJACENT.name().equals(item.matchTier()))
+                .map(ConditionRecommendationResponse.RecommendationItem::conditionTag)
+                .filter(tag -> tag != null)
+                .map(ConditionTag::valueOf)
+                .forEach(tags::add);
+
+        int max = current == ConditionTag.CORE_TASK || current == ConditionTag.DAILY_TASK ? 3 : 2;
+        return tags.stream()
+                .limit(max)
+                .map(this::summaryTag)
+                .toList();
+    }
+
+    private ConditionRecommendationResponse.SummaryTag summaryTag(ConditionTag tag) {
+        return new ConditionRecommendationResponse.SummaryTag(tag.name(), tag.getLabel());
+    }
+
+    private MatchTier firstMatchTier(List<ConditionRecommendationResponse.RecommendationItem> items) {
+        return items.stream()
+                .filter(item -> RecommendationSourceType.QUEUE_CARD.name().equals(item.sourceType()))
+                .map(ConditionRecommendationResponse.RecommendationItem::matchTier)
+                .filter(tier -> tier != null)
+                .findFirst()
+                .map(MatchTier::valueOf)
+                .orElse(null);
+    }
+
+    private String suitabilityMessage(
+            ConditionTag current,
+            MatchTier matchTier,
+            RecommendationSourceType sourceType
+    ) {
+        if (sourceType == RecommendationSourceType.RECOVERY_MEAN) {
+            return "조금 쉬는 게 더 효율적인 타이밍이에요";
+        }
+        if (current == RECOVERY) {
+            return "온전한 휴식이 필요한 컨디션이에요.";
+        }
+        if (matchTier == MatchTier.DEADLINE) {
+            return "지금 컨디션과 별개로 마감이 임박한 작업이에요";
+        }
+
+        boolean adjacent = matchTier == MatchTier.ADJACENT;
+        return switch (current) {
+            case CORE_TASK -> adjacent
+                    ? "부담 없이 가볍게 시작하기 좋은 상태예요"
+                    : "깊게 몰입하기 좋은 컨디션이에요";
+            case BRAIN_WORK -> adjacent
+                    ? "가벼운 마음으로 하나씩 해결하기 좋은 상태예요"
+                    : "머리가 맑아 집중하기 딱 좋은 타이밍이에요";
+            case SIMPLE_TASK -> adjacent
+                    ? "몸을 움직여 기분 전환하기 좋은 상태예요"
+                    : "복잡한 생각 없이 해내기 좋은 컨디션이에요";
+            case DAILY_TASK -> adjacent
+                    ? "조금만 집중하면 금방 끝낼 수 있어요"
+                    : "부담 없이 편하게 처리하기 좋은 타이밍이에요";
+            case URGENT -> adjacent
+                    ? "빠르게 처리해 두고 넘어가기 좋은 상태예요"
+                    : "더 미루기 전에 지금 바로 끝내기 좋은 타이밍이에요";
+            case RECOVERY -> "온전한 휴식이 필요한 컨디션이에요.";
+        };
+    }
+
+    private String timeMarginMessage(Integer estimatedTime, int emptyTimeMinutes) {
+        int remaining = emptyTimeMinutes - estimatedTime;
+        if (remaining <= 0) {
+            return "스케줄의 빈 시간 내에 딱 맞게 끝낼 수 있어요";
+        }
+
+        double marginRate = remaining / (double) estimatedTime * 100;
+        if (marginRate >= 100) {
+            return "일정이 2배 이상 길어져도 시간 여유가 괜찮아요";
+        }
+        if (marginRate >= 10) {
+            return "일정을 끝낸 후 약간 쉴 여유가 있어요";
+        }
+        return "스케줄의 빈 시간 내에 딱 맞게 끝낼 수 있어요";
+    }
+
+    private String formatDuration(int minutes) {
+        int hours = minutes / 60;
+        int remainingMinutes = minutes % 60;
+        if (hours > 0 && remainingMinutes > 0) {
+            return hours + "시간 " + remainingMinutes + "분";
+        }
+        if (hours > 0) {
+            return hours + "시간";
+        }
+        return minutes + "분";
     }
 
     /**

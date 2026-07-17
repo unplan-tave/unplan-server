@@ -17,9 +17,6 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long>, JpaSp
 
     List<Schedule> findByMemberIdAndDateBetween(Long memberId, LocalDate startDate, LocalDate endDate);
 
-    // 반복 인스턴스는 원본 날짜 이후에만 생기므로, 조회 범위 끝(rangeEnd)보다 늦게 시작하는 원본은 제외.
-    List<Schedule> findByMemberIdAndIsRecurringTrueAndDateLessThanEqual(Long memberId, LocalDate date);
-
     // 추천 후보 큐 카드: 완료(DONE)·소요시간 미정은 DB에서 걸러 조회 (불필요한 전체 조회 방지)
     @Query("select s from Schedule s " +
             "where s.memberId = :memberId and s.isQueue = true " +

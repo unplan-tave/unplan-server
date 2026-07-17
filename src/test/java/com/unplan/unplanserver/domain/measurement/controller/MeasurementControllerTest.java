@@ -63,6 +63,8 @@ class MeasurementControllerTest {
                         2,
                         50,
                         33,
+                        "에너지 보통",
+                        "에너지 부족",
                         LocalDateTime.of(2026, 6, 24, 10, 0)
                 )),
                 List.of(new SleepRecord(
@@ -104,6 +106,8 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.sleepComment").doesNotExist())
                 .andExpect(jsonPath("$.data.conditions[0].bodyScorePercent").value(50))
                 .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
+                .andExpect(jsonPath("$.data.conditions[0].bodyComment").value("에너지 보통"))
+                .andExpect(jsonPath("$.data.conditions[0].mindComment").value("에너지 부족"))
                 .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12))
                 .andExpect(jsonPath("$.data.sleeps[0].sleepId").value(45))
                 .andExpect(jsonPath("$.data.sleeps[0].totalDurationMinutes").value(420))
@@ -134,6 +138,8 @@ class MeasurementControllerTest {
                         2,
                         50,
                         33,
+                        "에너지 보통",
+                        "에너지 부족",
                         LocalDateTime.of(2026, 6, 24, 10, 0)
                 )),
                 List.of(new SleepRecord(

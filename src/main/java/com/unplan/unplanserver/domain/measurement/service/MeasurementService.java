@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -528,33 +529,35 @@ public class MeasurementService {
 
     private List<AveragePeriod> createWeekPeriods(LocalDate from, LocalDate to) {
         List<AveragePeriod> periods = new ArrayList<>();
-        LocalDate currentMonth = from.withDayOfMonth(1);
-        LocalDate lastMonth = to.withDayOfMonth(1);
+        LocalDate weekStart = from.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
 
-        while (!currentMonth.isAfter(lastMonth)) {
-            LocalDate monthStart = currentMonth.withDayOfMonth(1);
-            LocalDate monthEnd = currentMonth.with(TemporalAdjusters.lastDayOfMonth());
-            LocalDate firstSunday = monthStart.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
-            int weekIndex = 1;
-            LocalDate weekStart = firstSunday;
-
-            while (!weekStart.isAfter(monthEnd)) {
-                LocalDate weekEnd = weekStart.plusDays(6);
-                if (!weekEnd.isBefore(from) && !weekStart.isAfter(to)) {
-                    periods.add(new AveragePeriod(
-                            weekStart,
-                            weekEnd,
-                            currentMonth.getMonthValue() + "월 " + weekIndex + "주"
-                    ));
-                }
-                weekStart = weekStart.plusWeeks(1);
-                weekIndex++;
-            }
-
-            currentMonth = currentMonth.plusMonths(1);
+        while (!weekStart.isAfter(to)) {
+            LocalDate weekEnd = weekStart.plusDays(6);
+            periods.add(new AveragePeriod(
+                    weekStart,
+                    weekEnd,
+                    createWeekLabel(weekStart, weekEnd)
+            ));
+            weekStart = weekStart.plusWeeks(1);
         }
 
         return periods;
+    }
+
+    private String createWeekLabel(LocalDate weekStart, LocalDate weekEnd) {
+        String startLabel = createMonthWeekLabel(weekStart);
+        if (weekStart.getMonth() == weekEnd.getMonth()) {
+            return startLabel;
+        }
+        return startLabel + " ~ " + createMonthWeekLabel(weekEnd);
+    }
+
+    private String createMonthWeekLabel(LocalDate date) {
+        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
+        LocalDate firstWeekStart = date.withDayOfMonth(1)
+                .with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
+        long weekIndex = ChronoUnit.WEEKS.between(firstWeekStart, weekStart) + 1;
+        return date.getMonthValue() + "월 " + weekIndex + "주";
     }
 
     private List<AveragePeriod> createMonthPeriods(LocalDate from, LocalDate to) {
@@ -614,12 +617,17 @@ public class MeasurementService {
     }
 
     private ConditionRecord toConditionRecord(Condition condition) {
+        int bodyScorePercent = ConditionScoreCalculator.calculateBodyScorePercent(condition.getBodyScore());
+        int mindScorePercent = ConditionScoreCalculator.calculateMindScorePercent(condition.getMindScore());
+
         return new ConditionRecord(
                 condition.getConditionId(),
                 condition.getBodyScore(),
                 condition.getMindScore(),
-                ConditionScoreCalculator.calculateBodyScorePercent(condition.getBodyScore()),
-                ConditionScoreCalculator.calculateMindScorePercent(condition.getMindScore()),
+                bodyScorePercent,
+                mindScorePercent,
+                MeasurementCommentCalculator.calculateBodyComment(bodyScorePercent),
+                MeasurementCommentCalculator.calculateMindComment(mindScorePercent),
                 condition.getMeasuredAt()
         );
     }

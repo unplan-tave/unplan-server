@@ -105,9 +105,13 @@ class MeasurementServiceTest {
         assertThat(response.sleepDurationMinutes()).isEqualTo(420);
         assertThat(response.conditions()).hasSize(1);
         assertThat(response.conditions().get(0).bodyScorePercent()).isEqualTo(50);
+        assertThat(response.conditions().get(0).mindScorePercent()).isEqualTo(33);
+        assertThat(response.conditions().get(0).bodyComment()).isEqualTo("에너지 보통");
+        assertThat(response.conditions().get(0).mindComment()).isEqualTo("에너지 부족");
         assertThat(response.sleeps()).hasSize(1);
         assertThat(response.sleeps().get(0).durationMinutes()).isEqualTo(420);
         assertThat(response.sleeps().get(0).isAllNight()).isFalse();
+        assertThat(response.sleeps().get(0).sleepRecordComment()).isEqualTo("조금 일찍 일어났어요");
     }
 
     @Test
@@ -725,7 +729,66 @@ class MeasurementServiceTest {
         AverageItem firstWeek = response.items().get(0);
         assertThat(firstWeek.periodStart()).isEqualTo(LocalDate.of(2026, 4, 26));
         assertThat(firstWeek.periodEnd()).isEqualTo(LocalDate.of(2026, 5, 2));
-        assertThat(firstWeek.label()).isEqualTo("5월 1주");
+        assertThat(firstWeek.label()).isEqualTo("4월 5주 ~ 5월 1주");
+    }
+
+    @Test
+    void getAverageRecordsReturnsSingleWeekAcrossMonthBoundary() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate date = LocalDate.of(2026, 7, 1);
+        Condition condition = new Condition(member, 6, 6, date.atTime(10, 0));
+        Sleep sleep = new Sleep(
+                member,
+                480,
+                date.minusDays(1).atTime(23, 0),
+                date.atTime(7, 0),
+                false
+        );
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(sleep));
+
+        MeasurementAverageResponse response = measurementService.getAverageRecords(
+                memberId,
+                LocalDate.of(2026, 6, 28),
+                LocalDate.of(2026, 7, 4),
+                "ALL",
+                "WEEK"
+        );
+
+        assertThat(response.items()).hasSize(1);
+        AverageItem item = response.items().get(0);
+        assertThat(item.periodStart()).isEqualTo(LocalDate.of(2026, 6, 28));
+        assertThat(item.periodEnd()).isEqualTo(LocalDate.of(2026, 7, 4));
+        assertThat(item.label()).isEqualTo("6월 5주 ~ 7월 1주");
+        assertThat(item.finalConditionScoreAverage()).isNotNull();
+        assertThat(item.bodyScorePercentAverage()).isEqualTo(100);
+        assertThat(item.mindScorePercentAverage()).isEqualTo(100);
+        assertThat(item.sleepDurationMinutesAverage()).isEqualTo(480);
+        assertThat(item.bodyComment()).isEqualTo("에너지가 넘쳐요!");
+        assertThat(item.mindComment()).isEqualTo("집중력이 좋아요!");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 보통");
+    }
+
+    @Test
+    void getAverageRecordsKeepsSingleLabelWithinMonth() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate date = LocalDate.of(2026, 6, 15);
+        Condition condition = new Condition(member, 3, 3, date.atTime(10, 0));
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of());
+
+        MeasurementAverageResponse response = measurementService.getAverageRecords(
+                memberId,
+                LocalDate.of(2026, 6, 14),
+                LocalDate.of(2026, 6, 20),
+                "CONDITION",
+                "WEEK"
+        );
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().get(0).periodStart()).isEqualTo(LocalDate.of(2026, 6, 14));
+        assertThat(response.items().get(0).periodEnd()).isEqualTo(LocalDate.of(2026, 6, 20));
+        assertThat(response.items().get(0).label()).isEqualTo("6월 3주");
     }
 
     @Test

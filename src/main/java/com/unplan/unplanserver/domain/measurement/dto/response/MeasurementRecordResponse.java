@@ -28,6 +28,10 @@ public record MeasurementRecordResponse(
             Integer mindScore,
             int bodyScorePercent,
             int mindScorePercent,
+            @Schema(description = "개별 Body 기록 점수 기반 상태 문구", example = "에너지 보통")
+            String bodyComment,
+            @Schema(description = "개별 Mind 기록 점수 기반 상태 문구", example = "집중력 보통")
+            String mindComment,
             LocalDateTime dateTime
     ) {
     }

@@ -2,6 +2,8 @@ package com.unplan.unplanserver.domain.measurement.service;
 
 import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalculator;
 import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalculator.ConditionScoreResult;
+import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator;
+import com.unplan.unplanserver.domain.measurement.calculator.SleepTargetMinutesResolver;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.AverageItem;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
@@ -16,13 +18,11 @@ import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
 import com.unplan.unplanserver.domain.onboarding.dto.response.BiorhythmResponse;
-import com.unplan.unplanserver.domain.onboarding.dto.response.SleepConditionResponse;
 import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.global.response.PageResponse;
-import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -49,7 +49,7 @@ public class MeasurementService {
     private static final int DEFAULT_MIND_SCORE = 3;
     private static final int DEFAULT_SLEEP_SCORE = 70;
     private static final int DEFAULT_STABILITY_SCORE = 70;
-    private static final int DEFAULT_TARGET_SLEEP_MINUTES = 480;
+    private static final int DEFAULT_TARGET_SLEEP_MINUTES = SleepTargetMinutesResolver.DEFAULT_TARGET_SLEEP_MINUTES;
     private static final LocalTime DEFAULT_TARGET_BED_TIME = LocalTime.of(23, 0);
     private static final LocalTime DEFAULT_TARGET_WAKE_UP_TIME = LocalTime.of(7, 0);
 
@@ -123,6 +123,7 @@ public class MeasurementService {
                 .mapToInt(Sleep::getDurationMinutes)
                 .sum();
         int sleepScore = resolveSleepScore(memberId, sleeps, date);
+        int targetSleepMinutes = resolveTargetSleepMinutes(memberId);
 
         ConditionScoreResult scoreResult = ConditionScoreCalculator.calculateConditionScore(
                 conditionScoreSource.bodyScore(),
@@ -139,11 +140,18 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
+                MeasurementCommentCalculator.calculateBodyComment(scoreResult.bodyScorePercent()),
+                MeasurementCommentCalculator.calculateMindComment(scoreResult.mindScorePercent()),
+                MeasurementCommentCalculator.calculateSleepComment(
+                        sleeps.stream().anyMatch(sleep -> Boolean.TRUE.equals(sleep.getAllNight())),
+                        sleepDurationMinutes,
+                        targetSleepMinutes
+                ),
                 conditions.stream()
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(this::toSleepRecord)
+                        .map(sleep -> toSleepRecord(sleep, targetSleepMinutes))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -321,11 +329,18 @@ public class MeasurementService {
                 conditionPercentSource.mindScorePercent(),
                 sleepScore,
                 sleepDurationMinutes,
+                MeasurementCommentCalculator.calculateBodyComment(conditionPercentSource.bodyScorePercent()),
+                MeasurementCommentCalculator.calculateMindComment(conditionPercentSource.mindScorePercent()),
+                MeasurementCommentCalculator.calculateSleepComment(
+                        sleeps.stream().anyMatch(sleep -> Boolean.TRUE.equals(sleep.getAllNight())),
+                        sleepDurationMinutes,
+                        preloadedData.sleepTarget().targetSleepMinutes()
+                ),
                 conditions.stream()
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(this::toSleepRecord)
+                        .map(sleep -> toSleepRecord(sleep, preloadedData.sleepTarget().targetSleepMinutes()))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -611,7 +626,7 @@ public class MeasurementService {
         );
     }
 
-    private SleepRecord toSleepRecord(Sleep sleep) {
+    private SleepRecord toSleepRecord(Sleep sleep, int targetSleepMinutes) {
         return new SleepRecord(
                 sleep.getSleepId(),
                 sleep.getDurationMinutes(),
@@ -624,7 +639,13 @@ public class MeasurementService {
                 sleep.getAllNight(),
                 sleep.isContinuousSleep(),
                 sleep.getContinuousSleepGroupId(),
-                sleep.getCreatedAt()
+                sleep.getCreatedAt(),
+                MeasurementCommentCalculator.calculateSleepRecordComment(
+                        sleep.getAllNight(),
+                        sleep.getNap(),
+                        sleep.getDurationMinutes(),
+                        targetSleepMinutes
+                )
         );
     }
 
@@ -699,16 +720,7 @@ public class MeasurementService {
     }
 
     private int resolveTargetSleepMinutes(Long memberId) {
-        try {
-            SleepConditionResponse sleepCondition = sleepConditionService.getSleepCondition(memberId);
-            if (sleepCondition != null && sleepCondition.targetDuration() != null) {
-                return sleepCondition.targetDuration();
-            }
-        } catch (CustomException e) {
-
-        }
-
-        return DEFAULT_TARGET_SLEEP_MINUTES;
+        return SleepTargetMinutesResolver.resolve(sleepConditionService, memberId);
     }
 
     private SleepTimelineTarget resolveSleepTimelineTarget(Long memberId) {

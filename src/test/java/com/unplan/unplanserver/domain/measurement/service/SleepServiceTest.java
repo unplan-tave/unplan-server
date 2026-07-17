@@ -7,6 +7,7 @@ import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository
 import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +39,9 @@ class SleepServiceTest {
 
     @Mock
     private ConditionRepository conditionRepository;
+
+    @Mock
+    private SleepConditionService sleepConditionService;
 
     @InjectMocks
     private SleepService sleepService;

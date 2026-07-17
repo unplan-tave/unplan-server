@@ -61,6 +61,7 @@ class SleepControllerTest {
                 .isAllNight(false)
                 .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 24, 22, 15))
+                .sleepRecordComment("제시간에 푹 잤어요")
                 .build();
 
         when(sleepService.getSleep(memberId, sleepId)).thenReturn(response);
@@ -80,7 +81,8 @@ class SleepControllerTest {
                 .andExpect(jsonPath("$.data.isNap").value(false))
                 .andExpect(jsonPath("$.data.isAllNight").value(false))
                 .andExpect(jsonPath("$.data.isContinuousSleep").value(false))
-                .andExpect(jsonPath("$.data.createdAt").value("2026-06-24T22:15:00"));
+                .andExpect(jsonPath("$.data.createdAt").value("2026-06-24T22:15:00"))
+                .andExpect(jsonPath("$.data.sleepRecordComment").value("제시간에 푹 잤어요"));
     }
 
     @Test
@@ -97,6 +99,7 @@ class SleepControllerTest {
                 .isAllNight(false)
                 .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 19, 9, 41))
+                .sleepRecordComment("과다 수면이에요")
                 .build();
 
         when(sleepService.createSleep(eq(authenticatedMemberId), any()))
@@ -117,7 +120,8 @@ class SleepControllerTest {
                 .andExpect(jsonPath("$.data.totalDurationMinutes").value(600))
                 .andExpect(jsonPath("$.data.isNap").value(false))
                 .andExpect(jsonPath("$.data.isAllNight").value(false))
-                .andExpect(jsonPath("$.data.isContinuousSleep").value(false));
+                .andExpect(jsonPath("$.data.isContinuousSleep").value(false))
+                .andExpect(jsonPath("$.data.sleepRecordComment").value("과다 수면이에요"));
     }
 
     @Test
@@ -135,6 +139,7 @@ class SleepControllerTest {
                 .isAllNight(true)
                 .isContinuousSleep(false)
                 .createdAt(LocalDateTime.of(2026, 6, 19, 0, 0))
+                .sleepRecordComment("밤샘으로 기록됐어요")
                 .build();
 
         when(sleepService.updateSleep(eq(authenticatedMemberId), eq(sleepId), any()))
@@ -153,7 +158,8 @@ class SleepControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.durationMinutes").value(0))
                 .andExpect(jsonPath("$.data.isNap").value(false))
-                .andExpect(jsonPath("$.data.isAllNight").value(true));
+                .andExpect(jsonPath("$.data.isAllNight").value(true))
+                .andExpect(jsonPath("$.data.sleepRecordComment").value("밤샘으로 기록됐어요"));
     }
 
     @Test

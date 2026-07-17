@@ -1,7 +1,5 @@
 package com.unplan.unplanserver.domain.onboarding.dto.request;
 
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.unplan.unplanserver.domain.onboarding.enums.TransportType;
 import jakarta.validation.constraints.NotNull;
 

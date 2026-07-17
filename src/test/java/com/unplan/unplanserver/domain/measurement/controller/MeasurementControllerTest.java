@@ -7,8 +7,6 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.global.exception.GlobalExceptionHandler;
-import com.unplan.unplanserver.global.response.PageResponse;
-import com.unplan.unplanserver.global.response.PageResponse.PaginationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -59,6 +57,9 @@ class MeasurementControllerTest {
                 33,
                 84,
                 420,
+                "에너지 보통",
+                "에너지 부족",
+                "수면 시간이 부족해요",
                 List.of(new ConditionRecord(
                         12L,
                         3,
@@ -79,7 +80,8 @@ class MeasurementControllerTest {
                         false,
                         false,
                         null,
-                        LocalDateTime.of(2026, 6, 24, 7, 0)
+                        LocalDateTime.of(2026, 6, 24, 7, 0),
+                        "조금 일찍 일어났어요"
                 )),
                 true,
                 true
@@ -100,6 +102,9 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleepScore").value(84))
                 .andExpect(jsonPath("$.data.sleepDurationMinutes").value(420))
+                .andExpect(jsonPath("$.data.bodyComment").value("에너지 보통"))
+                .andExpect(jsonPath("$.data.mindComment").value("에너지 부족"))
+                .andExpect(jsonPath("$.data.sleepComment").value("수면 시간이 부족해요"))
                 .andExpect(jsonPath("$.data.conditions[0].bodyScorePercent").value(50))
                 .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12))
@@ -109,7 +114,8 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.sleeps[0].originalWakeUpTime").value("2026-06-24T06:30:00"))
                 .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false))
                 .andExpect(jsonPath("$.data.sleeps[0].isAllNight").value(false))
-                .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false));
+                .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false))
+                .andExpect(jsonPath("$.data.sleeps[0].sleepRecordComment").value("조금 일찍 일어났어요"));
         verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 

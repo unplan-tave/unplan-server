@@ -17,36 +17,11 @@ public record MeasurementRecordResponse(
         int mindScorePercent,
         int sleepScore,
         int sleepDurationMinutes,
-        @Schema(description = "Body 점수 기반 상태 문구", example = "에너지가 넘쳐요!")
-        String bodyComment,
-        @Schema(description = "Mind 점수 기반 상태 문구", example = "집중력이 좋아요!")
-        String mindComment,
-        @Schema(description = "해당 날짜의 수면 요약 문구", example = "수면 시간 보통")
-        String sleepComment,
         List<ConditionRecord> conditions,
         List<SleepRecord> sleeps,
         Boolean isEnergyRecorded,
         Boolean isSleepRecorded
 ) {
-    public MeasurementRecordResponse(
-            LocalDate date,
-            int finalConditionScore,
-            String conditionLevel,
-            String conditionTag,
-            int bodyScorePercent,
-            int mindScorePercent,
-            int sleepScore,
-            int sleepDurationMinutes,
-            List<ConditionRecord> conditions,
-            List<SleepRecord> sleeps,
-            Boolean isEnergyRecorded,
-            Boolean isSleepRecorded
-    ) {
-        this(date, finalConditionScore, conditionLevel, conditionTag, bodyScorePercent, mindScorePercent,
-                sleepScore, sleepDurationMinutes, null, null, null, conditions, sleeps,
-                isEnergyRecorded, isSleepRecorded);
-    }
-
     public record ConditionRecord(
             Long conditionId,
             Integer bodyScore,
@@ -114,7 +89,13 @@ public record MeasurementRecordResponse(
             Integer bodyScorePercentAverage,
             Integer mindScorePercentAverage,
             Integer sleepScoreAverage,
-            Integer sleepDurationMinutesAverage
+            Integer sleepDurationMinutesAverage,
+            @Schema(description = "Body 평균 점수 기반 상태 문구", example = "에너지가 넘쳐요!")
+            String bodyComment,
+            @Schema(description = "Mind 평균 점수 기반 상태 문구", example = "집중력이 좋아요!")
+            String mindComment,
+            @Schema(description = "평균 수면 시간 기반 상태 문구", example = "수면 시간 보통")
+            String sleepComment
     ) {
     }
 }

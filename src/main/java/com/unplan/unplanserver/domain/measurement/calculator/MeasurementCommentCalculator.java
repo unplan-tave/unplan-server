@@ -25,14 +25,7 @@ public final class MeasurementCommentCalculator {
         return "에너지 부족";
     }
 
-    public static String calculateSleepComment(
-            boolean hasAllNightSleep,
-            int sleepDurationMinutes,
-            int targetSleepMinutes
-    ) {
-        if (hasAllNightSleep) {
-            return "밤샘으로 기록됐어요";
-        }
+    public static String calculateSleepComment(int sleepDurationMinutes, int targetSleepMinutes) {
         if (sleepDurationMinutes == 0) {
             return "수면 기록이 없어요";
         }

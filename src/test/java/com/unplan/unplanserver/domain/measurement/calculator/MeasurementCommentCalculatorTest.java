@@ -31,20 +31,18 @@ class MeasurementCommentCalculatorTest {
 
     @ParameterizedTest
     @CsvSource({
-            "true, 0, 480, 밤샘으로 기록됐어요",
-            "false, 0, 480, 수면 기록이 없어요",
-            "false, 600, 480, 수면 시간이 길어요",
-            "false, 420, 480, 수면 시간이 부족해요",
-            "false, 421, 480, 수면 시간 보통"
+            "0, 480, 수면 기록이 없어요",
+            "600, 480, 수면 시간이 길어요",
+            "599, 480, 수면 시간 보통",
+            "420, 480, 수면 시간이 부족해요",
+            "421, 480, 수면 시간 보통"
     })
-    void calculatesDailySleepComment(
-            boolean hasAllNightSleep,
+    void calculatesAverageSleepComment(
             int durationMinutes,
             int targetSleepMinutes,
             String expected
     ) {
         assertThat(MeasurementCommentCalculator.calculateSleepComment(
-                hasAllNightSleep,
                 durationMinutes,
                 targetSleepMinutes
         )).isEqualTo(expected);
@@ -52,8 +50,8 @@ class MeasurementCommentCalculatorTest {
 
     @ParameterizedTest
     @CsvSource({
-            "true, false, 0, 480, 밤샘으로 기록됐어요",
-            "false, true, 30, 480, 가볍게 충전하는 시간을 가졌어요",
+            "true, true, 600, 480, 밤샘으로 기록됐어요",
+            "false, true, 600, 480, 가볍게 충전하는 시간을 가졌어요",
             "false, false, 600, 480, 과다 수면이에요",
             "false, false, 420, 480, 조금 일찍 일어났어요",
             "false, false, 421, 480, 제시간에 푹 잤어요"

@@ -140,13 +140,6 @@ public class MeasurementService {
                 scoreResult.mindScorePercent(),
                 scoreResult.sleepScore(),
                 sleepDurationMinutes,
-                MeasurementCommentCalculator.calculateBodyComment(scoreResult.bodyScorePercent()),
-                MeasurementCommentCalculator.calculateMindComment(scoreResult.mindScorePercent()),
-                MeasurementCommentCalculator.calculateSleepComment(
-                        sleeps.stream().anyMatch(sleep -> Boolean.TRUE.equals(sleep.getAllNight())),
-                        sleepDurationMinutes,
-                        targetSleepMinutes
-                ),
                 conditions.stream()
                         .map(this::toConditionRecord)
                         .toList(),
@@ -188,6 +181,9 @@ public class MeasurementService {
         Integer mindScorePercentAverage = null;
         Integer sleepScoreAverage = null;
         Integer sleepDurationMinutesAverage = null;
+        String bodyComment = null;
+        String mindComment = null;
+        String sleepComment = null;
 
         if (type.includesCondition()) {
             finalConditionScoreAverage = average(dailyRecords.stream()
@@ -199,6 +195,8 @@ public class MeasurementService {
             mindScorePercentAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::mindScorePercent)
                     .sum(), divisor);
+            bodyComment = MeasurementCommentCalculator.calculateBodyComment(bodyScorePercentAverage);
+            mindComment = MeasurementCommentCalculator.calculateMindComment(mindScorePercentAverage);
         }
 
         if (type.includesSleep()) {
@@ -208,6 +206,10 @@ public class MeasurementService {
             sleepDurationMinutesAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::sleepDurationMinutes)
                     .sum(), divisor);
+            sleepComment = MeasurementCommentCalculator.calculateSleepComment(
+                    sleepDurationMinutesAverage,
+                    preloadedData.sleepTarget().targetSleepMinutes()
+            );
         }
 
         return List.of(new AverageItem(
@@ -218,7 +220,10 @@ public class MeasurementService {
                 bodyScorePercentAverage,
                 mindScorePercentAverage,
                 sleepScoreAverage,
-                sleepDurationMinutesAverage
+                sleepDurationMinutesAverage,
+                bodyComment,
+                mindComment,
+                sleepComment
         ));
     }
 
@@ -329,13 +334,6 @@ public class MeasurementService {
                 conditionPercentSource.mindScorePercent(),
                 sleepScore,
                 sleepDurationMinutes,
-                MeasurementCommentCalculator.calculateBodyComment(conditionPercentSource.bodyScorePercent()),
-                MeasurementCommentCalculator.calculateMindComment(conditionPercentSource.mindScorePercent()),
-                MeasurementCommentCalculator.calculateSleepComment(
-                        sleeps.stream().anyMatch(sleep -> Boolean.TRUE.equals(sleep.getAllNight())),
-                        sleepDurationMinutes,
-                        preloadedData.sleepTarget().targetSleepMinutes()
-                ),
                 conditions.stream()
                         .map(this::toConditionRecord)
                         .toList(),

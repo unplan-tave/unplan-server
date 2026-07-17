@@ -792,6 +792,9 @@ class MeasurementServiceTest {
         assertThat(item.mindScorePercentAverage()).isEqualTo(50);
         assertThat(item.sleepScoreAverage()).isZero();
         assertThat(item.sleepDurationMinutesAverage()).isZero();
+        assertThat(item.bodyComment()).isEqualTo("에너지 보통");
+        assertThat(item.mindComment()).isEqualTo("집중력 보통");
+        assertThat(item.sleepComment()).isEqualTo("수면 기록이 없어요");
     }
 
     @Test
@@ -815,6 +818,9 @@ class MeasurementServiceTest {
         assertThat(item.mindScorePercentAverage()).isEqualTo(50);
         assertThat(item.sleepScoreAverage()).isNull();
         assertThat(item.sleepDurationMinutesAverage()).isNull();
+        assertThat(item.bodyComment()).isEqualTo("에너지 보통");
+        assertThat(item.mindComment()).isEqualTo("집중력 보통");
+        assertThat(item.sleepComment()).isNull();
     }
 
     @Test
@@ -838,6 +844,9 @@ class MeasurementServiceTest {
         assertThat(item.mindScorePercentAverage()).isNull();
         assertThat(item.sleepScoreAverage()).isZero();
         assertThat(item.sleepDurationMinutesAverage()).isZero();
+        assertThat(item.bodyComment()).isNull();
+        assertThat(item.mindComment()).isNull();
+        assertThat(item.sleepComment()).isEqualTo("수면 기록이 없어요");
     }
 
     @Test

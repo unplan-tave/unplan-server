@@ -2,7 +2,9 @@
 # 외부 Postgres/.env 없이 인메모리 H2 로 전체 컨텍스트를 부팅한다.
 spring:
   datasource:
-    url: jdbc:h2:mem:unplan_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    # NON_KEYWORDS=INTERVAL: recurrence_rule 의 interval 컬럼명은 H2 예약어라 그대로면 DDL 실패
+    # (프로덕션 Postgres 에선 식별자로 허용됨). 테스트에서만 예약어 해제해 실제 스키마와 동일하게 사용.
+    url: jdbc:h2:mem:unplan_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=INTERVAL
     username: sa
     password:
     driver-class-name: org.h2.Driver

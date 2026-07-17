@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
         name = "sleep_condition",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_sleep_condition_member_id",
-                columnNames = "member_id"
+                columnNames = "memberId"
         )
 )
 @Getter

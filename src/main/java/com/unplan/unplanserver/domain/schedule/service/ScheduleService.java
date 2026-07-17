@@ -189,7 +189,10 @@ public class ScheduleService {
     public void deleteSchedule(Long memberId, Long scheduleId) {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
-        tagService.detachAll(schedule); // 조인 행(schedule_personal_tag)을 먼저 정리해 FK 위반 방지
+        // schedule_id 를 FK 로 참조하는 행들을 먼저 정리해 FK 위반 방지 (#120)
+        tagService.detachAll(schedule);
+        recurrenceRuleRepository.deleteBySchedule(schedule);
+        locationInfoRepository.deleteBySchedule(schedule);
         scheduleRepository.delete(schedule);
     }
 

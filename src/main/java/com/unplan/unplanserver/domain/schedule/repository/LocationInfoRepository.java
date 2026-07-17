@@ -8,4 +8,6 @@ import java.util.Optional;
 
 public interface LocationInfoRepository extends JpaRepository<LocationInfo, Long> {
     Optional<LocationInfo> findBySchedule(Schedule schedule);
+
+    void deleteBySchedule(Schedule schedule);
 }

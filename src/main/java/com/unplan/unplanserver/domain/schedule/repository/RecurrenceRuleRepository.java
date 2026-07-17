@@ -9,4 +9,6 @@ import java.util.List;
 public interface RecurrenceRuleRepository extends JpaRepository<RecurrenceRule, Long> {
 
     List<RecurrenceRule> findByScheduleIn(List<Schedule> schedules);
+
+    void deleteBySchedule(Schedule schedule);
 }

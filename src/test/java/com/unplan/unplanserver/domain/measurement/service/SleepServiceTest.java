@@ -7,6 +7,7 @@ import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository
 import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +39,9 @@ class SleepServiceTest {
 
     @Mock
     private ConditionRepository conditionRepository;
+
+    @Mock
+    private SleepConditionService sleepConditionService;
 
     @InjectMocks
     private SleepService sleepService;
@@ -61,6 +64,7 @@ class SleepServiceTest {
         assertThat(response.getWakeUpTime()).isEqualTo(wakeUpTime);
         assertThat(response.getIsNap()).isFalse();
         assertThat(response.getIsAllNight()).isFalse();
+        assertThat(response.getSleepRecordComment()).isEqualTo("제시간에 푹 잤어요");
         verify(sleepRepository).findBySleepIdAndMemberMemberId(sleepId, memberId);
     }
 
@@ -149,6 +153,7 @@ class SleepServiceTest {
         assertThat(response.getIsAllNight()).isFalse();
         assertThat(response.getIsContinuousSleep()).isFalse();
         assertThat(response.getContinuousSleepGroupId()).isNull();
+        assertThat(response.getSleepRecordComment()).isEqualTo("과다 수면이에요");
     }
 
     @Test
@@ -171,6 +176,32 @@ class SleepServiceTest {
         assertThat(response.getDurationMinutes()).isZero();
         assertThat(response.getIsNap()).isFalse();
         assertThat(response.getIsAllNight()).isTrue();
+        assertThat(response.getSleepRecordComment()).isEqualTo("밤샘으로 기록됐어요");
+    }
+
+    @Test
+    void createSleepReturnsNapCommentBeforeDurationComment() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDateTime now = LocalDateTime.now();
+        SleepRequest.SleepCreate request = new SleepRequest.SleepCreate(
+                now.minusMinutes(610),
+                now.minusMinutes(10),
+                true,
+                false
+        );
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
+        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+                member,
+                request.bedTime(),
+                request.wakeUpTime()
+        )).thenReturn(false);
+        when(sleepRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SleepResponse response = sleepService.createSleep(memberId, request);
+
+        assertThat(response.getSleepRecordComment()).isEqualTo("가볍게 충전하는 시간을 가졌어요");
     }
 
     @Test
@@ -269,6 +300,7 @@ class SleepServiceTest {
         assertThat(response.getBedTime()).isEqualTo(request.bedTime());
         assertThat(response.getWakeUpTime()).isEqualTo(request.wakeUpTime());
         assertThat(response.getIsAllNight()).isFalse();
+        assertThat(response.getSleepRecordComment()).isEqualTo("제시간에 푹 잤어요");
     }
 
     @Test

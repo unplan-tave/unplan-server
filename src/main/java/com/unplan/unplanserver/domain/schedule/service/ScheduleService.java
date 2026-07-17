@@ -337,18 +337,13 @@ public class ScheduleService {
     }
 
     private List<Schedule> expandRecurringInstances(Long memberId, LocalDate rangeStart, LocalDate rangeEnd) {
-        // 조회 범위에 인스턴스가 생길 수 있는 활성 반복 원본만 DB에서 조회 (시작일<=rangeEnd, until null 이거나 >=rangeStart)
-        List<Schedule> originals =
-                scheduleRepository.findActiveRecurringSchedules(memberId, rangeStart, rangeEnd);
-        if (originals.isEmpty()) return List.of();
-
-        Map<Long, RecurrenceRule> ruleMap = recurrenceRuleRepository.findByScheduleIn(originals)
-                .stream().collect(Collectors.toMap(r -> r.getSchedule().getScheduleId(), r -> r));
+        // 조회 범위에 인스턴스가 생길 수 있는 활성 반복만 규칙+원본을 단일 쿼리로 조회 (시작일<=rangeEnd, until null 이거나 >=rangeStart)
+        List<RecurrenceRule> rules =
+                recurrenceRuleRepository.findActiveRulesWithSchedule(memberId, rangeStart, rangeEnd);
 
         List<Schedule> expanded = new ArrayList<>();
-        for (Schedule original : originals) {
-            RecurrenceRule rule = ruleMap.get(original.getScheduleId());
-            if (rule == null) continue; // 방어: 반복인데 규칙 행이 없는 비정상 데이터
+        for (RecurrenceRule rule : rules) {
+            Schedule original = rule.getSchedule();
 
             // 규칙 하나가 깨져도(과거에 저장된 비정상 데이터 등) 전체 조회가 실패하지 않도록 방어
             try {

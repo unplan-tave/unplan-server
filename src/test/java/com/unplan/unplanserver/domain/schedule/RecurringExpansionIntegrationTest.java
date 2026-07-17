@@ -47,16 +47,14 @@ class RecurringExpansionIntegrationTest {
         // 종료: 매일 반복이지만 until 이 어제 → 오늘 인스턴스 없음 (쿼리에서 제외)
         dailyRecurring("종료된반복", TODAY.minusDays(10), TODAY.minusDays(1));
 
-        List<TitleOnly> onDay = scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY).stream()
-                .map(s -> new TitleOnly(s.getTitle()))
+        List<String> titles = scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY).stream()
+                .map(Schedule::getTitle)
                 .toList();
 
-        assertThat(onDay).extracting(TitleOnly::title)
+        assertThat(titles)
                 .contains("활성반복", "활성반복-until미래")
                 .doesNotContain("종료된반복");
     }
-
-    private record TitleOnly(String title) {}
 
     private void dailyRecurring(String title, LocalDate originalDate, LocalDate until) {
         Schedule s = scheduleRepository.save(Schedule.builder()

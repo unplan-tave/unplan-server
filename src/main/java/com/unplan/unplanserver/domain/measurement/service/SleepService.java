@@ -2,11 +2,14 @@ package com.unplan.unplanserver.domain.measurement.service;
 
 import com.unplan.unplanserver.domain.measurement.dto.request.SleepRequest;
 import com.unplan.unplanserver.domain.measurement.dto.response.SleepResponse;
+import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator;
+import com.unplan.unplanserver.domain.measurement.calculator.SleepTargetMinutesResolver;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
 import com.unplan.unplanserver.domain.measurement.repository.ConditionRepository;
 import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
+import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +33,13 @@ public class SleepService {
     private final SleepRepository sleepRepository;
     private final MemberRepository memberRepository;
     private final ConditionRepository conditionRepository;
+    private final SleepConditionService sleepConditionService;
 
     public SleepResponse getSleep(Long memberId, Long sleepId) {
         Sleep sleep = sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SLEEP_NOT_FOUND));
 
-        return SleepResponse.from(sleep);
+        return toSleepResponse(memberId, sleep);
     }
 
     @Transactional
@@ -71,7 +75,7 @@ public class SleepService {
 
         List<Sleep> savedSleeps = sleepRepository.saveAll(sleeps);
 
-        return SleepResponse.from(savedSleeps.get(0));
+        return toSleepResponse(memberId, savedSleeps.get(0));
     }
 
     @Transactional
@@ -124,7 +128,7 @@ public class SleepService {
                 null
         );
 
-        return SleepResponse.from(sleep);
+        return toSleepResponse(memberId, sleep);
     }
 
     @Transactional
@@ -257,7 +261,18 @@ public class SleepService {
             sleepRepository.saveAll(additionalSegments);
         }
 
-        return SleepResponse.from(targetSleep);
+        return toSleepResponse(memberId, targetSleep);
+    }
+
+    private SleepResponse toSleepResponse(Long memberId, Sleep sleep) {
+        int targetSleepMinutes = SleepTargetMinutesResolver.resolve(sleepConditionService, memberId);
+        String sleepRecordComment = MeasurementCommentCalculator.calculateSleepRecordComment(
+                sleep.getAllNight(),
+                sleep.getNap(),
+                sleep.getDurationMinutes(),
+                targetSleepMinutes
+        );
+        return SleepResponse.from(sleep, sleepRecordComment);
     }
 
     private void updateSleep(Sleep sleep, SleepSegment segment) {

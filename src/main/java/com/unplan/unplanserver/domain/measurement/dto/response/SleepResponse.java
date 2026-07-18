@@ -2,6 +2,7 @@ package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.unplan.unplanserver.domain.measurement.entity.Sleep;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -47,7 +48,11 @@ public class SleepResponse {
     @JsonProperty("createdAt")
     private LocalDateTime createdAt;
 
-    public static SleepResponse from(Sleep sleep) {
+    @Schema(description = "개별 수면 기록 상태 문구", example = "제시간에 푹 잤어요")
+    @JsonProperty("sleepRecordComment")
+    private String sleepRecordComment;
+
+    public static SleepResponse from(Sleep sleep, String sleepRecordComment) {
         return SleepResponse.builder()
                 .sleepId(sleep.getSleepId())
                 .durationMinutes(sleep.getDurationMinutes())
@@ -61,6 +66,7 @@ public class SleepResponse {
                 .isContinuousSleep(sleep.isContinuousSleep())
                 .continuousSleepGroupId(sleep.getContinuousSleepGroupId())
                 .createdAt(sleep.getCreatedAt())
+                .sleepRecordComment(sleepRecordComment)
                 .build();
     }
 }

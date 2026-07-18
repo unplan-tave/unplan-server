@@ -2,6 +2,8 @@ package com.unplan.unplanserver.domain.measurement.service;
 
 import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalculator;
 import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalculator.ConditionScoreResult;
+import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator;
+import com.unplan.unplanserver.domain.measurement.calculator.SleepTargetMinutesResolver;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.AverageItem;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
@@ -16,13 +18,11 @@ import com.unplan.unplanserver.domain.measurement.repository.SleepRepository;
 import com.unplan.unplanserver.domain.member.entity.Member;
 import com.unplan.unplanserver.domain.member.repository.MemberRepository;
 import com.unplan.unplanserver.domain.onboarding.dto.response.BiorhythmResponse;
-import com.unplan.unplanserver.domain.onboarding.dto.response.SleepConditionResponse;
 import com.unplan.unplanserver.domain.onboarding.service.BiorhythmService;
 import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.global.exception.CustomException;
 import com.unplan.unplanserver.global.exception.ErrorCode;
 import com.unplan.unplanserver.global.response.PageResponse;
-import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,7 +50,7 @@ public class MeasurementService {
     private static final int DEFAULT_MIND_SCORE = 3;
     private static final int DEFAULT_SLEEP_SCORE = 70;
     private static final int DEFAULT_STABILITY_SCORE = 70;
-    private static final int DEFAULT_TARGET_SLEEP_MINUTES = 480;
+    private static final int DEFAULT_TARGET_SLEEP_MINUTES = SleepTargetMinutesResolver.DEFAULT_TARGET_SLEEP_MINUTES;
     private static final LocalTime DEFAULT_TARGET_BED_TIME = LocalTime.of(23, 0);
     private static final LocalTime DEFAULT_TARGET_WAKE_UP_TIME = LocalTime.of(7, 0);
 
@@ -123,6 +124,7 @@ public class MeasurementService {
                 .mapToInt(Sleep::getDurationMinutes)
                 .sum();
         int sleepScore = resolveSleepScore(memberId, sleeps, date);
+        int targetSleepMinutes = resolveTargetSleepMinutes(memberId);
 
         ConditionScoreResult scoreResult = ConditionScoreCalculator.calculateConditionScore(
                 conditionScoreSource.bodyScore(),
@@ -143,7 +145,7 @@ public class MeasurementService {
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(this::toSleepRecord)
+                        .map(sleep -> toSleepRecord(sleep, targetSleepMinutes))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -180,6 +182,9 @@ public class MeasurementService {
         Integer mindScorePercentAverage = null;
         Integer sleepScoreAverage = null;
         Integer sleepDurationMinutesAverage = null;
+        String bodyComment = null;
+        String mindComment = null;
+        String sleepComment = null;
 
         if (type.includesCondition()) {
             finalConditionScoreAverage = average(dailyRecords.stream()
@@ -191,6 +196,8 @@ public class MeasurementService {
             mindScorePercentAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::mindScorePercent)
                     .sum(), divisor);
+            bodyComment = MeasurementCommentCalculator.calculateBodyComment(bodyScorePercentAverage);
+            mindComment = MeasurementCommentCalculator.calculateMindComment(mindScorePercentAverage);
         }
 
         if (type.includesSleep()) {
@@ -200,6 +207,10 @@ public class MeasurementService {
             sleepDurationMinutesAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::sleepDurationMinutes)
                     .sum(), divisor);
+            sleepComment = MeasurementCommentCalculator.calculateSleepComment(
+                    sleepDurationMinutesAverage,
+                    preloadedData.sleepTarget().targetSleepMinutes()
+            );
         }
 
         return List.of(new AverageItem(
@@ -210,7 +221,10 @@ public class MeasurementService {
                 bodyScorePercentAverage,
                 mindScorePercentAverage,
                 sleepScoreAverage,
-                sleepDurationMinutesAverage
+                sleepDurationMinutesAverage,
+                bodyComment,
+                mindComment,
+                sleepComment
         ));
     }
 
@@ -325,7 +339,7 @@ public class MeasurementService {
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(this::toSleepRecord)
+                        .map(sleep -> toSleepRecord(sleep, preloadedData.sleepTarget().targetSleepMinutes()))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -515,33 +529,35 @@ public class MeasurementService {
 
     private List<AveragePeriod> createWeekPeriods(LocalDate from, LocalDate to) {
         List<AveragePeriod> periods = new ArrayList<>();
-        LocalDate currentMonth = from.withDayOfMonth(1);
-        LocalDate lastMonth = to.withDayOfMonth(1);
+        LocalDate weekStart = from.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
 
-        while (!currentMonth.isAfter(lastMonth)) {
-            LocalDate monthStart = currentMonth.withDayOfMonth(1);
-            LocalDate monthEnd = currentMonth.with(TemporalAdjusters.lastDayOfMonth());
-            LocalDate firstSunday = monthStart.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
-            int weekIndex = 1;
-            LocalDate weekStart = firstSunday;
-
-            while (!weekStart.isAfter(monthEnd)) {
-                LocalDate weekEnd = weekStart.plusDays(6);
-                if (!weekEnd.isBefore(from) && !weekStart.isAfter(to)) {
-                    periods.add(new AveragePeriod(
-                            weekStart,
-                            weekEnd,
-                            currentMonth.getMonthValue() + "월 " + weekIndex + "주"
-                    ));
-                }
-                weekStart = weekStart.plusWeeks(1);
-                weekIndex++;
-            }
-
-            currentMonth = currentMonth.plusMonths(1);
+        while (!weekStart.isAfter(to)) {
+            LocalDate weekEnd = weekStart.plusDays(6);
+            periods.add(new AveragePeriod(
+                    weekStart,
+                    weekEnd,
+                    createWeekLabel(weekStart, weekEnd)
+            ));
+            weekStart = weekStart.plusWeeks(1);
         }
 
         return periods;
+    }
+
+    private String createWeekLabel(LocalDate weekStart, LocalDate weekEnd) {
+        String startLabel = createMonthWeekLabel(weekStart);
+        if (weekStart.getMonth() == weekEnd.getMonth()) {
+            return startLabel;
+        }
+        return startLabel + " ~ " + createMonthWeekLabel(weekEnd);
+    }
+
+    private String createMonthWeekLabel(LocalDate date) {
+        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
+        LocalDate firstWeekStart = date.withDayOfMonth(1)
+                .with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY));
+        long weekIndex = ChronoUnit.WEEKS.between(firstWeekStart, weekStart) + 1;
+        return date.getMonthValue() + "월 " + weekIndex + "주";
     }
 
     private List<AveragePeriod> createMonthPeriods(LocalDate from, LocalDate to) {
@@ -601,17 +617,22 @@ public class MeasurementService {
     }
 
     private ConditionRecord toConditionRecord(Condition condition) {
+        int bodyScorePercent = ConditionScoreCalculator.calculateBodyScorePercent(condition.getBodyScore());
+        int mindScorePercent = ConditionScoreCalculator.calculateMindScorePercent(condition.getMindScore());
+
         return new ConditionRecord(
                 condition.getConditionId(),
                 condition.getBodyScore(),
                 condition.getMindScore(),
-                ConditionScoreCalculator.calculateBodyScorePercent(condition.getBodyScore()),
-                ConditionScoreCalculator.calculateMindScorePercent(condition.getMindScore()),
+                bodyScorePercent,
+                mindScorePercent,
+                MeasurementCommentCalculator.calculateBodyComment(bodyScorePercent),
+                MeasurementCommentCalculator.calculateMindComment(mindScorePercent),
                 condition.getMeasuredAt()
         );
     }
 
-    private SleepRecord toSleepRecord(Sleep sleep) {
+    private SleepRecord toSleepRecord(Sleep sleep, int targetSleepMinutes) {
         return new SleepRecord(
                 sleep.getSleepId(),
                 sleep.getDurationMinutes(),
@@ -624,7 +645,13 @@ public class MeasurementService {
                 sleep.getAllNight(),
                 sleep.isContinuousSleep(),
                 sleep.getContinuousSleepGroupId(),
-                sleep.getCreatedAt()
+                sleep.getCreatedAt(),
+                MeasurementCommentCalculator.calculateSleepRecordComment(
+                        sleep.getAllNight(),
+                        sleep.getNap(),
+                        sleep.getDurationMinutes(),
+                        targetSleepMinutes
+                )
         );
     }
 
@@ -699,16 +726,7 @@ public class MeasurementService {
     }
 
     private int resolveTargetSleepMinutes(Long memberId) {
-        try {
-            SleepConditionResponse sleepCondition = sleepConditionService.getSleepCondition(memberId);
-            if (sleepCondition != null && sleepCondition.targetDuration() != null) {
-                return sleepCondition.targetDuration();
-            }
-        } catch (CustomException e) {
-
-        }
-
-        return DEFAULT_TARGET_SLEEP_MINUTES;
+        return SleepTargetMinutesResolver.resolve(sleepConditionService, memberId);
     }
 
     private SleepTimelineTarget resolveSleepTimelineTarget(Long memberId) {

@@ -24,14 +24,19 @@ public class SleepCondition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "member_id", nullable = false)
     private Long memberId;
 
+    @Column(name = "target_duration")
     private Integer targetDuration;
 
+    @Column(name = "danger_threshold")
     private Integer dangerThreshold;
 
+    @Column(name = "lack_threshold")
     private Integer lackThreshold;
 
+    @Column(name = "optimal_threshold")
     private Integer optimalThreshold;
 
     @Builder

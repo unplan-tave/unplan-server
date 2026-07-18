@@ -2,7 +2,7 @@ package com.unplan.unplanserver.domain.measurement.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.unplan.unplanserver.global.response.PageResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,13 +22,16 @@ public record MeasurementRecordResponse(
         Boolean isEnergyRecorded,
         Boolean isSleepRecorded
 ) {
-
     public record ConditionRecord(
             Long conditionId,
             Integer bodyScore,
             Integer mindScore,
             int bodyScorePercent,
             int mindScorePercent,
+            @Schema(description = "개별 Body 기록 점수 기반 상태 문구", example = "에너지 보통")
+            String bodyComment,
+            @Schema(description = "개별 Mind 기록 점수 기반 상태 문구", example = "집중력 보통")
+            String mindComment,
             LocalDateTime dateTime
     ) {
     }
@@ -48,8 +51,28 @@ public record MeasurementRecordResponse(
             @JsonProperty("isContinuousSleep")
             Boolean isContinuousSleep,
             String continuousSleepGroupId,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            @Schema(description = "개별 수면 기록 상태 문구", example = "제시간에 푹 잤어요")
+            String sleepRecordComment
     ) {
+        public SleepRecord(
+                Long sleepId,
+                Integer durationMinutes,
+                Integer totalDurationMinutes,
+                LocalDateTime bedTime,
+                LocalDateTime wakeUpTime,
+                LocalDateTime originalBedTime,
+                LocalDateTime originalWakeUpTime,
+                Boolean isNap,
+                Boolean isAllNight,
+                Boolean isContinuousSleep,
+                String continuousSleepGroupId,
+                LocalDateTime createdAt
+        ) {
+            this(sleepId, durationMinutes, totalDurationMinutes, bedTime, wakeUpTime,
+                    originalBedTime, originalWakeUpTime, isNap, isAllNight, isContinuousSleep,
+                    continuousSleepGroupId, createdAt, null);
+        }
     }
 
     public record MeasurementAverageResponse(
@@ -70,7 +93,13 @@ public record MeasurementRecordResponse(
             Integer bodyScorePercentAverage,
             Integer mindScorePercentAverage,
             Integer sleepScoreAverage,
-            Integer sleepDurationMinutesAverage
+            Integer sleepDurationMinutesAverage,
+            @Schema(description = "Body 평균 점수 기반 상태 문구", example = "에너지가 넘쳐요!")
+            String bodyComment,
+            @Schema(description = "Mind 평균 점수 기반 상태 문구", example = "집중력이 좋아요!")
+            String mindComment,
+            @Schema(description = "평균 수면 시간 기반 상태 문구", example = "수면 시간 보통")
+            String sleepComment
     ) {
     }
 }

@@ -38,12 +38,13 @@
 ### 하루 기록 조회
 
 특정 날짜의 컨디션 기록과 수면 기록을 함께 조회할 수 있습니다.  
-Body/Mind 기록 목록과 수면 기록 목록은 각각 페이징되어 반환됩니다.
+각 Body/Mind 기록에는 상태 문구가, 각 수면 기록에는 수면 상태 문구가 함께 반환됩니다.
 
 ### 평균 보기
 
 사용자는 일별, 주별, 월별 기준으로 컨디션 평균 흐름을 조회할 수 있습니다.  
-평균 보기에서는 최종 컨디션 점수, Body/Mind 퍼센트, 수면 점수, 수면 시간을 제공합니다.
+평균 보기에서는 최종 컨디션 점수, Body/Mind 퍼센트, 수면 점수, 수면 시간과 각 평균값 기준 상태 문구를 제공합니다.  
+주별 조회는 일요일부터 토요일까지를 한 주로 집계하며, 월 경계에 걸친 주도 하나의 주간 평균으로 반환합니다.
 
 ### 온보딩
 
@@ -52,8 +53,8 @@ Body/Mind 기록 목록과 수면 기록 목록은 각각 페이징되어 반환
 
 ### 일정 추천
 
-사용자의 컨디션 상태와 태그를 기반으로 일정 추천에 필요한 데이터를 제공합니다.  
-Gemini API를 활용한 추천 기능과 연동됩니다.
+사용자의 컨디션 상태, 빈 시간, 큐 카드 태그를 기반으로 일정을 추천합니다.  
+Gemini API는 일정 제목에 적합한 컨디션 태그를 추천하는 기능에 사용됩니다.
 
 <br />
 
@@ -61,7 +62,7 @@ Gemini API를 활용한 추천 기능과 연동됩니다.
 
 ### Backend
 
-- **Java**
+- **Java 21**
 - **Spring Boot**
 - **Spring Web MVC**
 - **Spring Security**
@@ -157,7 +158,7 @@ docker compose up -d postgres
 애플리케이션을 직접 실행할 때는 최소한 다음 환경변수를 설정합니다.
 
 ```bash
-export JWT_SECRET=your-local-jwt-secret
+export JWT_SECRET="$(openssl rand -base64 32)"
 export GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
@@ -171,7 +172,7 @@ export GEMINI_API_KEY=your-gemini-api-key
 ./gradlew bootRun
 ```
 
-Docker Compose로 앱까지 함께 실행할 수도 있습니다.
+Docker Compose로 앱까지 함께 실행하려면 `docker-compose.yml`의 `app` 서비스에 `JWT_SECRET`, `GOOGLE_CLIENT_ID`, 필요 시 `GEMINI_API_KEY` 환경변수를 전달해야 합니다.
 
 ```bash
 docker compose up --build
@@ -186,7 +187,7 @@ docker compose up --build
 특정 테스트만 실행할 때는 다음 형식을 사용합니다.
 
 ```bash
-./gradlew test --tests com.unplan.unplanserver.domain.measurement.*
+./gradlew test --tests 'com.unplan.unplanserver.domain.measurement.*'
 ```
 
 <br />
@@ -197,7 +198,7 @@ docker compose up --build
 |-----|--------|----------------------|
 | 강승구 | [@SeungKu-Kang](https://github.com/SeungKu-Kang) | 일정 / 일정 추천 / 태그      |
 | 이지영 | [@young0206](https://github.com/young0206) | 인프라 / 온보딩 / 컨디션      |
-| 한근형 | [@hangeunhyeong](https://github.com/hangeunhyeong) | 인증인가 / AI 태그 추천 / 알림 |
+| 한근형 | [@hangeunhyeong](https://github.com/hangeunhyeong) | 인증·인가 / AI 태그 추천 / 알림 |
 
 <br />
 

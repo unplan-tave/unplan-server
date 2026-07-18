@@ -25,6 +25,7 @@ public class Sleep {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "sleep_id")
     private Long sleepId;
 
     @ManyToOne(fetch = FetchType.LAZY)

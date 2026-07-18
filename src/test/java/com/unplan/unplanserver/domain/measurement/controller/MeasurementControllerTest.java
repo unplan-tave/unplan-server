@@ -7,8 +7,6 @@ import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecord
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.SleepRecord;
 import com.unplan.unplanserver.domain.measurement.service.MeasurementService;
 import com.unplan.unplanserver.global.exception.GlobalExceptionHandler;
-import com.unplan.unplanserver.global.response.PageResponse;
-import com.unplan.unplanserver.global.response.PageResponse.PaginationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -65,6 +63,8 @@ class MeasurementControllerTest {
                         2,
                         50,
                         33,
+                        "에너지 보통",
+                        "에너지 부족",
                         LocalDateTime.of(2026, 6, 24, 10, 0)
                 )),
                 List.of(new SleepRecord(
@@ -79,7 +79,8 @@ class MeasurementControllerTest {
                         false,
                         false,
                         null,
-                        LocalDateTime.of(2026, 6, 24, 7, 0)
+                        LocalDateTime.of(2026, 6, 24, 7, 0),
+                        "조금 일찍 일어났어요"
                 )),
                 true,
                 true
@@ -100,8 +101,13 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.mindScorePercent").value(33))
                 .andExpect(jsonPath("$.data.sleepScore").value(84))
                 .andExpect(jsonPath("$.data.sleepDurationMinutes").value(420))
+                .andExpect(jsonPath("$.data.bodyComment").doesNotExist())
+                .andExpect(jsonPath("$.data.mindComment").doesNotExist())
+                .andExpect(jsonPath("$.data.sleepComment").doesNotExist())
                 .andExpect(jsonPath("$.data.conditions[0].bodyScorePercent").value(50))
                 .andExpect(jsonPath("$.data.conditions[0].mindScorePercent").value(33))
+                .andExpect(jsonPath("$.data.conditions[0].bodyComment").value("에너지 보통"))
+                .andExpect(jsonPath("$.data.conditions[0].mindComment").value("에너지 부족"))
                 .andExpect(jsonPath("$.data.conditions[0].conditionId").value(12))
                 .andExpect(jsonPath("$.data.sleeps[0].sleepId").value(45))
                 .andExpect(jsonPath("$.data.sleeps[0].totalDurationMinutes").value(420))
@@ -109,7 +115,8 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.sleeps[0].originalWakeUpTime").value("2026-06-24T06:30:00"))
                 .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false))
                 .andExpect(jsonPath("$.data.sleeps[0].isAllNight").value(false))
-                .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false));
+                .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false))
+                .andExpect(jsonPath("$.data.sleeps[0].sleepRecordComment").value("조금 일찍 일어났어요"));
         verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 
@@ -131,6 +138,8 @@ class MeasurementControllerTest {
                         2,
                         50,
                         33,
+                        "에너지 보통",
+                        "에너지 부족",
                         LocalDateTime.of(2026, 6, 24, 10, 0)
                 )),
                 List.of(new SleepRecord(
@@ -178,7 +187,10 @@ class MeasurementControllerTest {
                         70,
                         68,
                         82,
-                        410
+                        410,
+                        "에너지가 넘쳐요!",
+                        "집중력 보통",
+                        "수면 시간이 부족해요"
                 ))
         );
 
@@ -210,7 +222,10 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").value(70))
                 .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").value(68))
                 .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").value(82))
-                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410));
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410))
+                .andExpect(jsonPath("$.data.items[0].bodyComment").value("에너지가 넘쳐요!"))
+                .andExpect(jsonPath("$.data.items[0].mindComment").value("집중력 보통"))
+                .andExpect(jsonPath("$.data.items[0].sleepComment").value("수면 시간이 부족해요"));
     }
 
     @Test
@@ -249,6 +264,9 @@ class MeasurementControllerTest {
                         70,
                         68,
                         null,
+                        null,
+                        "에너지가 넘쳐요!",
+                        "집중력 보통",
                         null
                 ))
         );
@@ -272,7 +290,10 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").value(70))
                 .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").value(68))
                 .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").doesNotExist())
-                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").doesNotExist());
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].bodyComment").value("에너지가 넘쳐요!"))
+                .andExpect(jsonPath("$.data.items[0].mindComment").value("집중력 보통"))
+                .andExpect(jsonPath("$.data.items[0].sleepComment").doesNotExist());
     }
 
     @Test
@@ -290,7 +311,10 @@ class MeasurementControllerTest {
                         null,
                         null,
                         82,
-                        410
+                        410,
+                        null,
+                        null,
+                        "수면 시간이 부족해요"
                 ))
         );
 
@@ -313,7 +337,10 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.items[0].bodyScorePercentAverage").doesNotExist())
                 .andExpect(jsonPath("$.data.items[0].mindScorePercentAverage").doesNotExist())
                 .andExpect(jsonPath("$.data.items[0].sleepScoreAverage").value(82))
-                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410));
+                .andExpect(jsonPath("$.data.items[0].sleepDurationMinutesAverage").value(410))
+                .andExpect(jsonPath("$.data.items[0].bodyComment").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].mindComment").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].sleepComment").value("수면 시간이 부족해요"));
     }
 
     private record TestAuthenticationPrincipalArgumentResolver(Long memberId)

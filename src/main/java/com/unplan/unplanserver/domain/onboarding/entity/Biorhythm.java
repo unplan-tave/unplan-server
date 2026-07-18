@@ -25,13 +25,13 @@ public class Biorhythm {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
-    @Column(nullable = false, length = 24)
+    @Column(name = "focused_timeline", nullable = false, length = 24)
     private String focusedTimeline;
 
-    @Column(nullable = false, length = 24)
+    @Column(name = "drowsy_timeline", nullable = false, length = 24)
     private String drowsyTimeline;
 
-    @Column(nullable = false, length = 24)
+    @Column(name = "sleep_timeline", nullable = false, length = 24)
     private String sleepTimeline;
 
     @Builder

@@ -22,6 +22,7 @@ public class Condition {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "condition_id")
     private Long conditionId;
 
     @ManyToOne(fetch = FetchType.LAZY)

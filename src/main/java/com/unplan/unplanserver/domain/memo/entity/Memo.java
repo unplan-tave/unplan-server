@@ -23,6 +23,6 @@ public class Memo {
     @Column(name = "memo_date", nullable = false)
     private LocalDate date;
 
-    @Column(nullable = false, length = 20)
+    @Column(name = "content", nullable = false, length = 20)
     private String content;
 }

@@ -64,7 +64,7 @@ class SleepServiceTest {
         assertThat(response.getWakeUpTime()).isEqualTo(wakeUpTime);
         assertThat(response.getIsNap()).isFalse();
         assertThat(response.getIsAllNight()).isFalse();
-        assertThat(response.getSleepRecordComment()).isEqualTo("제시간에 푹 잤어요");
+        assertThat(response.getSleepRecordComment()).isEqualTo("충분히 잘 잤어요");
         verify(sleepRepository).findBySleepIdAndMemberMemberId(sleepId, memberId);
     }
 
@@ -153,7 +153,7 @@ class SleepServiceTest {
         assertThat(response.getIsAllNight()).isFalse();
         assertThat(response.getIsContinuousSleep()).isFalse();
         assertThat(response.getContinuousSleepGroupId()).isNull();
-        assertThat(response.getSleepRecordComment()).isEqualTo("과다 수면이에요");
+        assertThat(response.getSleepRecordComment()).isEqualTo("충분히 잘 잤어요");
     }
 
     @Test
@@ -201,7 +201,7 @@ class SleepServiceTest {
 
         SleepResponse response = sleepService.createSleep(memberId, request);
 
-        assertThat(response.getSleepRecordComment()).isEqualTo("가볍게 충전하는 시간을 가졌어요");
+        assertThat(response.getSleepRecordComment()).isEqualTo("밤잠에 영향을 줄 수도 있어요");
     }
 
     @Test
@@ -300,7 +300,7 @@ class SleepServiceTest {
         assertThat(response.getBedTime()).isEqualTo(request.bedTime());
         assertThat(response.getWakeUpTime()).isEqualTo(request.wakeUpTime());
         assertThat(response.getIsAllNight()).isFalse();
-        assertThat(response.getSleepRecordComment()).isEqualTo("제시간에 푹 잤어요");
+        assertThat(response.getSleepRecordComment()).isEqualTo("목표한 만큼 잤어요");
     }
 
     @Test

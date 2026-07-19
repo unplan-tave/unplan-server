@@ -99,8 +99,6 @@ public class MeasurementService {
         );
     }
 
-
-
     public MeasurementRecordResponse getDailyRecord(
             Long memberId,
             LocalDate date
@@ -175,11 +173,6 @@ public class MeasurementService {
             current = current.plusDays(1);
         }
 
-        if (dailyRecords.isEmpty()) {
-            return List.of();
-        }
-
-        int divisor = dailyRecords.size();
         Integer finalConditionScoreAverage = null;
         Integer bodyScorePercentAverage = null;
         Integer mindScorePercentAverage = null;
@@ -190,30 +183,47 @@ public class MeasurementService {
         String sleepComment = null;
 
         if (type.includesCondition()) {
-            finalConditionScoreAverage = average(dailyRecords.stream()
-                    .mapToInt(MeasurementRecordResponse::finalConditionScore)
-                    .sum(), divisor);
-            bodyScorePercentAverage = average(dailyRecords.stream()
-                    .mapToInt(MeasurementRecordResponse::bodyScorePercent)
-                    .sum(), divisor);
-            mindScorePercentAverage = average(dailyRecords.stream()
-                    .mapToInt(MeasurementRecordResponse::mindScorePercent)
-                    .sum(), divisor);
-            bodyComment = MeasurementCommentCalculator.calculateAverageEnergyComment(bodyScorePercentAverage);
-            mindComment = MeasurementCommentCalculator.calculateAverageEnergyComment(mindScorePercentAverage);
+            List<MeasurementRecordResponse> conditionRecords = dailyRecords.stream()
+                    .filter(record -> Boolean.TRUE.equals(record.isEnergyRecorded()))
+                    .toList();
+            if (conditionRecords.isEmpty()) {
+                bodyComment = "에너지 기록 없음";
+                mindComment = "에너지 기록 없음";
+            } else {
+                int conditionDivisor = conditionRecords.size();
+                finalConditionScoreAverage = average(conditionRecords.stream()
+                        .mapToInt(MeasurementRecordResponse::finalConditionScore)
+                        .sum(), conditionDivisor);
+                bodyScorePercentAverage = average(conditionRecords.stream()
+                        .mapToInt(MeasurementRecordResponse::bodyScorePercent)
+                        .sum(), conditionDivisor);
+                mindScorePercentAverage = average(conditionRecords.stream()
+                        .mapToInt(MeasurementRecordResponse::mindScorePercent)
+                        .sum(), conditionDivisor);
+                bodyComment = MeasurementCommentCalculator.calculateAverageEnergyComment(bodyScorePercentAverage);
+                mindComment = MeasurementCommentCalculator.calculateAverageEnergyComment(mindScorePercentAverage);
+            }
         }
 
         if (type.includesSleep()) {
-            sleepScoreAverage = average(dailyRecords.stream()
-                    .mapToInt(MeasurementRecordResponse::sleepScore)
-                    .sum(), divisor);
-            sleepDurationMinutesAverage = average(dailyRecords.stream()
-                    .mapToInt(MeasurementRecordResponse::sleepDurationMinutes)
-                    .sum(), divisor);
-            sleepComment = MeasurementCommentCalculator.calculateAverageSleepComment(
-                    sleepDurationMinutesAverage,
-                    preloadedData.sleepConditionSettings()
-            );
+            List<MeasurementRecordResponse> sleepRecords = dailyRecords.stream()
+                    .filter(record -> Boolean.TRUE.equals(record.isSleepRecorded()))
+                    .toList();
+            if (sleepRecords.isEmpty()) {
+                sleepComment = "수면 기록 없음";
+            } else {
+                int sleepDivisor = sleepRecords.size();
+                sleepScoreAverage = average(sleepRecords.stream()
+                        .mapToInt(MeasurementRecordResponse::sleepScore)
+                        .sum(), sleepDivisor);
+                sleepDurationMinutesAverage = average(sleepRecords.stream()
+                        .mapToInt(MeasurementRecordResponse::sleepDurationMinutes)
+                        .sum(), sleepDivisor);
+                sleepComment = MeasurementCommentCalculator.calculateAverageSleepComment(
+                        sleepDurationMinutesAverage,
+                        preloadedData.sleepConditionSettings()
+                );
+            }
         }
 
         return List.of(new AverageItem(

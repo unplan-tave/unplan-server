@@ -702,11 +702,16 @@ class MeasurementServiceTest {
                 "DAY"
         );
 
-        assertThat(response.items()).hasSize(1);
+        assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).periodStart()).isEqualTo(first);
         assertThat(response.items().get(0).periodEnd()).isEqualTo(first);
         assertThat(response.items().get(0).label()).isEqualTo("5/1");
         assertThat(response.items().get(0).finalConditionScoreAverage()).isEqualTo(40);
+        AverageItem noRecordDay = response.items().get(1);
+        assertThat(noRecordDay.periodStart()).isEqualTo(LocalDate.of(2026, 5, 2));
+        assertThat(noRecordDay.periodEnd()).isEqualTo(LocalDate.of(2026, 5, 2));
+        assertThat(noRecordDay.label()).isEqualTo("5/2");
+        assertNoRecordAverageItem(noRecordDay);
     }
 
     @Test
@@ -725,11 +730,13 @@ class MeasurementServiceTest {
                 "WEEK"
         );
 
-        assertThat(response.items()).hasSize(1);
+        assertThat(response.items()).hasSize(6);
         AverageItem firstWeek = response.items().get(0);
         assertThat(firstWeek.periodStart()).isEqualTo(LocalDate.of(2026, 4, 26));
         assertThat(firstWeek.periodEnd()).isEqualTo(LocalDate.of(2026, 5, 2));
         assertThat(firstWeek.label()).isEqualTo("4월 5주 ~ 5월 1주");
+        response.items().subList(1, response.items().size())
+                .forEach(this::assertNoRecordAverageItem);
     }
 
     @Test
@@ -807,10 +814,15 @@ class MeasurementServiceTest {
                 "MONTH"
         );
 
-        assertThat(response.items()).hasSize(1);
+        assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).periodStart()).isEqualTo(LocalDate.of(2026, 5, 1));
         assertThat(response.items().get(0).periodEnd()).isEqualTo(LocalDate.of(2026, 5, 31));
         assertThat(response.items().get(0).label()).isEqualTo("2026.05");
+        AverageItem june = response.items().get(1);
+        assertThat(june.periodStart()).isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(june.periodEnd()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(june.label()).isEqualTo("2026.06");
+        assertNoRecordAverageItem(june);
     }
 
     @Test
@@ -1316,6 +1328,17 @@ class MeasurementServiceTest {
         assertThat(actual.mindScorePercent()).isEqualTo(expected.mindScorePercent());
         assertThat(actual.sleepScore()).isEqualTo(expected.sleepScore());
         assertThat(actual.sleepDurationMinutes()).isEqualTo(expected.sleepDurationMinutes());
+    }
+
+    private void assertNoRecordAverageItem(AverageItem item) {
+        assertThat(item.finalConditionScoreAverage()).isNull();
+        assertThat(item.bodyScorePercentAverage()).isNull();
+        assertThat(item.mindScorePercentAverage()).isNull();
+        assertThat(item.sleepScoreAverage()).isNull();
+        assertThat(item.sleepDurationMinutesAverage()).isNull();
+        assertThat(item.bodyComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.mindComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.sleepComment()).isEqualTo("수면 기록 없음");
     }
 
     private void stubAveragePreloadedData(

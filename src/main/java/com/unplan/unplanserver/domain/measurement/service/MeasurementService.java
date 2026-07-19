@@ -85,15 +85,10 @@ public class MeasurementService {
         LocalDate today = LocalDate.now();
 
         PreloadedMeasurementData preloadedData = preloadMeasurementData(memberId, periods, today);
-        List<AverageItem> calculatedItems = periods.stream()
+        List<AverageItem> items = periods.stream()
                 .map(period -> calculateAverageItem(period, averageType, today, preloadedData))
                 .flatMap(List::stream)
                 .toList();
-        boolean hasAnyRecordedItem = calculatedItems.stream()
-                .anyMatch(this::hasAverageValues);
-        List<AverageItem> items = hasAnyRecordedItem
-                ? calculatedItems.stream().filter(this::hasAverageValues).toList()
-                : calculatedItems;
 
         return new MeasurementAverageResponse(
                 from,
@@ -103,13 +98,6 @@ public class MeasurementService {
                 items
         );
     }
-
-    private boolean hasAverageValues(AverageItem item) {
-        return item.finalConditionScoreAverage() != null
-                || item.sleepDurationMinutesAverage() != null;
-    }
-
-
 
     public MeasurementRecordResponse getDailyRecord(
             Long memberId,

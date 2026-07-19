@@ -1094,7 +1094,7 @@ class MeasurementServiceTest {
     }
 
     @Test
-    void getAverageRecordsExcludesDateWithOnlyFallbackRecords() {
+    void getAverageRecordsReturnsNoRecordCommentsForDateWithOnlyFallbackRecords() {
         Long memberId = 1L;
         LocalDate date = LocalDate.of(2026, 6, 24);
         Member member = new Member();

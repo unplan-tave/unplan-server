@@ -68,29 +68,29 @@ public final class MeasurementCommentCalculator {
         PatternLevel pattern = calculatePatternLevel(bedTime.toLocalTime(), targetBedTime);
         return switch (amount) {
             case DANGER -> switch (pattern) {
-                case NORMAL -> "수면량이 매우 부족해요";
-                case EARLY -> "평소보다 일찍 잤지만 잠이 매우 부족해요";
-                case LATE -> "평소보다 늦게 잤고, 잠이 매우 부족해요";
+                case NORMAL -> "수면이 매우 부족해요";
+                case EARLY -> "일찍 잠들었지만 수면이 매우 부족해요";
+                case LATE -> "늦게 잠들어 수면이 매우 부족해요";
             };
             case LACK -> switch (pattern) {
                 case NORMAL -> "잠이 조금 부족해요";
-                case EARLY -> "평소보다 일찍 잤지만 잠이 조금 부족해요";
-                case LATE -> "평소보다 늦게 잤고, 잠이 조금 부족해요";
+                case EARLY -> "일찍 잠들었지만 잠이 조금 부족해요";
+                case LATE -> "늦게 잠들어 잠이 조금 부족해요";
             };
             case OPTIMAL -> switch (pattern) {
                 case NORMAL -> "충분히 잘 잤어요";
-                case EARLY -> "평소보다 일찍 잤고, 수면량이 충분해요";
-                case LATE -> "평소보다 늦게 잤지만 수면량이 충분해요";
+                case EARLY -> "일찍 잠들어 충분히 쉬었어요";
+                case LATE -> "늦게 잠들었지만 충분히 쉬었어요";
             };
             case EXCESS -> switch (pattern) {
-                case NORMAL -> "잠을 너무 많이 잤어요";
-                case EARLY -> "평소보다 일찍 잤고, 수면량이 과다해요";
-                case LATE -> "평소보다 늦게 잤지만 수면량이 과다해요";
+                case NORMAL -> "오래 푹 잠들었어요";
+                case EARLY -> "일찍 잠들어 오래 쉬었어요";
+                case LATE -> "늦게 잠들었지만 오래 쉬었어요";
             };
             case TARGET -> switch (pattern) {
                 case NORMAL -> "목표한 만큼 잤어요";
-                case EARLY -> "평소보다 일찍 잤고, 목표한 만큼 잠들었어요";
-                case LATE -> "평소보다 늦게 잤지만 목표한 만큼 잠들었어요";
+                case EARLY -> "일찍 잠들어 목표한 만큼 쉬었어요";
+                case LATE -> "늦게 잠들었지만 목표한 만큼 쉬었어요";
             };
         };
     }

@@ -4,6 +4,7 @@ import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalcu
 import com.unplan.unplanserver.domain.measurement.calculator.ConditionScoreCalculator.ConditionScoreResult;
 import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator;
 import com.unplan.unplanserver.domain.measurement.calculator.SleepTargetMinutesResolver;
+import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator.SleepConditionSettings;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.AverageItem;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.ConditionRecord;
 import com.unplan.unplanserver.domain.measurement.dto.response.MeasurementRecordResponse.MeasurementAverageResponse;
@@ -124,7 +125,9 @@ public class MeasurementService {
                 .mapToInt(Sleep::getDurationMinutes)
                 .sum();
         int sleepScore = resolveSleepScore(memberId, sleeps, date);
-        int targetSleepMinutes = resolveTargetSleepMinutes(memberId);
+        SleepConditionSettings sleepSettings =
+                SleepTargetMinutesResolver.resolveSettings(sleepConditionService, memberId);
+        LocalTime targetBedTime = resolveSleepTimelineTarget(memberId).targetBedTime();
 
         ConditionScoreResult scoreResult = ConditionScoreCalculator.calculateConditionScore(
                 conditionScoreSource.bodyScore(),
@@ -145,7 +148,7 @@ public class MeasurementService {
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(sleep -> toSleepRecord(sleep, targetSleepMinutes))
+                        .map(sleep -> toSleepRecord(sleep, sleepSettings, targetBedTime))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -196,8 +199,8 @@ public class MeasurementService {
             mindScorePercentAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::mindScorePercent)
                     .sum(), divisor);
-            bodyComment = MeasurementCommentCalculator.calculateBodyComment(bodyScorePercentAverage);
-            mindComment = MeasurementCommentCalculator.calculateMindComment(mindScorePercentAverage);
+            bodyComment = MeasurementCommentCalculator.calculateAverageEnergyComment(bodyScorePercentAverage);
+            mindComment = MeasurementCommentCalculator.calculateAverageEnergyComment(mindScorePercentAverage);
         }
 
         if (type.includesSleep()) {
@@ -207,9 +210,9 @@ public class MeasurementService {
             sleepDurationMinutesAverage = average(dailyRecords.stream()
                     .mapToInt(MeasurementRecordResponse::sleepDurationMinutes)
                     .sum(), divisor);
-            sleepComment = MeasurementCommentCalculator.calculateSleepComment(
+            sleepComment = MeasurementCommentCalculator.calculateAverageSleepComment(
                     sleepDurationMinutesAverage,
-                    preloadedData.sleepTarget().targetSleepMinutes()
+                    preloadedData.sleepConditionSettings()
             );
         }
 
@@ -272,7 +275,14 @@ public class MeasurementService {
                 .sorted(Comparator.comparing(Sleep::getWakeUpTime))
                 .toList();
 
-        SleepTarget sleepTarget = resolveSleepTarget(memberId);
+        SleepConditionSettings sleepConditionSettings =
+                SleepTargetMinutesResolver.resolveSettings(sleepConditionService, memberId);
+        SleepTimelineTarget timelineTarget = resolveSleepTimelineTarget(memberId);
+        SleepTarget sleepTarget = new SleepTarget(
+                sleepConditionSettings.targetSleepMinutes(),
+                timelineTarget.targetBedTime(),
+                timelineTarget.targetWakeUpTime()
+        );
 
         return new PreloadedMeasurementData(
                 conditions,
@@ -281,7 +291,8 @@ public class MeasurementService {
                 sleeps,
                 sleeps.stream()
                         .collect(Collectors.groupingBy(sleep -> sleep.getWakeUpTime().toLocalDate())),
-                sleepTarget
+                sleepTarget,
+                sleepConditionSettings
         );
     }
 
@@ -339,7 +350,11 @@ public class MeasurementService {
                         .map(this::toConditionRecord)
                         .toList(),
                 sleeps.stream()
-                        .map(sleep -> toSleepRecord(sleep, preloadedData.sleepTarget().targetSleepMinutes()))
+                        .map(sleep -> toSleepRecord(
+                                sleep,
+                                preloadedData.sleepConditionSettings(),
+                                preloadedData.sleepTarget().targetBedTime()
+                        ))
                         .toList(),
                 !conditions.isEmpty(),
                 !sleeps.isEmpty()
@@ -632,7 +647,11 @@ public class MeasurementService {
         );
     }
 
-    private SleepRecord toSleepRecord(Sleep sleep, int targetSleepMinutes) {
+    private SleepRecord toSleepRecord(
+            Sleep sleep,
+            SleepConditionSettings sleepSettings,
+            LocalTime targetBedTime
+    ) {
         return new SleepRecord(
                 sleep.getSleepId(),
                 sleep.getDurationMinutes(),
@@ -649,8 +668,13 @@ public class MeasurementService {
                 MeasurementCommentCalculator.calculateSleepRecordComment(
                         sleep.getAllNight(),
                         sleep.getNap(),
+                        sleep.isContinuousSleep(),
                         sleep.getDurationMinutes(),
-                        targetSleepMinutes
+                        sleep.getBedTime(),
+                        sleep.getEffectiveOriginalBedTime(),
+                        sleep.getEffectiveOriginalWakeUpTime(),
+                        sleepSettings,
+                        targetBedTime
                 )
         );
     }
@@ -885,7 +909,8 @@ public class MeasurementService {
             Map<LocalDate, List<Condition>> conditionsByDate,
             List<Sleep> sleeps,
             Map<LocalDate, List<Sleep>> sleepsByWakeUpDate,
-            SleepTarget sleepTarget
+            SleepTarget sleepTarget,
+            SleepConditionSettings sleepConditionSettings
     ) {
 
         private static PreloadedMeasurementData empty() {
@@ -894,7 +919,8 @@ public class MeasurementService {
                     Map.of(),
                     List.of(),
                     Map.of(),
-                    new SleepTarget(DEFAULT_TARGET_SLEEP_MINUTES, DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME)
+                    new SleepTarget(DEFAULT_TARGET_SLEEP_MINUTES, DEFAULT_TARGET_BED_TIME, DEFAULT_TARGET_WAKE_UP_TIME),
+                    SleepTargetMinutesResolver.defaults()
             );
         }
     }

@@ -913,6 +913,87 @@ class MeasurementServiceTest {
     }
 
     @Test
+    void getAverageRecordsReturnsNoRecordCommentsWhenPeriodHasNoRecords() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate from = LocalDate.of(2026, 5, 3);
+        stubAveragePreloadedData(memberId, member, List.of(), List.of());
+
+        AverageItem item = measurementService.getAverageRecords(
+                memberId,
+                from,
+                from.plusDays(6),
+                "ALL",
+                "WEEK"
+        ).items().get(0);
+
+        assertThat(item.bodyComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.mindComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.sleepComment()).isEqualTo("수면 기록 없음");
+        assertThat(item.bodyScorePercentAverage()).isNull();
+        assertThat(item.sleepDurationMinutesAverage()).isNull();
+    }
+
+    @Test
+    void getAverageRecordsReturnsEnergyNoRecordCommentsWhenOnlySleepExists() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate date = LocalDate.of(2026, 5, 4);
+        Sleep sleep = new Sleep(
+                member,
+                480,
+                date.minusDays(1).atTime(23, 0),
+                date.atTime(7, 0),
+                false
+        );
+        stubAveragePreloadedData(memberId, member, List.of(), List.of(sleep));
+
+        AverageItem item = measurementService.getAverageRecords(
+                memberId,
+                date,
+                date,
+                "ALL",
+                "DAY"
+        ).items().get(0);
+
+        assertThat(item.bodyComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.mindComment()).isEqualTo("에너지 기록 없음");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 최상");
+    }
+
+    @Test
+    void getAverageRecordsUsesOnlyRecordedDaysForEachAverageArea() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDate conditionDate = LocalDate.of(2026, 5, 4);
+        LocalDate sleepDate = conditionDate.plusDays(1);
+        Condition condition = new Condition(member, 6, 6, conditionDate.atTime(10, 0));
+        Sleep sleep = new Sleep(
+                member,
+                480,
+                sleepDate.minusDays(1).atTime(23, 0),
+                sleepDate.atTime(7, 0),
+                false
+        );
+        stubAveragePreloadedData(memberId, member, List.of(condition), List.of(sleep));
+
+        AverageItem item = measurementService.getAverageRecords(
+                memberId,
+                conditionDate,
+                sleepDate,
+                "ALL",
+                "WEEK"
+        ).items().get(0);
+
+        assertThat(item.bodyScorePercentAverage()).isEqualTo(100);
+        assertThat(item.mindScorePercentAverage()).isEqualTo(100);
+        assertThat(item.sleepDurationMinutesAverage()).isEqualTo(480);
+        assertThat(item.bodyComment()).isEqualTo("에너지 최상");
+        assertThat(item.mindComment()).isEqualTo("에너지 최상");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 최상");
+    }
+
+    @Test
     void getAverageRecordsUsesDailyBodyMindAveragesInsteadOfLatestCondition() {
         Long memberId = 1L;
         Member member = new Member();
@@ -1064,7 +1145,10 @@ class MeasurementServiceTest {
         assertThat(dailyRecord.bodyScorePercent()).isEqualTo(100);
         assertThat(dailyRecord.mindScorePercent()).isEqualTo(33);
         assertThat(dailyRecord.sleepDurationMinutes()).isZero();
-        assertThat(averageItems).isEmpty();
+        assertThat(averageItems).hasSize(1);
+        assertThat(averageItems.get(0).bodyComment()).isEqualTo("에너지 기록 없음");
+        assertThat(averageItems.get(0).mindComment()).isEqualTo("에너지 기록 없음");
+        assertThat(averageItems.get(0).sleepComment()).isEqualTo("수면 기록 없음");
     }
 
     @Test

@@ -111,7 +111,7 @@ class MeasurementServiceTest {
         assertThat(response.sleeps()).hasSize(1);
         assertThat(response.sleeps().get(0).durationMinutes()).isEqualTo(420);
         assertThat(response.sleeps().get(0).isAllNight()).isFalse();
-        assertThat(response.sleeps().get(0).sleepRecordComment()).isEqualTo("조금 일찍 일어났어요");
+        assertThat(response.sleeps().get(0).sleepRecordComment()).isEqualTo("잠이 조금 부족해요");
     }
 
     @Test
@@ -764,9 +764,9 @@ class MeasurementServiceTest {
         assertThat(item.bodyScorePercentAverage()).isEqualTo(100);
         assertThat(item.mindScorePercentAverage()).isEqualTo(100);
         assertThat(item.sleepDurationMinutesAverage()).isEqualTo(480);
-        assertThat(item.bodyComment()).isEqualTo("에너지가 넘쳐요!");
-        assertThat(item.mindComment()).isEqualTo("집중력이 좋아요!");
-        assertThat(item.sleepComment()).isEqualTo("수면 시간 보통");
+        assertThat(item.bodyComment()).isEqualTo("에너지 최상");
+        assertThat(item.mindComment()).isEqualTo("에너지 최상");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 최상");
     }
 
     @Test
@@ -856,8 +856,8 @@ class MeasurementServiceTest {
         assertThat(item.sleepScoreAverage()).isZero();
         assertThat(item.sleepDurationMinutesAverage()).isZero();
         assertThat(item.bodyComment()).isEqualTo("에너지 보통");
-        assertThat(item.mindComment()).isEqualTo("집중력 보통");
-        assertThat(item.sleepComment()).isEqualTo("수면 기록이 없어요");
+        assertThat(item.mindComment()).isEqualTo("에너지 보통");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 매우 부족");
     }
 
     @Test
@@ -882,7 +882,7 @@ class MeasurementServiceTest {
         assertThat(item.sleepScoreAverage()).isNull();
         assertThat(item.sleepDurationMinutesAverage()).isNull();
         assertThat(item.bodyComment()).isEqualTo("에너지 보통");
-        assertThat(item.mindComment()).isEqualTo("집중력 보통");
+        assertThat(item.mindComment()).isEqualTo("에너지 보통");
         assertThat(item.sleepComment()).isNull();
     }
 
@@ -909,7 +909,7 @@ class MeasurementServiceTest {
         assertThat(item.sleepDurationMinutesAverage()).isZero();
         assertThat(item.bodyComment()).isNull();
         assertThat(item.mindComment()).isNull();
-        assertThat(item.sleepComment()).isEqualTo("수면 기록이 없어요");
+        assertThat(item.sleepComment()).isEqualTo("수면 시간 매우 부족");
     }
 
     @Test

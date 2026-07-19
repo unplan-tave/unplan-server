@@ -1,7 +1,7 @@
 ---
 name: Feature Request
 about: 새로운 기능 추가 시 사용하는 템플릿입니다.
-title: "[Feat]"
+title: "[Feature]"
 labels: enhancement
 assignees: ''
 

@@ -1,73 +1,95 @@
 package com.unplan.unplanserver.domain.measurement.calculator;
 
+import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator.SleepConditionSettings;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MeasurementCommentCalculatorTest {
 
+    private static final SleepConditionSettings SETTINGS =
+            new SleepConditionSettings(480, 360, 420, 600);
+    private static final LocalDateTime BED_TIME = LocalDateTime.of(2026, 7, 10, 23, 0);
+
     @ParameterizedTest
     @CsvSource({
-            "70, 에너지가 넘쳐요!",
-            "69, 에너지 보통",
-            "40, 에너지 보통",
-            "39, 에너지 부족"
+            "95, 에너지 최상", "75, 에너지 높음", "40, 에너지 보통",
+            "20, 에너지 부족", "19, 에너지 매우 부족"
     })
-    void calculatesBodyComment(int score, String expected) {
-        assertThat(MeasurementCommentCalculator.calculateBodyComment(score)).isEqualTo(expected);
+    void calculatesAverageEnergyComment(int score, String expected) {
+        assertThat(MeasurementCommentCalculator.calculateAverageEnergyComment(score)).isEqualTo(expected);
     }
 
     @ParameterizedTest
     @CsvSource({
-            "70, 집중력이 좋아요!",
-            "69, 집중력 보통",
-            "40, 집중력 보통",
-            "39, 에너지 부족"
+            "480, 수면 시간 최상", "300, 수면 시간 매우 부족",
+            "390, 수면 시간 부족", "500, 수면 시간 적정", "650, 수면 시간 과다"
     })
-    void calculatesMindComment(int score, String expected) {
-        assertThat(MeasurementCommentCalculator.calculateMindComment(score)).isEqualTo(expected);
+    void calculatesAverageSleepComment(int duration, String expected) {
+        assertThat(MeasurementCommentCalculator.calculateAverageSleepComment(duration, SETTINGS))
+                .isEqualTo(expected);
     }
 
     @ParameterizedTest
     @CsvSource({
-            "0, 480, 수면 기록이 없어요",
-            "600, 480, 수면 시간이 길어요",
-            "599, 480, 수면 시간 보통",
-            "420, 480, 수면 시간이 부족해요",
-            "421, 480, 수면 시간 보통"
+            "60, 가볍게 충전하는 시간을 가졌어요",
+            "61, 충분히 쉬는 시간을 가졌어요",
+            "90, 충분히 쉬는 시간을 가졌어요",
+            "91, 밤잠에 영향을 줄 수도 있어요"
     })
-    void calculatesAverageSleepComment(
-            int durationMinutes,
-            int targetSleepMinutes,
-            String expected
-    ) {
-        assertThat(MeasurementCommentCalculator.calculateSleepComment(
-                durationMinutes,
-                targetSleepMinutes
-        )).isEqualTo(expected);
+    void calculatesNapComment(int duration, String expected) {
+        assertThat(comment(false, true, false, duration, BED_TIME)).isEqualTo(expected);
     }
 
-    @ParameterizedTest
-    @CsvSource({
-            "true, true, 600, 480, 밤샘으로 기록됐어요",
-            "false, true, 600, 480, 가볍게 충전하는 시간을 가졌어요",
-            "false, false, 600, 480, 과다 수면이에요",
-            "false, false, 420, 480, 조금 일찍 일어났어요",
-            "false, false, 421, 480, 제시간에 푹 잤어요"
-    })
-    void calculatesSleepRecordComment(
-            boolean isAllNight,
-            boolean isNap,
-            int durationMinutes,
-            int targetSleepMinutes,
-            String expected
-    ) {
+    @Test
+    void calculatesContinuousSleepComment() {
         assertThat(MeasurementCommentCalculator.calculateSleepRecordComment(
-                isAllNight,
-                isNap,
-                durationMinutes,
-                targetSleepMinutes
+                false, false, true, 1440, BED_TIME,
+                LocalDateTime.of(2026, 7, 10, 23, 0),
+                LocalDateTime.of(2026, 7, 12, 7, 30),
+                SETTINGS, LocalTime.of(23, 0)
+        )).isEqualTo("10일~12일까지의 연속수면이에요");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "300, 23:00, 수면이 매우 부족해요",
+            "300, 21:00, 일찍 잠들었지만 수면이 매우 부족해요",
+            "300, 01:00, 늦게 잠들어 수면이 매우 부족해요",
+            "390, 23:00, 잠이 조금 부족해요",
+            "390, 21:00, 일찍 잠들었지만 잠이 조금 부족해요",
+            "390, 01:00, 늦게 잠들어 잠이 조금 부족해요",
+            "500, 23:00, 충분히 잘 잤어요",
+            "500, 21:00, 일찍 잠들어 충분히 쉬었어요",
+            "500, 01:00, 늦게 잠들었지만 충분히 쉬었어요",
+            "650, 23:00, 오래 푹 잠들었어요",
+            "650, 21:00, 일찍 잠들어 오래 쉬었어요",
+            "650, 01:00, 늦게 잠들었지만 오래 쉬었어요",
+            "480, 23:00, 목표한 만큼 잤어요",
+            "480, 21:00, 일찍 잠들어 목표한 만큼 쉬었어요",
+            "480, 01:00, 늦게 잠들었지만 목표한 만큼 쉬었어요"
+    })
+    void calculatesGeneralSleepComment(int duration, LocalTime bedTime, String expected) {
+        assertThat(comment(
+                false, false, false, duration,
+                LocalDateTime.of(2026, 7, 10, bedTime.getHour(), bedTime.getMinute())
         )).isEqualTo(expected);
+    }
+
+    @Test
+    void keepsAllNightComment() {
+        assertThat(comment(true, true, true, 0, BED_TIME)).isEqualTo("밤샘으로 기록됐어요");
+    }
+
+    private String comment(boolean allNight, boolean nap, boolean continuous, int duration, LocalDateTime bedTime) {
+        return MeasurementCommentCalculator.calculateSleepRecordComment(
+                allNight, nap, continuous, duration, bedTime, bedTime,
+                bedTime.plusMinutes(duration), SETTINGS, LocalTime.of(23, 0)
+        );
     }
 }

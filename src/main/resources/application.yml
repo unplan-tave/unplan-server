@@ -7,8 +7,12 @@ spring:
     property-naming-strategy: SNAKE_CASE
     deserialization:
       fail-on-unknown-properties: false
+  config:
+    import: optional:file:.env[.properties]
+
 gemini:
   api-key: ${GEMINI_API_KEY:}
+
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
@@ -22,7 +26,6 @@ springdoc:
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
   description: ${SWAGGER_DESCRIPTION:Local Server}
-
 
 google:
   client-id: ${GOOGLE_CLIENT_ID}

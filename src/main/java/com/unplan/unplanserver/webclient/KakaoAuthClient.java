@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
+
 @Component
 @RequiredArgsConstructor
 public class KakaoAuthClient {
@@ -22,6 +25,9 @@ public class KakaoAuthClient {
                 .onStatus(status -> status.value() == 401, response -> Mono.error(new CustomException(ErrorCode.INVALID_KAKAO_TOKEN)))
                 .onStatus(HttpStatusCode::isError, response -> Mono.error(new CustomException(ErrorCode.KAKAO_SERVER_ERROR)))
                 .bodyToMono(KakaoUserInfoResponseDto.class)// json->java객체
+                .timeout(Duration.ofSeconds(5))
+                .onErrorMap(io.netty.channel.ConnectTimeoutException.class, e->new CustomException(ErrorCode.KAKAO_CONNECTION_TIMEOUT))
+                .onErrorMap(TimeoutException.class, e-> new CustomException(ErrorCode.KAKAO_RESPONSE_TIMEOUT))
                 .block();
     }
 }

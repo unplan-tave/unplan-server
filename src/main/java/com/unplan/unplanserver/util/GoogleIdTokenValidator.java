@@ -2,6 +2,7 @@ package com.unplan.unplanserver.util;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -31,7 +32,15 @@ public class GoogleIdTokenValidator {
 
     @PostConstruct
     public void init() {
-        this.verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
+        // 타임아웃관련 설정추가
+        HttpRequestFactory requestFactory = transport.createRequestFactory(
+                request->{
+                    request.setConnectTimeout(3000);
+                    request.setReadTimeout(5000);
+                }
+        );
+
+        this.verifier = new GoogleIdTokenVerifier.Builder(requestFactory.getTransport(), jsonFactory)
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
     }
@@ -52,6 +61,12 @@ public class GoogleIdTokenValidator {
         } catch (GeneralSecurityException e) {
             throw new CustomException(ErrorCode.INVALID_GOOGLE_TOKEN);
         } catch (IOException e) {
+            if (e.getCause() instanceof java.net.ConnectException) {
+                throw new CustomException(ErrorCode.GOOGLE_CONNECTION_TIMEOUT);
+            }
+            if (e.getCause() instanceof java.net.SocketTimeoutException) {
+                throw new CustomException(ErrorCode.GOOGLE_RESPONSE_TIMEOUT);
+            }
             throw new CustomException(ErrorCode.GOOGLE_SERVER_ERROR);
         }
     }

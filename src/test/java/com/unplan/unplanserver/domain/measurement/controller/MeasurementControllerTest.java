@@ -80,7 +80,7 @@ class MeasurementControllerTest {
                         false,
                         null,
                         LocalDateTime.of(2026, 6, 24, 7, 0),
-                        "조금 일찍 일어났어요"
+                        "잠이 조금 부족해요"
                 )),
                 true,
                 true
@@ -116,7 +116,7 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.data.sleeps[0].isNap").value(false))
                 .andExpect(jsonPath("$.data.sleeps[0].isAllNight").value(false))
                 .andExpect(jsonPath("$.data.sleeps[0].isContinuousSleep").value(false))
-                .andExpect(jsonPath("$.data.sleeps[0].sleepRecordComment").value("조금 일찍 일어났어요"));
+                .andExpect(jsonPath("$.data.sleeps[0].sleepRecordComment").value("잠이 조금 부족해요"));
         verify(measurementService).getDailyRecord(authenticatedMemberId, date);
     }
 

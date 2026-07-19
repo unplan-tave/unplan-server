@@ -9,7 +9,12 @@ spring:
       fail-on-unknown-properties: false
   config:
     import: optional:file:.env[.properties]
-
+  jpa:
+    properties:
+      jakarta:
+        persistence:
+          query:
+            timeout: 10000
 gemini:
   api-key: ${GEMINI_API_KEY:}
 

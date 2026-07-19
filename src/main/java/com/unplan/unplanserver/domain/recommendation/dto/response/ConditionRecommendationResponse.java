@@ -1,6 +1,5 @@
 package com.unplan.unplanserver.domain.recommendation.dto.response;
 
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -15,10 +14,7 @@ public record ConditionRecommendationResponse(
         EmptyTime emptyTime,
         String summaryMessage,
         List<SummaryTag> summaryTags,
-        @ArraySchema(
-                arraySchema = @Schema(description = "컨디션 기반 추천 일정 목록"),
-                schema = @Schema(implementation = RecommendationItem.class)
-        )
+        @Schema(description = "추천 일정 목록")
         List<RecommendationItem> recommendations
 ) {
 

@@ -9,10 +9,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface RecurrenceRuleRepository extends JpaRepository<RecurrenceRule, Long> {
 
     List<RecurrenceRule> findByScheduleIn(List<Schedule> schedules);
+
+    // 상세 조회 시 해당 일정의 반복 규칙(단건, schedule 과 1:1)을 조회. 반복 없으면 empty.
+    Optional<RecurrenceRule> findBySchedule(Schedule schedule);
 
     // 조회 범위에 인스턴스가 생길 수 있는 '활성' 반복 규칙을 원본 일정과 함께 단일 쿼리로 조회한다.
     // 시작일 <= rangeEnd(그 뒤 시작은 인스턴스가 범위 밖) AND 아직 종료 안 됨(until null 이거나 >= rangeStart).

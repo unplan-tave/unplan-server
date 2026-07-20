@@ -3,6 +3,7 @@ package com.unplan.unplanserver.domain.schedule.repository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.entity.SchedulePersonalTag;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +28,11 @@ public interface SchedulePersonalTagRepository extends JpaRepository<SchedulePer
         String getTagName();
     }
 
-    // 일정 삭제 시 해당 일정의 태그 연결을 함께 제거 (FK 제약 위반·고아 행 방지)
-    void deleteBySchedule(Schedule schedule);
+    // 일정 삭제/태그 교체 시 해당 일정의 태그 연결을 함께 제거 (FK 제약 위반·고아 행 방지).
+    // 파생 삭제(select 후 em.remove — flush 시 delete 가 insert 보다 늦게 실행됨)를 쓰면,
+    // 수정 시 같은 태그를 detach 후 재attach 할 때 uk_schedule_personal_tag 유니크 위반(500)이 난다.
+    // 벌크 DELETE 로 즉시 실행해 이후 재삽입(insert)보다 먼저 반영되게 한다.
+    @Modifying(clearAutomatically = true)
+    @Query("delete from SchedulePersonalTag spt where spt.schedule = :schedule")
+    void deleteBySchedule(@Param("schedule") Schedule schedule);
 }

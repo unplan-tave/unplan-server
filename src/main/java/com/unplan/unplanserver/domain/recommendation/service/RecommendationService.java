@@ -103,6 +103,7 @@ public class RecommendationService {
     @Transactional
     public ConditionRecommendationResponse getConditionRecommendations(Long memberId, LocalDate date) {
         return generateConditionRecommendations(memberId, date, LocalDateTime.now(KST_ZONE_ID));
+
     }
 
     /**
@@ -129,6 +130,7 @@ public class RecommendationService {
                     .sourceScheduleId(rec.getSourceScheduleId())
                     .build());
         }
+
     }
 
     /** now 를 주입받는 내부 진입점 (테스트 용이성) */

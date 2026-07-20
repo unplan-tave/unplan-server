@@ -35,6 +35,9 @@ public class ScheduleCreateRequest {
     @Schema(example = "2026-06-20")
     private LocalDate date;
 
+    @Schema(description = "기간 일정 종료 날짜(포함). null이면 단일 날짜 일정", example = "2026-06-22")
+    private LocalDate endDate;
+
     @Schema(example = "09:00")
     private LocalTime startTime;
 

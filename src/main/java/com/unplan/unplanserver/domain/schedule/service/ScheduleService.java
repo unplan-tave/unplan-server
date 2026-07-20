@@ -539,6 +539,9 @@ public class ScheduleService {
         ConditionTag conditionTag = ConditionTag.fromLabel(dailyRecord.conditionTag());
         DailyMessage dailyMessage = DailyMessage.fromConditionTag(conditionTag);
         String message = dailyMessage.getPrescription() + "\n" + dailyMessage.getSuggestion();
+        if (!dailyRecord.isEnergyRecorded() && !dailyRecord.isSleepRecorded()) {
+            message = "컨디션을 기록하고 나에게 딱 맞는 일정을 추천 받아보세요!";
+        }
         return new DailyMessageResponseDto(
                 date,
                 dailyMessage.getConditionTag(),

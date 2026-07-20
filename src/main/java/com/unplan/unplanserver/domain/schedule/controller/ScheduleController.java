@@ -37,7 +37,7 @@ public class ScheduleController {
     private final ScheduleSearchService scheduleSearchService;
 
     @Operation(summary = "일정 필터 검색",
-            description = "저장된 일정 카드를 키워드·필터로 검색해 날짜 오름차순으로 페이지네이션(30개)해 반환합니다. "
+            description = "저장된 일정 카드를 키워드·필터로 검색해 최신순(날짜 내림차순)으로 페이지네이션(30개)해 반환합니다. "
                     + "필터는 넘어온 것만 AND 로 조합되며, status·conditionTags·personalTags 는 복수 지정 시 OR 입니다. "
                     + "기간 필터는 일정 날짜(핀=시작일, 큐=마감일) 기준 startDate~endDate 양끝 포함이며, "
                     + "한쪽만 보내면 그 방향만 제한합니다(startDate 만=이후 전부, endDate 만=이전 전부). "

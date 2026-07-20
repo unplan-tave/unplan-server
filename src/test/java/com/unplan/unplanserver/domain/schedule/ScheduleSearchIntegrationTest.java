@@ -56,7 +56,7 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("필터 없으면 본인 일정만 날짜 오름차순으로 반환한다")
+    @DisplayName("필터 없으면 본인 일정만 최신순(날짜 내림차순)으로 반환한다")
     void noFilterReturnsOwnSortedByDate() {
         pin("회의", TODAY.plusDays(2), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
         pin("운동", TODAY, ScheduleStatus.DONE, ConditionTag.RECOVERY);
@@ -66,7 +66,7 @@ class ScheduleSearchIntegrationTest {
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
 
         assertThat(res.data()).extracting(ScheduleSearchResponse::title)
-                .containsExactly("운동", "과제", "회의"); // 오늘, +1, +2 — 남의 것 제외
+                .containsExactly("회의", "과제", "운동"); // +2, +1, 오늘 (최신순) — 남의 것 제외
         assertThat(res.pagination().totalElements()).isEqualTo(3);
     }
 
@@ -104,7 +104,7 @@ class ScheduleSearchIntegrationTest {
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
                 cond(null, null, List.of(ScheduleStatus.TODO, ScheduleStatus.IN_PROGRESS), null, null), 0);
 
-        assertThat(res.data()).extracting(ScheduleSearchResponse::title).containsExactly("할일", "진행중");
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title).containsExactly("진행중", "할일");
     }
 
     @Test
@@ -116,23 +116,23 @@ class ScheduleSearchIntegrationTest {
         pin("6월끝", LocalDate.of(2026, 6, 30), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
         pin("7월", LocalDate.of(2026, 7, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
 
-        // 양끝 포함 [6/1, 6/30]
+        // 양끝 포함 [6/1, 6/30] — 결과는 최신순(날짜 DESC)
         assertThat(searchService.search(MEMBER_ID,
                 dateRange(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)), 0).data())
                 .extracting(ScheduleSearchResponse::title)
-                .containsExactly("6월시작", "6월중순", "6월끝");
+                .containsExactly("6월끝", "6월중순", "6월시작");
 
-        // startDate 만 → 그 날짜 이후 전부
+        // startDate 만 → 그 날짜 이후 전부 (최신순)
         assertThat(searchService.search(MEMBER_ID,
                 dateRange(LocalDate.of(2026, 6, 30), null), 0).data())
                 .extracting(ScheduleSearchResponse::title)
-                .containsExactly("6월끝", "7월");
+                .containsExactly("7월", "6월끝");
 
-        // endDate 만 → 그 날짜 이전 전부
+        // endDate 만 → 그 날짜 이전 전부 (최신순)
         assertThat(searchService.search(MEMBER_ID,
                 dateRange(null, LocalDate.of(2026, 6, 1)), 0).data())
                 .extracting(ScheduleSearchResponse::title)
-                .containsExactly("5월", "6월시작");
+                .containsExactly("6월시작", "5월");
     }
 
     @Test
@@ -146,9 +146,9 @@ class ScheduleSearchIntegrationTest {
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
 
-        // 하한·상한 경계 포함(inclusive), 범위 밖 ±4개월은 제외
+        // 하한·상한 경계 포함(inclusive), 범위 밖 ±4개월은 제외 — 최신순(날짜 DESC)
         assertThat(res.data()).extracting(ScheduleSearchResponse::title)
-                .containsExactly("하한경계", "오늘", "상한경계");
+                .containsExactly("상한경계", "오늘", "하한경계");
         assertThat(res.pagination().totalElements()).isEqualTo(3);
     }
 
@@ -199,7 +199,7 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("페이지네이션 — 페이지당 30개, 날짜 오름차순")
+    @DisplayName("페이지네이션 — 페이지당 30개, 최신순(날짜 내림차순)")
     void paginationThirtyPerPage() {
         for (int i = 1; i <= 35; i++) {
             // 오늘 ±3개월 기본 범위 안에 들도록 오늘 기준 미래로 배치 (35일 < 3개월)
@@ -210,11 +210,11 @@ class ScheduleSearchIntegrationTest {
         PageResponse<ScheduleSearchResponse> p1 = searchService.search(MEMBER_ID, empty(), 1);
 
         assertThat(p0.data()).hasSize(30);
-        assertThat(p0.data().get(0).title()).isEqualTo("카드1");   // 가장 이른 날짜
+        assertThat(p0.data().get(0).title()).isEqualTo("카드35");  // 가장 늦은 날짜(최신순 첫번째)
         assertThat(p0.pagination().totalElements()).isEqualTo(35);
         assertThat(p0.pagination().hasNext()).isTrue();
         assertThat(p1.data()).hasSize(5);
-        assertThat(p1.data().get(4).title()).isEqualTo("카드35");  // 가장 늦은 날짜
+        assertThat(p1.data().get(4).title()).isEqualTo("카드1");   // 가장 이른 날짜(최신순 마지막)
         assertThat(p1.pagination().hasNext()).isFalse();
     }
 

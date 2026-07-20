@@ -32,10 +32,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ScheduleSearchService {
 
-    // 카드 리스트 기본 정렬: 날짜 오름차순(핀=시작일, 큐=마감일 — 둘 다 date). 동일 날짜는 id 로 안정 정렬.
+    // 카드 리스트 기본 정렬: 최신순 = 날짜 내림차순(핀=시작일, 큐=마감일 — 둘 다 date). 동일 날짜는 id 내림차순으로 안정 정렬.
+    // (Figma 기획: 카드리스트 정렬은 '최신순'만 존재)
     private static final Sort SORT = Sort.by(
-            Sort.Order.asc("date").nullsLast(),
-            Sort.Order.asc("scheduleId"));
+            Sort.Order.desc("date").nullsLast(),
+            Sort.Order.desc("scheduleId"));
 
     private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
     // 기간필터 미전송 시 기본 조회 범위: 오늘 기준 앞뒤 3개월(총 6개월). 카드 리스트가 무한 로딩되지 않도록.

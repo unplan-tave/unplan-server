@@ -40,6 +40,13 @@ public final class ScheduleSpecifications {
             if (!CollectionUtils.isEmpty(c.conditionTags())) {
                 predicates.add(root.get("conditionTag").in(c.conditionTags()));
             }
+            // 기간 필터: Schedule.date 가 [startDate, endDate] 양끝 포함. 한쪽만 오면 그 방향만 제한.
+            if (c.startDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("date"), c.startDate()));
+            }
+            if (c.endDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("date"), c.endDate()));
+            }
             if (!CollectionUtils.isEmpty(c.personalTags())) {
                 Subquery<Long> sub = query.subquery(Long.class);
                 Root<SchedulePersonalTag> spt = sub.from(SchedulePersonalTag.class);

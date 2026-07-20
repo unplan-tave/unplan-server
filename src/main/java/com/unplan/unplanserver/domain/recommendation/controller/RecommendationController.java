@@ -63,4 +63,17 @@ public class RecommendationController {
         String recoveryMean = request != null ? request.recoveryMean() : null;
         return ResponseEntity.ok(recommendationService.accept(memberId, recommendId, keepQueueCard, recoveryMean));
     }
+
+    @Operation(summary = "추천 패스",
+            description = "추천을 패스(넘기기)합니다. 삭제가 아니라 해당 추천의 원본 큐 카드를 그날 추천에서만 제외하며, "
+                    + "다음 날 같은 큐 카드는 다시 추천 후보가 됩니다. 회복 수단 추천은 패스할 수 없습니다(400).")
+    @PostMapping("/{recommendId}/pass")
+    public ResponseEntity<Void> passRecommendation(
+            @AuthenticationPrincipal Long memberId,
+            @Parameter(description = "패스할 추천 ID", example = "1")
+            @PathVariable Long recommendId) {
+
+        recommendationService.pass(memberId, recommendId);
+        return ResponseEntity.noContent().build();
+    }
 }

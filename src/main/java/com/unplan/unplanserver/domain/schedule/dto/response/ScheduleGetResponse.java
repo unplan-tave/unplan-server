@@ -6,6 +6,8 @@ import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 @Builder
 public class ScheduleGetResponse {
@@ -19,8 +21,9 @@ public class ScheduleGetResponse {
     private Boolean isQueue;
     private ScheduleStatus status;
     private ConditionTag conditionTag;
+    private List<String> personalTags;
 
-    public static ScheduleGetResponse from(Schedule schedule) {
+    public static ScheduleGetResponse from(Schedule schedule, List<String> personalTags) {
         return ScheduleGetResponse.builder()
                 .scheduleId(schedule.getScheduleId())
                 .title(schedule.getTitle())
@@ -31,6 +34,7 @@ public class ScheduleGetResponse {
                 .isQueue(schedule.getIsQueue())
                 .status(schedule.getStatus())
                 .conditionTag(schedule.getConditionTag())
+                .personalTags(personalTags)
                 .build();
     }
 }

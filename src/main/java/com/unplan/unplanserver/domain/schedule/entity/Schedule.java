@@ -95,6 +95,7 @@ public class Schedule {
         if (request.getEndTime() != null) this.endTime = request.getEndTime();
         if (request.getEstimatedTime() != null) this.estimatedTime = request.getEstimatedTime();
         if (request.getMemo() != null) this.memo = request.getMemo();
+        if (request.getLocation() != null) this.location = request.getLocation();
         if (request.getStatus() != null) this.status = request.getStatus();
         if (request.getIsRemindOn() != null) this.isRemindOn = request.getIsRemindOn();
         if (request.getRemindMinutes() != null) this.remindMinutes = request.getRemindMinutes();

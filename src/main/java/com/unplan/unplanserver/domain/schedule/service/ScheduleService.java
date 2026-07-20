@@ -75,6 +75,7 @@ public class ScheduleService {
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .estimatedTime(request.getEstimatedTime())
+                .location(request.getLocation())
                 .memo(request.getMemo())
                 .isRemindOn(request.getIsRemindOn())
                 .remindMinutes(request.getRemindMinutes())
@@ -129,8 +130,14 @@ public class ScheduleService {
 
     @Transactional(readOnly = true)
     public List<ScheduleGetResponse> getSchedulesByDate(Long memberId, LocalDate date) {
-        return findSchedulesWithRecurring(memberId, date).stream()
-                .map(ScheduleGetResponse::from)
+        List<Schedule> schedules = findSchedulesWithRecurring(memberId, date);
+        // 개인 태그를 일정 id 기준으로 한 번에 조회해 매핑 (건별 조회 N+1 방지).
+        // 반복 인스턴스는 원본과 같은 scheduleId 를 갖고 있어 원본 태그가 그대로 매핑된다.
+        Map<Long, List<String>> tagsByScheduleId = tagService.getTagNamesByScheduleIds(
+                schedules.stream().map(Schedule::getScheduleId).toList());
+        return schedules.stream()
+                .map(s -> ScheduleGetResponse.from(
+                        s, tagsByScheduleId.getOrDefault(s.getScheduleId(), List.of())))
                 .toList();
     }
 
@@ -150,7 +157,9 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo, tagService.getTagNamesBySchedule(schedule));
+        RecurrenceRule recurrenceRule = recurrenceRuleRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo,
+                tagService.getTagNamesBySchedule(schedule), recurrenceRule);
     }
 
     @Transactional(readOnly = true)
@@ -182,7 +191,8 @@ public class ScheduleService {
         }
 
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo, tagNames);
+        RecurrenceRule recurrenceRule = recurrenceRuleRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo, tagNames, recurrenceRule);
     }
 
     @Transactional

@@ -13,6 +13,7 @@ import com.unplan.unplanserver.domain.recommendation.engine.EmptyTimeFinder;
 import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatcher;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
+import com.unplan.unplanserver.domain.recommendation.repository.RecommendationPassRepository;
 import com.unplan.unplanserver.domain.recommendation.repository.RecommendationRepository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
@@ -67,6 +68,7 @@ class RecommendationServiceTest {
     @Mock private TagService tagService;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private RecommendationRepository recommendationRepository;
+    @Mock private RecommendationPassRepository recommendationPassRepository;
     @Mock private MeasurementService measurementService;
     @Mock private RecoverService recoverService;
     @Mock private BiorhythmRepository biorhythmRepository;
@@ -78,7 +80,7 @@ class RecommendationServiceTest {
     void setUp() {
         // settingRepository 는 기본이 Optional.empty() = 설정 없는 회원(제약 없음). 설정 반영 테스트에서만 스텁.
         service = new RecommendationService(scheduleService, tagService, scheduleRepository, recommendationRepository,
-                measurementService, recoverService, biorhythmRepository, settingRepository,
+                recommendationPassRepository, measurementService, recoverService, biorhythmRepository, settingRepository,
                 new EmptyTimeFinder(), new RecommendationMatcher());
     }
 

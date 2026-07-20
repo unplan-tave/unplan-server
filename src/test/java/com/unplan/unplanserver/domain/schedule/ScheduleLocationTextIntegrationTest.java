@@ -37,33 +37,53 @@ class ScheduleLocationTextIntegrationTest {
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
 
     @Test
-    @DisplayName("생성 시 입력한 위치 텍스트가 저장되고 상세 조회에서 보인다")
+    @DisplayName("생성 시 대표·상세 위치가 저장되고 상세 조회에서 보인다")
     void createStoresLocationText() throws Exception {
         ScheduleCreateRequest req = objectMapper.readValue("""
                 {"title":"미팅","condition_tag":"CORE_TASK","date":"2026-06-20",
-                 "location":"강남역 스타벅스","is_remind_on":false}
+                 "location":"인하대학교","location_detail":"6호관","is_remind_on":false}
                 """, ScheduleCreateRequest.class);
 
         ScheduleCreateResponse created = scheduleService.createSchedule(MEMBER_ID, req);
         ScheduleDetailResponse detail = scheduleService.getScheduleDetail(MEMBER_ID, created.getScheduleId());
 
-        assertThat(detail.getLocation()).isEqualTo("강남역 스타벅스");
+        assertThat(detail.getLocation()).isEqualTo("인하대학교");
+        assertThat(detail.getLocationDetail()).isEqualTo("6호관");
     }
 
     @Test
-    @DisplayName("수정 시 위치 텍스트가 갱신된다")
+    @DisplayName("수정 시 대표·상세 위치가 갱신된다")
     void updateChangesLocationText() throws Exception {
         ScheduleCreateRequest createReq = objectMapper.readValue("""
                 {"title":"미팅","condition_tag":"CORE_TASK","date":"2026-06-20",
-                 "location":"강남역","is_remind_on":false}
+                 "location":"인하대학교","location_detail":"6호관","is_remind_on":false}
                 """, ScheduleCreateRequest.class);
         Long scheduleId = scheduleService.createSchedule(MEMBER_ID, createReq).getScheduleId();
 
         ScheduleUpdateRequest updateReq = objectMapper.readValue(
-                "{\"location\":\"홍대입구역 2번 출구\"}", ScheduleUpdateRequest.class);
+                "{\"location\":\"홍익대학교\",\"location_detail\":\"제2공학관 301호\"}", ScheduleUpdateRequest.class);
         scheduleService.updateSchedule(MEMBER_ID, scheduleId, updateReq);
 
         ScheduleDetailResponse detail = scheduleService.getScheduleDetail(MEMBER_ID, scheduleId);
-        assertThat(detail.getLocation()).isEqualTo("홍대입구역 2번 출구");
+        assertThat(detail.getLocation()).isEqualTo("홍익대학교");
+        assertThat(detail.getLocationDetail()).isEqualTo("제2공학관 301호");
+    }
+
+    @Test
+    @DisplayName("상세 위치만 수정하면 대표 위치는 유지된다(부분 수정)")
+    void updateOnlyLocationDetailKeepsMain() throws Exception {
+        ScheduleCreateRequest createReq = objectMapper.readValue("""
+                {"title":"미팅","condition_tag":"CORE_TASK","date":"2026-06-20",
+                 "location":"인하대학교","location_detail":"6호관","is_remind_on":false}
+                """, ScheduleCreateRequest.class);
+        Long scheduleId = scheduleService.createSchedule(MEMBER_ID, createReq).getScheduleId();
+
+        ScheduleUpdateRequest updateReq = objectMapper.readValue(
+                "{\"location_detail\":\"5호관 201호\"}", ScheduleUpdateRequest.class);
+        scheduleService.updateSchedule(MEMBER_ID, scheduleId, updateReq);
+
+        ScheduleDetailResponse detail = scheduleService.getScheduleDetail(MEMBER_ID, scheduleId);
+        assertThat(detail.getLocation()).isEqualTo("인하대학교");        // 대표 유지
+        assertThat(detail.getLocationDetail()).isEqualTo("5호관 201호");  // 상세만 갱신
     }
 }

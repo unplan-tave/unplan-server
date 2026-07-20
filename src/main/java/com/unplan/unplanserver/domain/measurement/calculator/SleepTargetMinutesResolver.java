@@ -5,6 +5,7 @@ import com.unplan.unplanserver.domain.onboarding.service.SleepConditionService;
 import com.unplan.unplanserver.domain.onboarding.enums.SleepConditionType;
 import com.unplan.unplanserver.domain.measurement.calculator.MeasurementCommentCalculator.SleepConditionSettings;
 import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 
 public final class SleepTargetMinutesResolver {
 
@@ -35,6 +36,7 @@ public final class SleepTargetMinutesResolver {
                 );
             }
         } catch (CustomException ignored) {
+
         }
 
         return defaults();

@@ -36,9 +36,7 @@ public final class SleepTargetMinutesResolver {
                 );
             }
         } catch (CustomException ignored) {
-            if (ignored.getErrorCode() == ErrorCode.SLEEP_CONDITION_NOT_FOUND) {
 
-            }
         }
 
         return defaults();

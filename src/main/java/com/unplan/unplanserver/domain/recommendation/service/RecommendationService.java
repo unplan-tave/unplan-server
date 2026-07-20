@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -59,6 +60,8 @@ import static com.unplan.unplanserver.domain.schedule.enums.ConditionTag.RECOVER
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
+
+    private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     /** 핀 카드 앞뒤 버퍼(분) — Notion 1-4 */
     static final int BUFFER_MINUTES = 15;
@@ -95,7 +98,7 @@ public class RecommendationService {
 
     @Transactional
     public ConditionRecommendationResponse getConditionRecommendations(Long memberId, LocalDate date) {
-        return generateConditionRecommendations(memberId, date, LocalDateTime.now());
+        return generateConditionRecommendations(memberId, date, LocalDateTime.now(KST_ZONE_ID));
     }
 
     /** now 를 주입받는 내부 진입점 (테스트 용이성) */

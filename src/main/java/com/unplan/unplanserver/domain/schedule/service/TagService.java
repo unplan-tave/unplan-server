@@ -17,11 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 개인 태그 생성·연결을 담당. 별도 컨트롤러(REST API) 없이 ScheduleService가 주입해서 사용한다.
@@ -121,5 +123,18 @@ public class TagService {
     @Transactional(readOnly = true)
     public List<String> getTagNamesBySchedule(Schedule schedule) {
         return schedulePersonalTagRepository.findTagNamesBySchedule(schedule);
+    }
+
+    /**
+     * 여러 일정의 개인 태그 이름을 일정 id 기준 맵으로 한 번에 조회 (일별 등 목록 응답 매핑용, N+1 방지).
+     * 태그가 없는 일정은 맵에 키가 없으므로 호출부에서 getOrDefault(List.of())로 처리한다.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<String>> getTagNamesByScheduleIds(Collection<Long> scheduleIds) {
+        if (scheduleIds == null || scheduleIds.isEmpty()) return Map.of();
+        return schedulePersonalTagRepository.findTagRowsByScheduleIds(scheduleIds).stream()
+                .collect(Collectors.groupingBy(
+                        SchedulePersonalTagRepository.ScheduleTagRow::getScheduleId,
+                        Collectors.mapping(SchedulePersonalTagRepository.ScheduleTagRow::getTagName, Collectors.toList())));
     }
 }

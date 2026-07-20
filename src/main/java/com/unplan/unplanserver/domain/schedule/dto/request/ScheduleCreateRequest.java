@@ -44,6 +44,11 @@ public class ScheduleCreateRequest {
     // 0/음수 소요시간은 추천 소요시간 필터를 무의미하게 통과하므로 차단
     @Positive
     private Integer estimatedTime;
+
+    @Schema(description = "위치 텍스트(장소명/주소 등, 선택, 최대 200자). 좌표(latitude/longitude)와 독립적으로 저장됨", example = "강남역 스타벅스")
+    @Size(max = 200, message = "위치는 200자를 초과할 수 없습니다")
+    private String location;
+
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String memo;

@@ -44,11 +44,15 @@ class ScheduleSearchIntegrationTest {
 
     private ScheduleSearchCondition cond(String keyword, Boolean isQueue,
                                          List<ScheduleStatus> statuses, List<ConditionTag> tags, List<String> personalTags) {
-        return new ScheduleSearchCondition(keyword, isQueue, statuses, tags, personalTags, null, null);
+        return new ScheduleSearchCondition(keyword, isQueue, statuses, tags, personalTags, null, null, null, null);
     }
 
     private ScheduleSearchCondition dateRange(LocalDate startDate, LocalDate endDate) {
-        return new ScheduleSearchCondition(null, null, null, null, null, startDate, endDate);
+        return new ScheduleSearchCondition(null, null, null, null, null, startDate, endDate, null, null);
+    }
+
+    private ScheduleSearchCondition timeRange(LocalTime startTime, LocalTime endTime) {
+        return new ScheduleSearchCondition(null, null, null, null, null, null, null, startTime, endTime);
     }
 
     private ScheduleSearchCondition empty() {
@@ -164,6 +168,23 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("시간대 필터는 카드 시간대가 겹치는(overlap) 핀 카드만 매칭하고 시간 없는 큐 카드는 제외한다")
+    void timeRangeFilterOverlapExcludesQueue() {
+        pinTime("09-10", LocalTime.of(9, 0), LocalTime.of(10, 0));      // 경계 접함(10:00) → 겹치지 않음
+        pinTime("0930-1030", LocalTime.of(9, 30), LocalTime.of(10, 30)); // 겹침
+        pinTime("11-12", LocalTime.of(11, 0), LocalTime.of(12, 0));     // 겹침
+        pinTime("13-14", LocalTime.of(13, 0), LocalTime.of(14, 0));     // 필터 밖
+        queue("큐-시간없음", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 시간 없음 → 제외
+
+        // 필터 시간대 [10:00, 12:00]
+        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
+                timeRange(LocalTime.of(10, 0), LocalTime.of(12, 0)), 0);
+
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title)
+                .containsExactlyInAnyOrder("0930-1030", "11-12");
+    }
+
+    @Test
     @DisplayName("personalTags 는 하나라도 연결된 일정을 매칭하고, 응답에 태그가 담긴다")
     void personalTagsOrAndAppearInResponse() {
         Schedule a = pin("보고서", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
@@ -250,6 +271,14 @@ class ScheduleSearchIntegrationTest {
                 .date(date).startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
                 .isQueue(false).isRecurring(false).isConflict(false)
                 .status(status).build());
+    }
+
+    private Schedule pinTime(String title, LocalTime start, LocalTime end) {
+        return scheduleRepository.save(Schedule.builder()
+                .memberId(MEMBER_ID).title(title).conditionTag(ConditionTag.CORE_TASK)
+                .date(TODAY).startTime(start).endTime(end)
+                .isQueue(false).isRecurring(false).isConflict(false)
+                .status(ScheduleStatus.TODO).build());
     }
 
     private Schedule queue(String title, LocalDate date, ScheduleStatus status, ConditionTag tag) {

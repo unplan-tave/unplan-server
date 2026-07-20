@@ -24,6 +24,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -41,7 +42,8 @@ public class ScheduleController {
                     + "필터는 넘어온 것만 AND 로 조합되며, status·conditionTags·personalTags 는 복수 지정 시 OR 입니다. "
                     + "기간 필터는 일정 날짜(핀=시작일, 큐=마감일) 기준 startDate~endDate 양끝 포함이며, "
                     + "한쪽만 보내면 그 방향만 제한합니다(startDate 만=이후 전부, endDate 만=이전 전부). "
-                    + "startDate·endDate 를 모두 생략하면 오늘 기준 앞뒤 3개월(총 6개월)이 기본 범위로 적용됩니다.")
+                    + "startDate·endDate 를 모두 생략하면 오늘 기준 앞뒤 3개월(총 6개월)이 기본 범위로 적용됩니다. "
+                    + "시간대 필터(startTime~endTime)는 카드 시간대가 겹치는(overlap) 핀 카드만 매칭하며, 시간 없는 큐 카드는 제외됩니다.")
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<ScheduleSearchResponse>>> searchSchedules(
             @AuthenticationPrincipal Long memberId,
@@ -54,10 +56,15 @@ public class ScheduleController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "기간 필터 종료일(포함, yyyy-MM-dd). 일정 날짜 기준", example = "2026-06-30")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "시간대 필터 시작시간(HH:mm). 카드 시간대와 겹치는 핀 카드만(큐 카드 제외)", example = "09:00")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @Parameter(description = "시간대 필터 종료시간(HH:mm)", example = "18:00")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime,
             @Parameter(description = "페이지 번호(0부터, 기본 0)") @RequestParam(required = false) Integer page) {
 
         ScheduleSearchCondition condition =
-                new ScheduleSearchCondition(keyword, isQueue, status, conditionTags, personalTags, startDate, endDate);
+                new ScheduleSearchCondition(keyword, isQueue, status, conditionTags, personalTags,
+                        startDate, endDate, startTime, endTime);
         return ResponseEntity.ok(ApiResponse.success(
                 scheduleSearchService.search(memberId, condition, page)));
     }

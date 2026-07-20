@@ -47,6 +47,17 @@ public final class ScheduleSpecifications {
             if (c.endDate() != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("date"), c.endDate()));
             }
+            // 시간대 필터: 카드 시간대[startTime, endTime]가 필터 시간대[c.startTime, c.endTime]와 겹치면 매칭(overlap).
+            // 시간이 없는 큐 카드는 제외한다. overlap = cardStart < filterEnd AND cardEnd > filterStart 로 분해.
+            if (c.startTime() != null || c.endTime() != null) {
+                predicates.add(cb.isNotNull(root.get("startTime"))); // 시간 없는 큐 카드 제외
+                if (c.startTime() != null) {
+                    predicates.add(cb.greaterThan(root.get("endTime"), c.startTime()));   // 카드가 필터 시작 이후까지 지속
+                }
+                if (c.endTime() != null) {
+                    predicates.add(cb.lessThan(root.get("startTime"), c.endTime()));       // 카드가 필터 종료 이전에 시작
+                }
+            }
             if (!CollectionUtils.isEmpty(c.personalTags())) {
                 Subquery<Long> sub = query.subquery(Long.class);
                 Root<SchedulePersonalTag> spt = sub.from(SchedulePersonalTag.class);

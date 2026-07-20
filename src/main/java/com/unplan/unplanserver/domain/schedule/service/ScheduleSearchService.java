@@ -92,6 +92,7 @@ public class ScheduleSearchService {
         LocalDate today = LocalDate.now(KST_ZONE_ID);
         return new ScheduleSearchCondition(
                 c.keyword(), c.isQueue(), c.statuses(), c.conditionTags(), c.personalTags(),
-                today.minusMonths(DEFAULT_RANGE_MONTHS), today.plusMonths(DEFAULT_RANGE_MONTHS));
+                today.minusMonths(DEFAULT_RANGE_MONTHS), today.plusMonths(DEFAULT_RANGE_MONTHS),
+                c.startTime(), c.endTime());
     }
 }

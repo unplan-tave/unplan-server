@@ -93,7 +93,7 @@ public class RecommendationService {
 
     @Transactional
     public RecommendationListResponse getRecommendations(Long memberId, LocalDate date) {
-        return generate(memberId, date, LocalDateTime.now());
+        return generate(memberId, date, LocalDateTime.now(KST_ZONE_ID));
     }
 
     @Transactional
@@ -229,7 +229,7 @@ public class RecommendationService {
      */
     @Transactional
     public QueueCardRecommendationResult getQueueCardRecommendations(Long memberId, Long scheduleId, int rangeDays) {
-        return generateQueueCardRecommendations(memberId, scheduleId, rangeDays, LocalDateTime.now());
+        return generateQueueCardRecommendations(memberId, scheduleId, rangeDays, LocalDateTime.now(KST_ZONE_ID));
     }
 
     /** now 를 주입받는 내부 진입점 (테스트 용이성) */

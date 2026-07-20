@@ -31,7 +31,7 @@ class KstDateTimeValidationTest {
                 LocalDateTime.now(KST_ZONE_ID).minusMinutes(1)
         );
         ConditionRequest.ConditionCreate futureRequest = conditionRequest(
-                LocalDateTime.now(KST_ZONE_ID).plusMinutes(1)
+                LocalDateTime.now(KST_ZONE_ID).plusDays(1)
         );
 
         assertThat(validator.validate(pastRequest)).isEmpty();
@@ -48,9 +48,10 @@ class KstDateTimeValidationTest {
                 false,
                 false
         );
+        LocalDateTime future = LocalDateTime.now(KST_ZONE_ID).plusDays(1);
         SleepRequest.SleepCreate futureRequest = new SleepRequest.SleepCreate(
-                now.plusMinutes(1),
-                now.plusMinutes(2),
+                future,
+                future.plusHours(1),
                 false,
                 false
         );

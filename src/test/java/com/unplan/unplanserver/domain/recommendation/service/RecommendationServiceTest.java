@@ -370,6 +370,58 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("컨디션 기반 추천: 오늘은 현재 시각 이전에 시작하지 않는다")
+    void conditionRecommendationForTodayStartsAtOrAfterNow() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 3, 14, 30);
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, TODAY)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(61L, "몰입 과제", ConditionTag.CORE_TASK, 60, null)));
+
+        ConditionRecommendationResponse response =
+                service.generateConditionRecommendations(MEMBER_ID, TODAY, now);
+
+        assertThat(response.emptyTime().startTime()).isAfterOrEqualTo(now.toLocalTime());
+        assertThat(response.recommendations())
+                .allSatisfy(item -> assertThat(item.startTime()).isAfterOrEqualTo(now.toLocalTime()));
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 미래 날짜는 자정부터 탐색한다")
+    void conditionRecommendationForFutureDateStartsAtMidnight() {
+        LocalDate futureDate = TODAY.plusDays(1);
+        givenConditionTag("핵심 작업");
+        givenSaveReturnsArgument();
+        when(scheduleService.findSchedulesWithRecurring(MEMBER_ID, futureDate)).thenReturn(List.of());
+        when(scheduleRepository.findActiveQueueCards(MEMBER_ID)).thenReturn(List.of(
+                queue(61L, "몰입 과제", ConditionTag.CORE_TASK, 60, null)));
+
+        ConditionRecommendationResponse response =
+                service.generateConditionRecommendations(MEMBER_ID, futureDate, NOW);
+
+        assertThat(response.emptyTime().startTime()).isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(response.recommendations())
+                .allSatisfy(item -> assertThat(item.startTime()).isEqualTo(LocalTime.MIDNIGHT));
+    }
+
+    @Test
+    @DisplayName("컨디션 기반 추천: 과거 날짜는 추천을 생성하지 않는다")
+    void conditionRecommendationForPastDateReturnsNoRecommendation() {
+        LocalDate pastDate = TODAY.minusDays(1);
+        givenConditionTag("핵심 작업");
+
+        ConditionRecommendationResponse response =
+                service.generateConditionRecommendations(MEMBER_ID, pastDate, NOW);
+
+        assertThat(response.resultType()).isEqualTo("NO_EMPTY_TIME");
+        assertThat(response.emptyTime()).isNull();
+        assertThat(response.recommendations()).isEmpty();
+        verify(recommendationRepository, never())
+                .deleteByMemberIdAndDateAndAcceptedScheduleIdIsNull(MEMBER_ID, pastDate);
+    }
+
+    @Test
     @DisplayName("컨디션 기반 추천: 일상 작업 정확 일치 문구는 조사를 노출하지 않는다")
     void conditionRecommendationDailyTaskExactSummaryMessage() {
         givenConditionTag("일상 작업");

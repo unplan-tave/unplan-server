@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +42,8 @@ class ScheduleSearchIntegrationTest {
     private static final Long MEMBER_ID = 9001L;
     private static final Long OTHER_MEMBER = 9002L;
     // 기간필터 미전송 시 기본 범위(오늘 ±3개월) 안에 항상 들도록, 무필터 검색 테스트는 오늘 기준 상대 날짜를 쓴다.
-    private static final LocalDate TODAY = LocalDate.now();
+    // 서비스가 Asia/Seoul 기준으로 today 를 계산하므로 테스트도 동일 존을 써야 자정 전후 CI(UTC)에서 경계 테스트가 흔들리지 않는다.
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
     private ScheduleSearchCondition cond(String keyword, Boolean isQueue,
                                          List<ScheduleStatus> statuses, List<ConditionTag> tags, List<String> personalTags) {

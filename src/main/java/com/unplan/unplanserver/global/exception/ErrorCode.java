@@ -17,8 +17,12 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
     KAKAO_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "KAKAO_SERVER_ERROR", "카카오 서버 통신 오류가 발생했습니다"),
     INVALID_KAKAO_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_KAKAO_TOKEN", "유효하지 않은 카카오 액세스 토큰입니다"),
+    KAKAO_CONNECTION_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "KAKAO_CONNECTION_TIMEOUT", "카카오 서버에 연결할 수 없습니다."),
+    KAKAO_RESPONSE_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "KAKAO_RESPONSE_TIMEOUT", "카카오 서버 응답 시간이 초과되었습니다."),
     INVALID_GOOGLE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_GOOGLE_TOKEN", "유효하지 않은 구글 ID 토큰입니다"),
     GOOGLE_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "GOOGLE_SERVER_ERROR", "구글 서버와의 통신에 실패하였습니다"),
+    GOOGLE_CONNECTION_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "GOOGLE_CONNECTION_TIMEOUT", "구글 서버에 연결할 수 없습니다."),
+    GOOGLE_RESPONSE_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "GOOGLE_RESPONSE_TIMEOUT", "구글 서버 응답 시간이 초과되었습니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "유효하지 않은 토큰입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다"),
 

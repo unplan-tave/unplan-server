@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -44,15 +45,11 @@ class ScheduleSearchIntegrationTest {
 
     private ScheduleSearchCondition cond(String keyword, Boolean isQueue,
                                          List<ScheduleStatus> statuses, List<ConditionTag> tags, List<String> personalTags) {
-        return new ScheduleSearchCondition(keyword, isQueue, statuses, tags, personalTags, null, null, null, null);
+        return new ScheduleSearchCondition(keyword, isQueue, statuses, tags, personalTags, null, null);
     }
 
-    private ScheduleSearchCondition dateRange(LocalDate startDate, LocalDate endDate) {
-        return new ScheduleSearchCondition(null, null, null, null, null, startDate, endDate, null, null);
-    }
-
-    private ScheduleSearchCondition timeRange(LocalTime startTime, LocalTime endTime) {
-        return new ScheduleSearchCondition(null, null, null, null, null, null, null, startTime, endTime);
+    private ScheduleSearchCondition dateTimeRange(LocalDateTime start, LocalDateTime end) {
+        return new ScheduleSearchCondition(null, null, null, null, null, start, end);
     }
 
     private ScheduleSearchCondition empty() {
@@ -112,31 +109,23 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("기간 필터는 일정 날짜 기준 양끝 포함이며, 한쪽만 주면 그 방향만 제한한다")
-    void dateRangeFilterInclusiveAndOpenEnded() {
-        pin("5월", LocalDate.of(2026, 5, 31), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("6월시작", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("6월중순", LocalDate.of(2026, 6, 15), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("6월끝", LocalDate.of(2026, 6, 30), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("7월", LocalDate.of(2026, 7, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+    @DisplayName("datetime 구간 필터는 카드 시간구간이 겹치는 핀 카드만 매칭하고 큐 카드는 제외한다")
+    void dateTimeRangeFilterOverlapExcludesQueue() {
+        LocalDate a = LocalDate.of(2026, 6, 28);
+        LocalDate b = LocalDate.of(2026, 6, 29);
+        pinOn("A-이른", a, LocalTime.of(9, 0), LocalTime.of(10, 0));    // 시작일, 필터시작(14:30) 전에 끝남 → 제외
+        pinOn("A-겹침", a, LocalTime.of(14, 0), LocalTime.of(15, 0));   // 시작일, 14:30 이후까지 지속 → 매칭
+        pinOn("A-저녁", a, LocalTime.of(20, 0), LocalTime.of(21, 0));   // 시작일 이후 시간대 → 매칭
+        pinOn("B-아침", b, LocalTime.of(8, 0), LocalTime.of(9, 0));     // 종료일, 필터끝(12:00) 전에 시작 → 매칭
+        pinOn("B-오후", b, LocalTime.of(13, 0), LocalTime.of(14, 0));   // 종료일, 12:00 이후 시작 → 제외
+        queue("큐-시간없음", a, ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 시간 없음 → 제외
 
-        // 양끝 포함 [6/1, 6/30] — 결과는 최신순(날짜 DESC)
-        assertThat(searchService.search(MEMBER_ID,
-                dateRange(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)), 0).data())
-                .extracting(ScheduleSearchResponse::title)
-                .containsExactly("6월끝", "6월중순", "6월시작");
+        // 필터 구간 [6/28 14:30, 6/29 12:00]
+        var res = searchService.search(MEMBER_ID,
+                dateTimeRange(a.atTime(14, 30), b.atTime(12, 0)), 0);
 
-        // startDate 만 → 그 날짜 이후 전부 (최신순)
-        assertThat(searchService.search(MEMBER_ID,
-                dateRange(LocalDate.of(2026, 6, 30), null), 0).data())
-                .extracting(ScheduleSearchResponse::title)
-                .containsExactly("7월", "6월끝");
-
-        // endDate 만 → 그 날짜 이전 전부 (최신순)
-        assertThat(searchService.search(MEMBER_ID,
-                dateRange(null, LocalDate.of(2026, 6, 1)), 0).data())
-                .extracting(ScheduleSearchResponse::title)
-                .containsExactly("6월시작", "5월");
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title)
+                .containsExactlyInAnyOrder("A-겹침", "A-저녁", "B-아침");
     }
 
     @Test
@@ -162,26 +151,21 @@ class ScheduleSearchIntegrationTest {
         pin("반년전", TODAY.minusMonths(6), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
-                dateRange(TODAY.minusMonths(7), TODAY.minusMonths(5)), 0);
+                dateTimeRange(TODAY.minusMonths(7).atStartOfDay(), TODAY.minusMonths(5).atStartOfDay()), 0);
 
         assertThat(res.data()).extracting(ScheduleSearchResponse::title).containsExactly("반년전");
     }
 
     @Test
-    @DisplayName("시간대 필터는 카드 시간대가 겹치는(overlap) 핀 카드만 매칭하고 시간 없는 큐 카드는 제외한다")
-    void timeRangeFilterOverlapExcludesQueue() {
-        pinTime("09-10", LocalTime.of(9, 0), LocalTime.of(10, 0));      // 경계 접함(10:00) → 겹치지 않음
-        pinTime("0930-1030", LocalTime.of(9, 30), LocalTime.of(10, 30)); // 겹침
-        pinTime("11-12", LocalTime.of(11, 0), LocalTime.of(12, 0));     // 겹침
-        pinTime("13-14", LocalTime.of(13, 0), LocalTime.of(14, 0));     // 필터 밖
-        queue("큐-시간없음", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 시간 없음 → 제외
+    @DisplayName("무필터 기본 ±3개월 범위에는 시간 없는 큐 카드도 포함된다")
+    void defaultRangeIncludesQueueCards() {
+        queue("큐-이번달", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("핀-이번달", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
 
-        // 필터 시간대 [10:00, 12:00]
-        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
-                timeRange(LocalTime.of(10, 0), LocalTime.of(12, 0)), 0);
+        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
 
         assertThat(res.data()).extracting(ScheduleSearchResponse::title)
-                .containsExactlyInAnyOrder("0930-1030", "11-12");
+                .contains("큐-이번달", "핀-이번달");
     }
 
     @Test
@@ -273,10 +257,10 @@ class ScheduleSearchIntegrationTest {
                 .status(status).build());
     }
 
-    private Schedule pinTime(String title, LocalTime start, LocalTime end) {
+    private Schedule pinOn(String title, LocalDate date, LocalTime start, LocalTime end) {
         return scheduleRepository.save(Schedule.builder()
                 .memberId(MEMBER_ID).title(title).conditionTag(ConditionTag.CORE_TASK)
-                .date(TODAY).startTime(start).endTime(end)
+                .date(date).startTime(start).endTime(end)
                 .isQueue(false).isRecurring(false).isConflict(false)
                 .status(ScheduleStatus.TODO).build());
     }

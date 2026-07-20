@@ -17,8 +17,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,20 +36,14 @@ public class ScheduleSearchService {
             Sort.Order.desc("date").nullsLast(),
             Sort.Order.desc("scheduleId"));
 
-    private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
-    // 기간필터 미전송 시 기본 조회 범위: 오늘 기준 앞뒤 3개월(총 6개월). 카드 리스트가 무한 로딩되지 않도록.
-    private static final int DEFAULT_RANGE_MONTHS = 3;
-
     private final ScheduleRepository scheduleRepository;
     private final SchedulePersonalTagRepository schedulePersonalTagRepository;
     private final RecommendationRepository recommendationRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<ScheduleSearchResponse> search(Long memberId, ScheduleSearchCondition condition, Integer page) {
-        // 기간필터를 전혀 안 보내면(양쪽 다 null) 오늘 기준 앞뒤 3개월을 기본 범위로 적용.
-        // 한쪽이라도 보내면 사용자가 명시한 필터로 보고 그대로 존중한다.
-        ScheduleSearchCondition effective = applyDefaultDateRange(condition);
-        Specification<Schedule> spec = ScheduleSpecifications.search(memberId, effective);
+        // 기간필터 기본값(오늘 ±3개월)·datetime 구간 매칭은 ScheduleSpecifications 가 처리한다.
+        Specification<Schedule> spec = ScheduleSpecifications.search(memberId, condition);
         PageRequest pageRequest = PagingUtils.pageRequest(page, SORT);
 
         Page<Schedule> found = scheduleRepository.findAll(spec, pageRequest);
@@ -79,20 +71,5 @@ public class ScheduleSearchService {
                 .toList();
 
         return PageResponse.of(items, found);
-    }
-
-    /**
-     * 기간필터가 전혀 없으면(startDate·endDate 둘 다 null) 오늘 기준 앞뒤 3개월을 기본 범위로 채운다.
-     * 한쪽이라도 지정돼 있으면 사용자가 명시한 조건으로 보고 그대로 둔다.
-     */
-    private ScheduleSearchCondition applyDefaultDateRange(ScheduleSearchCondition c) {
-        if (c.startDate() != null || c.endDate() != null) {
-            return c;
-        }
-        LocalDate today = LocalDate.now(KST_ZONE_ID);
-        return new ScheduleSearchCondition(
-                c.keyword(), c.isQueue(), c.statuses(), c.conditionTags(), c.personalTags(),
-                today.minusMonths(DEFAULT_RANGE_MONTHS), today.plusMonths(DEFAULT_RANGE_MONTHS),
-                c.startTime(), c.endTime());
     }
 }

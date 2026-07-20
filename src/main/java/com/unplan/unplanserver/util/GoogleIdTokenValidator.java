@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 
@@ -26,21 +27,22 @@ import java.util.Collections;
 public class GoogleIdTokenValidator {
     @Value("${google.client-id}")
     private String googleClientId;
-    private static final HttpTransport transport = new NetHttpTransport();
     private static final JsonFactory jsonFactory = new GsonFactory();
     private GoogleIdTokenVerifier verifier;
 
     @PostConstruct
     public void init() {
         // 타임아웃관련 설정추가
-        HttpRequestFactory requestFactory = transport.createRequestFactory(
-                request->{
-                    request.setConnectTimeout(3000);
-                    request.setReadTimeout(5000);
-                }
-        );
+        HttpTransport customTransport = new NetHttpTransport.Builder()
+                .setConnectionFactory(url -> {
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(3000);
+                    connection.setReadTimeout(5000);
+                    return connection;
+                })
+                .build();
 
-        this.verifier = new GoogleIdTokenVerifier.Builder(requestFactory.getTransport(), jsonFactory)
+        this.verifier = new GoogleIdTokenVerifier.Builder(customTransport, jsonFactory)
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
     }
@@ -58,8 +60,10 @@ public class GoogleIdTokenValidator {
             else{
                 throw new CustomException(ErrorCode.INVALID_GOOGLE_TOKEN);
             }
-        } catch (GeneralSecurityException e) {
-            throw new CustomException(ErrorCode.INVALID_GOOGLE_TOKEN);
+        } catch (java.net.ConnectException e) {
+            throw new CustomException(ErrorCode.GOOGLE_CONNECTION_TIMEOUT);
+        } catch (java.net.SocketTimeoutException e) {
+            throw new CustomException(ErrorCode.GOOGLE_RESPONSE_TIMEOUT);
         } catch (IOException e) {
             if (e.getCause() instanceof java.net.ConnectException) {
                 throw new CustomException(ErrorCode.GOOGLE_CONNECTION_TIMEOUT);
@@ -68,6 +72,8 @@ public class GoogleIdTokenValidator {
                 throw new CustomException(ErrorCode.GOOGLE_RESPONSE_TIMEOUT);
             }
             throw new CustomException(ErrorCode.GOOGLE_SERVER_ERROR);
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
         }
     }
 }

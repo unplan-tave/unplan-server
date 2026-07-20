@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.UUID;
 public class SleepService {
 
     private static final int MAX_SLEEP_DURATION_MINUTES = 1440;
+    private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final SleepRepository sleepRepository;
     private final MemberRepository memberRepository;
@@ -149,7 +151,7 @@ public class SleepService {
         if (bedTime == null || wakeUpTime == null) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST_ZONE_ID);
         if (bedTime.isAfter(now) || wakeUpTime.isAfter(now)) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }

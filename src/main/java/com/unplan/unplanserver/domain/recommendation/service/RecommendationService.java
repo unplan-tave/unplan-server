@@ -18,8 +18,10 @@ import com.unplan.unplanserver.domain.recommendation.engine.RecommendationMatche
 import com.unplan.unplanserver.domain.recommendation.engine.TimeRange;
 import com.unplan.unplanserver.domain.recommendation.engine.TimeSlot;
 import com.unplan.unplanserver.domain.recommendation.entity.Recommendation;
+import com.unplan.unplanserver.domain.recommendation.entity.RecommendationPass;
 import com.unplan.unplanserver.domain.recommendation.enums.MatchTier;
 import com.unplan.unplanserver.domain.recommendation.enums.RecommendationSourceType;
+import com.unplan.unplanserver.domain.recommendation.repository.RecommendationPassRepository;
 import com.unplan.unplanserver.domain.recommendation.repository.RecommendationRepository;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.enums.ConditionTag;
@@ -43,6 +45,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -84,6 +87,7 @@ public class RecommendationService {
     private final TagService tagService;
     private final ScheduleRepository scheduleRepository;
     private final RecommendationRepository recommendationRepository;
+    private final RecommendationPassRepository recommendationPassRepository;
     private final MeasurementService measurementService;
     private final RecoverService recoverService;
     private final BiorhythmRepository biorhythmRepository;
@@ -99,6 +103,32 @@ public class RecommendationService {
     @Transactional
     public ConditionRecommendationResponse getConditionRecommendations(Long memberId, LocalDate date) {
         return generateConditionRecommendations(memberId, date, LocalDateTime.now(KST_ZONE_ID));
+    }
+
+    /**
+     * 추천 '패스' — 삭제가 아니라 그날 추천에서만 제외한다(PM 확정). 해당 추천의 원본 큐 카드를
+     * (member, date) 기준으로 패스 기록해, 이후 같은 날 재생성 시 후보에서 빠진다. 다음 날은 다시 뜬다.
+     * 회복 수단 추천(원본 큐 카드 없음)은 패스 대상이 아니다.
+     */
+    @Transactional
+    public void pass(Long memberId, Long recommendId) {
+        Recommendation rec = recommendationRepository.findByRecommendIdAndMemberId(recommendId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+        if (rec.isAccepted()) {
+            throw new CustomException(ErrorCode.RECOMMENDATION_ALREADY_PROCESSED);
+        }
+        if (rec.getSourceScheduleId() == null) {
+            throw new CustomException(ErrorCode.RECOMMENDATION_NOT_PASSABLE);
+        }
+        // 멱등: 같은 (member, date, 큐카드) 패스가 이미 있으면 재저장하지 않는다
+        if (!recommendationPassRepository.existsByMemberIdAndDateAndSourceScheduleId(
+                memberId, rec.getDate(), rec.getSourceScheduleId())) {
+            recommendationPassRepository.save(RecommendationPass.builder()
+                    .memberId(memberId)
+                    .date(rec.getDate())
+                    .sourceScheduleId(rec.getSourceScheduleId())
+                    .build());
+        }
     }
 
     /** now 를 주입받는 내부 진입점 (테스트 용이성) */
@@ -126,7 +156,11 @@ public class RecommendationService {
             return emptyConditionResponse(date, current, "NO_EMPTY_TIME", null);
         }
 
+        // 그날 패스된 큐 카드는 추천 후보에서 제외 (삭제 아님, 그날만 — PM 확정)
+        Set<Long> passedSourceIds = Set.copyOf(
+                recommendationPassRepository.findSourceScheduleIdsByMemberIdAndDate(memberId, date));
         Map<Long, Schedule> candidateById = scheduleRepository.findActiveQueueCards(memberId).stream()
+                .filter(s -> !passedSourceIds.contains(s.getScheduleId()))
                 .collect(Collectors.toMap(Schedule::getScheduleId, Function.identity()));
         List<QueueCard> cards = candidateById.values().stream()
                 .map(s -> new QueueCard(s.getScheduleId(), s.getConditionTag(),
@@ -188,7 +222,11 @@ public class RecommendationService {
                 settings.minGapMinutes(), settings.banRanges());
 
         // 3. 추천 후보 큐 카드 — 완료·소요시간 미정(Notion 2-2)은 쿼리에서 제외되어 조회됨
+        //    그날 패스된 큐 카드도 후보에서 제외 (삭제 아님, 그날만 — PM 확정)
+        Set<Long> passedSourceIds = Set.copyOf(
+                recommendationPassRepository.findSourceScheduleIdsByMemberIdAndDate(memberId, date));
         Map<Long, Schedule> candidateById = scheduleRepository.findActiveQueueCards(memberId).stream()
+                .filter(s -> !passedSourceIds.contains(s.getScheduleId()))
                 .collect(Collectors.toMap(Schedule::getScheduleId, Function.identity()));
         List<QueueCard> cards = candidateById.values().stream()
                 .map(s -> new QueueCard(s.getScheduleId(), s.getConditionTag(),

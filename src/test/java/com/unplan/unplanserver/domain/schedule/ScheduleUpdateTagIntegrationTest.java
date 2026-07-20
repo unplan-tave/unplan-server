@@ -69,4 +69,30 @@ class ScheduleUpdateTagIntegrationTest {
 
         assertThat(res.getPersonalTags()).containsExactlyInAnyOrder("과제", "중요");
     }
+
+    @Test
+    @DisplayName("제목과 태그를 함께 수정하면 태그 삭제 벌크쿼리에도 일정 제목 변경이 유실되지 않는다")
+    void updateFieldsAndTagsTogetherPersistsFieldChanges() throws Exception {
+        // 큐 카드(시간 없음): updateSchedule 의 시간겹침 검증이 early-return 이라 detachAll 전에 auto-flush 가 없다.
+        // 이때 태그 삭제 벌크쿼리가 영속성 컨텍스트를 clear 하면 아직 flush 안 된 제목 변경이 유실된다(회귀 방지).
+        Schedule s = scheduleRepository.save(Schedule.builder()
+                .memberId(MEMBER_ID).title("보고서").conditionTag(ConditionTag.CORE_TASK)
+                .date(LocalDate.of(2026, 6, 20)).estimatedTime(30)
+                .isQueue(true).isRecurring(false).isConflict(false)
+                .status(ScheduleStatus.TODO).build());
+        tagService.attachTags(s, MEMBER_ID, List.of("과제"));
+        em.flush();
+        em.clear();
+
+        // 제목 변경 + 같은 태그 유지 (시간은 그대로 없음 → 큐 카드 유지)
+        ScheduleUpdateRequest req = objectMapper.readValue(
+                "{\"title\":\"수정된 보고서\",\"personal_tags\":[\"과제\"]}", ScheduleUpdateRequest.class);
+        scheduleService.updateSchedule(MEMBER_ID, s.getScheduleId(), req);
+        em.flush();
+        em.clear();
+
+        // 새 영속성 컨텍스트에서 실제 DB 값 확인 — 제목 변경이 저장돼 있어야 한다
+        Schedule reloaded = scheduleRepository.findById(s.getScheduleId()).orElseThrow();
+        assertThat(reloaded.getTitle()).isEqualTo("수정된 보고서");
+    }
 }

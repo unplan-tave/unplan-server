@@ -32,7 +32,9 @@ public interface SchedulePersonalTagRepository extends JpaRepository<SchedulePer
     // 파생 삭제(select 후 em.remove — flush 시 delete 가 insert 보다 늦게 실행됨)를 쓰면,
     // 수정 시 같은 태그를 detach 후 재attach 할 때 uk_schedule_personal_tag 유니크 위반(500)이 난다.
     // 벌크 DELETE 로 즉시 실행해 이후 재삽입(insert)보다 먼저 반영되게 한다.
-    @Modifying(clearAutomatically = true)
+    // clearAutomatically 는 켜지 않는다 — 켜면 updateSchedule 에서 아직 flush 안 된 Schedule 변경(제목·시간 등)이
+    // 영속성 컨텍스트 clear 로 detached 되어 유실된다. 이 경로는 삭제 전 조인 엔티티를 로드하지 않아 clear 도 불필요하다.
+    @Modifying
     @Query("delete from SchedulePersonalTag spt where spt.schedule = :schedule")
     void deleteBySchedule(@Param("schedule") Schedule schedule);
 }

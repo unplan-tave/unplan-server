@@ -39,6 +39,8 @@ class ScheduleSearchIntegrationTest {
 
     private static final Long MEMBER_ID = 9001L;
     private static final Long OTHER_MEMBER = 9002L;
+    // 기간필터 미전송 시 기본 범위(오늘 ±3개월) 안에 항상 들도록, 무필터 검색 테스트는 오늘 기준 상대 날짜를 쓴다.
+    private static final LocalDate TODAY = LocalDate.now();
 
     private ScheduleSearchCondition cond(String keyword, Boolean isQueue,
                                          List<ScheduleStatus> statuses, List<ConditionTag> tags, List<String> personalTags) {
@@ -56,23 +58,23 @@ class ScheduleSearchIntegrationTest {
     @Test
     @DisplayName("필터 없으면 본인 일정만 날짜 오름차순으로 반환한다")
     void noFilterReturnsOwnSortedByDate() {
-        pin("회의", LocalDate.of(2026, 6, 3), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("운동", LocalDate.of(2026, 6, 1), ScheduleStatus.DONE, ConditionTag.RECOVERY);
-        queue("과제", LocalDate.of(2026, 6, 2), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("남의 일정", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK, OTHER_MEMBER);
+        pin("회의", TODAY.plusDays(2), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("운동", TODAY, ScheduleStatus.DONE, ConditionTag.RECOVERY);
+        queue("과제", TODAY.plusDays(1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("남의 일정", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK, OTHER_MEMBER);
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
 
         assertThat(res.data()).extracting(ScheduleSearchResponse::title)
-                .containsExactly("운동", "과제", "회의"); // 6/1, 6/2, 6/3 — 남의 것 제외
+                .containsExactly("운동", "과제", "회의"); // 오늘, +1, +2 — 남의 것 제외
         assertThat(res.pagination().totalElements()).isEqualTo(3);
     }
 
     @Test
     @DisplayName("keyword 는 제목 부분일치(대소문자 무시)")
     void keywordFiltersByTitle() {
-        pin("Team Meeting", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("점심 약속", LocalDate.of(2026, 6, 2), ScheduleStatus.TODO, ConditionTag.DAILY_TASK);
+        pin("Team Meeting", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("점심 약속", TODAY.plusDays(1), ScheduleStatus.TODO, ConditionTag.DAILY_TASK);
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, cond("meeting", null, null, null, null), 0);
 
@@ -82,9 +84,9 @@ class ScheduleSearchIntegrationTest {
     @Test
     @DisplayName("isQueue·status·conditionTag 필터가 AND 로 좁힌다")
     void combinedFiltersAnd() {
-        queue("큐-할일-코어", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        queue("큐-완료-코어", LocalDate.of(2026, 6, 2), ScheduleStatus.DONE, ConditionTag.CORE_TASK);
-        pin("핀-할일-코어", LocalDate.of(2026, 6, 3), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        queue("큐-할일-코어", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        queue("큐-완료-코어", TODAY.plusDays(1), ScheduleStatus.DONE, ConditionTag.CORE_TASK);
+        pin("핀-할일-코어", TODAY.plusDays(2), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
                 cond(null, true, List.of(ScheduleStatus.TODO), List.of(ConditionTag.CORE_TASK), null), 0);
@@ -95,9 +97,9 @@ class ScheduleSearchIntegrationTest {
     @Test
     @DisplayName("status 복수 지정은 OR 로 매칭한다")
     void statusMultiOr() {
-        pin("할일", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("진행중", LocalDate.of(2026, 6, 2), ScheduleStatus.IN_PROGRESS, ConditionTag.CORE_TASK);
-        pin("완료", LocalDate.of(2026, 6, 3), ScheduleStatus.DONE, ConditionTag.CORE_TASK);
+        pin("할일", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("진행중", TODAY.plusDays(1), ScheduleStatus.IN_PROGRESS, ConditionTag.CORE_TASK);
+        pin("완료", TODAY.plusDays(2), ScheduleStatus.DONE, ConditionTag.CORE_TASK);
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
                 cond(null, null, List.of(ScheduleStatus.TODO, ScheduleStatus.IN_PROGRESS), null, null), 0);
@@ -134,11 +136,39 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("기간필터 미전송 시 오늘 기준 앞뒤 3개월만 반환하고 범위 밖은 제외한다")
+    void noDateFilterDefaultsToPlusMinusThreeMonths() {
+        pin("범위전", TODAY.minusMonths(4), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("하한경계", TODAY.minusMonths(3), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("오늘", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("상한경계", TODAY.plusMonths(3), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("범위후", TODAY.plusMonths(4), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+
+        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
+
+        // 하한·상한 경계 포함(inclusive), 범위 밖 ±4개월은 제외
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title)
+                .containsExactly("하한경계", "오늘", "상한경계");
+        assertThat(res.pagination().totalElements()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("기간필터를 명시하면 기본 ±3개월 범위를 넘어서도 그대로 조회된다")
+    void explicitDateRangeOverridesDefault() {
+        pin("반년전", TODAY.minusMonths(6), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+
+        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
+                dateRange(TODAY.minusMonths(7), TODAY.minusMonths(5)), 0);
+
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title).containsExactly("반년전");
+    }
+
+    @Test
     @DisplayName("personalTags 는 하나라도 연결된 일정을 매칭하고, 응답에 태그가 담긴다")
     void personalTagsOrAndAppearInResponse() {
-        Schedule a = pin("보고서", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        Schedule a = pin("보고서", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
         tagService.attachTags(a, MEMBER_ID, List.of("업무", "중요"));
-        Schedule b = pin("산책", LocalDate.of(2026, 6, 2), ScheduleStatus.TODO, ConditionTag.RECOVERY);
+        Schedule b = pin("산책", TODAY.plusDays(1), ScheduleStatus.TODO, ConditionTag.RECOVERY);
         tagService.attachTags(b, MEMBER_ID, List.of("휴식"));
 
         PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID,
@@ -153,10 +183,10 @@ class ScheduleSearchIntegrationTest {
     @Test
     @DisplayName("추천으로 수락된 일정은 isRecommended=true")
     void isRecommendedMapsFromAcceptedRecommendation() {
-        Schedule fromRec = pin("추천에서 온 일정", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
-        pin("직접 만든 일정", LocalDate.of(2026, 6, 2), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        Schedule fromRec = pin("추천에서 온 일정", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("직접 만든 일정", TODAY.plusDays(1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
         recommendationRepository.save(Recommendation.builder()
-                .memberId(MEMBER_ID).date(LocalDate.of(2026, 6, 1))
+                .memberId(MEMBER_ID).date(TODAY)
                 .conditionTag(ConditionTag.CORE_TASK)
                 .sourceType(RecommendationSourceType.QUEUE_CARD)
                 .acceptedScheduleId(fromRec.getScheduleId())
@@ -172,7 +202,8 @@ class ScheduleSearchIntegrationTest {
     @DisplayName("페이지네이션 — 페이지당 30개, 날짜 오름차순")
     void paginationThirtyPerPage() {
         for (int i = 1; i <= 35; i++) {
-            pin("카드" + i, LocalDate.of(2026, 6, 1).plusDays(i), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+            // 오늘 ±3개월 기본 범위 안에 들도록 오늘 기준 미래로 배치 (35일 < 3개월)
+            pin("카드" + i, TODAY.plusDays(i), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
         }
 
         PageResponse<ScheduleSearchResponse> p0 = searchService.search(MEMBER_ID, empty(), 0);

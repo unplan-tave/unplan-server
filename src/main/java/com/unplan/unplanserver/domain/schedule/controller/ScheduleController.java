@@ -40,7 +40,8 @@ public class ScheduleController {
             description = "저장된 일정 카드를 키워드·필터로 검색해 날짜 오름차순으로 페이지네이션(30개)해 반환합니다. "
                     + "필터는 넘어온 것만 AND 로 조합되며, status·conditionTags·personalTags 는 복수 지정 시 OR 입니다. "
                     + "기간 필터는 일정 날짜(핀=시작일, 큐=마감일) 기준 startDate~endDate 양끝 포함이며, "
-                    + "한쪽만 보내면 그 방향만 제한합니다(startDate 만=이후 전부, endDate 만=이전 전부).")
+                    + "한쪽만 보내면 그 방향만 제한합니다(startDate 만=이후 전부, endDate 만=이전 전부). "
+                    + "startDate·endDate 를 모두 생략하면 오늘 기준 앞뒤 3개월(총 6개월)이 기본 범위로 적용됩니다.")
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<ScheduleSearchResponse>>> searchSchedules(
             @AuthenticationPrincipal Long memberId,

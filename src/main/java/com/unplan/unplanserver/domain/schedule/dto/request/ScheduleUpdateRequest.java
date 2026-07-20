@@ -40,9 +40,13 @@ public class ScheduleUpdateRequest {
 
     private String memo;
 
-    @Schema(description = "위치 텍스트(장소명/주소 등, 최대 200자). 전달하면 갱신, 미전송(null)이면 기존 유지", example = "강남역 스타벅스")
+    @Schema(description = "대표 위치(장소명/주소 등, 최대 200자). 전달하면 갱신, 미전송(null)이면 기존 유지", example = "인하대학교")
     @Size(max = 200, message = "위치는 200자를 초과할 수 없습니다")
     private String location;
+
+    @Schema(description = "상세 위치(대표 위치 내 세부, 최대 200자). 전달하면 갱신, 미전송(null)이면 기존 유지", example = "6호관")
+    @Size(max = 200, message = "상세 위치는 200자를 초과할 수 없습니다")
+    private String locationDetail;
 
     private ScheduleStatus status;
     private Boolean isRemindOn;

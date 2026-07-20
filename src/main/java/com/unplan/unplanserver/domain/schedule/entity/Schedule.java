@@ -29,8 +29,13 @@ public class Schedule {
     @Column(name = "title", nullable = false, length = 100)
     private String title;
 
+    // 대표 위치 (장소명/주소, 예: "인하대학교")
     @Column(name = "location", length = 200)
     private String location;
+
+    // 상세 위치 (대표 위치 내 세부, 예: "6호관")
+    @Column(name = "location_detail", length = 200)
+    private String locationDetail;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
@@ -96,6 +101,7 @@ public class Schedule {
         if (request.getEstimatedTime() != null) this.estimatedTime = request.getEstimatedTime();
         if (request.getMemo() != null) this.memo = request.getMemo();
         if (request.getLocation() != null) this.location = request.getLocation();
+        if (request.getLocationDetail() != null) this.locationDetail = request.getLocationDetail();
         if (request.getStatus() != null) this.status = request.getStatus();
         if (request.getIsRemindOn() != null) this.isRemindOn = request.getIsRemindOn();
         if (request.getRemindMinutes() != null) this.remindMinutes = request.getRemindMinutes();

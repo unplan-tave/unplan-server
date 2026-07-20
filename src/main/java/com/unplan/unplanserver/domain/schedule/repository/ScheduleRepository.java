@@ -11,11 +11,18 @@ import java.util.List;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long>, JpaSpecificationExecutor<Schedule> {
 
-    List<Schedule> findByMemberIdAndDate(Long memberId, LocalDate date);
+    @Query("select s from Schedule s where s.memberId = :memberId and (" +
+            "s.date = :date or (s.isQueue = false and s.date <= :date and s.endDate >= :date))")
+    List<Schedule> findVisibleOnDate(@Param("memberId") Long memberId, @Param("date") LocalDate date);
 
     java.util.Optional<Schedule> findByScheduleIdAndMemberId(Long scheduleId, Long memberId);
 
-    List<Schedule> findByMemberIdAndDateBetween(Long memberId, LocalDate startDate, LocalDate endDate);
+    @Query("select s from Schedule s where s.memberId = :memberId and (" +
+            "s.date between :startDate and :endDate or " +
+            "(s.isQueue = false and s.date <= :endDate and s.endDate >= :startDate))")
+    List<Schedule> findOverlappingDateRange(@Param("memberId") Long memberId,
+                                            @Param("startDate") LocalDate startDate,
+                                            @Param("endDate") LocalDate endDate);
 
     // 추천 후보 큐 카드: 완료(DONE)·소요시간 미정은 DB에서 걸러 조회 (불필요한 전체 조회 방지)
     @Query("select s from Schedule s " +

@@ -56,10 +56,15 @@ public final class ScheduleSpecifications {
                 if (c.startDate() != null) {
                     LocalDate sd = c.startDate().toLocalDate();
                     LocalTime st = c.startDate().toLocalTime();
-                    // 카드가 필터 시작 이후까지 지속: date > sd OR (date == sd AND endTime > st)
+                    // 카드가 필터 시작 이후까지 지속:
+                    // 기간 일정은 endDate+endTime, 단일 일정은 date+endTime을 종료 시점으로 본다.
                     predicates.add(cb.or(
-                            cb.greaterThan(root.get("date"), sd),
-                            cb.and(cb.equal(root.get("date"), sd), cb.greaterThan(root.get("endTime"), st))));
+                            cb.greaterThan(cb.<LocalDate>coalesce()
+                                    .value(root.get("endDate")).value(root.get("date")), sd),
+                            cb.and(
+                                    cb.equal(cb.<LocalDate>coalesce()
+                                            .value(root.get("endDate")).value(root.get("date")), sd),
+                                    cb.greaterThan(root.get("endTime"), st))));
                 }
                 if (c.endDate() != null) {
                     LocalDate ed = c.endDate().toLocalDate();
@@ -72,7 +77,9 @@ public final class ScheduleSpecifications {
             } else {
                 // 기간필터 미전송 → 오늘(KST) 기준 앞뒤 3개월 기본 범위(날짜 기준, 큐 카드 포함)
                 LocalDate today = LocalDate.now(KST_ZONE_ID);
-                predicates.add(cb.greaterThanOrEqualTo(root.get("date"), today.minusMonths(DEFAULT_RANGE_MONTHS)));
+                predicates.add(cb.greaterThanOrEqualTo(
+                        cb.<LocalDate>coalesce().value(root.get("endDate")).value(root.get("date")),
+                        today.minusMonths(DEFAULT_RANGE_MONTHS)));
                 predicates.add(cb.lessThanOrEqualTo(root.get("date"), today.plusMonths(DEFAULT_RANGE_MONTHS)));
             }
             if (!CollectionUtils.isEmpty(c.personalTags())) {

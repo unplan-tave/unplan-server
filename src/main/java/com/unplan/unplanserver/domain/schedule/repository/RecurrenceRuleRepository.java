@@ -18,12 +18,12 @@ public interface RecurrenceRuleRepository extends JpaRepository<RecurrenceRule, 
     // 상세 조회 시 해당 일정의 반복 규칙(단건, schedule 과 1:1)을 조회. 반복 없으면 empty.
     Optional<RecurrenceRule> findBySchedule(Schedule schedule);
 
-    // 조회 범위에 인스턴스가 생길 수 있는 '활성' 반복 규칙을 원본 일정과 함께 단일 쿼리로 조회한다.
-    // 시작일 <= rangeEnd(그 뒤 시작은 인스턴스가 범위 밖) AND 아직 종료 안 됨(until null 이거나 >= rangeStart).
-    // 종료된 반복까지 로드 후 메모리에서 거르던 것을 DB 단계로 옮겨 데이터 누적 시 부하를 줄인다(#114).
+    // 조회 종료일 이전에 시작한 반복 규칙을 원본 일정과 함께 조회한다.
+    // 기간 반복 일정은 마지막 발생 시작일(until)이 조회 시작일보다 앞서도 그 인스턴스의 endDate가
+    // 조회 범위와 겹칠 수 있으므로 until 하한 필터는 서비스에서 기간 길이까지 고려해 적용한다.
     @Query("select r from RecurrenceRule r join fetch r.schedule s " +
             "where s.memberId = :memberId and s.isRecurring = true " +
-            "and s.date <= :rangeEnd and (r.until is null or r.until >= :rangeStart)")
+            "and s.date <= :rangeEnd")
     List<RecurrenceRule> findActiveRulesWithSchedule(@Param("memberId") Long memberId,
                                                      @Param("rangeStart") LocalDate rangeStart,
                                                      @Param("rangeEnd") LocalDate rangeEnd);

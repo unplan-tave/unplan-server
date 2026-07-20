@@ -15,6 +15,7 @@ public class ScheduleGetResponse {
     private Long scheduleId;
     private String title;
     private String date;
+    private String endDate;
     private String startTime;
     private String endTime;
     private Integer estimatedTime;
@@ -28,6 +29,7 @@ public class ScheduleGetResponse {
                 .scheduleId(schedule.getScheduleId())
                 .title(schedule.getTitle())
                 .date(schedule.getDate() != null ? schedule.getDate().toString() : null)
+                .endDate(schedule.getEndDate() != null ? schedule.getEndDate().toString() : null)
                 .startTime(schedule.getStartTime() != null ? schedule.getStartTime().toString() : null)
                 .endTime(schedule.getEndTime() != null ? schedule.getEndTime().toString() : null)
                 .estimatedTime(schedule.getEstimatedTime())

@@ -44,6 +44,9 @@ public class Schedule {
     @Column(name = "date")
     private LocalDate date;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
     @Column(name = "is_queue")
     private Boolean isQueue;
 
@@ -96,6 +99,7 @@ public class Schedule {
         if (request.getTitle() != null) this.title = request.getTitle();
         if (request.getConditionTag() != null) this.conditionTag = request.getConditionTag();
         if (request.getDate() != null) this.date = request.getDate();
+        if (request.isEndDatePresent()) this.endDate = request.getEndDate();
         if (request.getStartTime() != null) this.startTime = request.getStartTime();
         if (request.getEndTime() != null) this.endTime = request.getEndTime();
         if (request.getEstimatedTime() != null) this.estimatedTime = request.getEstimatedTime();
@@ -108,6 +112,7 @@ public class Schedule {
         if (request.getRemindType() != null) this.remindType = request.getRemindType();
         if (request.getRemindSoundType() != null) this.remindSoundType = request.getRemindSoundType();
         this.isQueue = (this.startTime == null && this.endTime == null);
+        if (Boolean.TRUE.equals(this.isQueue)) this.endDate = null;
     }
 
     /**
@@ -116,6 +121,7 @@ public class Schedule {
      */
     public void assignToPin(LocalDate date, LocalTime startTime, LocalTime endTime) {
         this.date = date;
+        this.endDate = null;
         this.startTime = startTime;
         this.endTime = endTime;
         this.isQueue = (startTime == null && endTime == null);

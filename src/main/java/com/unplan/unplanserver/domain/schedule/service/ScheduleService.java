@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -61,8 +62,9 @@ public class ScheduleService {
         // 시작/종료 시간 검증 — 한쪽만 있는 '반쪽 핀 카드'나 역전된 구간이 저장되면
         // 추천 빈 시간 계산(busy 매핑)이 깨지므로 저장 전에 차단한다.
         validateTimePair(request.getStartTime(), request.getEndTime());
+        validateDateRange(request.getDate(), request.getEndDate());
         // 핀 카드는 같은 날짜의 기존 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다.
-        validatePinNotOverlapping(memberId, request.getDate(),
+        validatePinNotOverlapping(memberId, request.getDate(), request.getEndDate(),
                 request.getStartTime(), request.getEndTime(), null);
 
         // 1. Schedule 엔티티 생성
@@ -72,6 +74,7 @@ public class ScheduleService {
                 .title(request.getTitle())
                 .conditionTag(request.getConditionTag())
                 .date(request.getDate())
+                .endDate(request.getStartTime() != null ? request.getEndDate() : null)
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .estimatedTime(request.getEstimatedTime())
@@ -121,6 +124,7 @@ public class ScheduleService {
                 .scheduleId(saved.getScheduleId())
                 .title(saved.getTitle())
                 .date(saved.getDate() != null ? saved.getDate().toString() : null)
+                .endDate(saved.getEndDate() != null ? saved.getEndDate().toString() : null)
                 .startTime(saved.getStartTime() != null ? saved.getStartTime().toString() : null)
                 .endTime(saved.getEndTime() != null ? saved.getEndTime().toString() : null)
                 .estimatedTime(saved.getEstimatedTime())
@@ -136,7 +140,7 @@ public class ScheduleService {
         // 반복 인스턴스는 원본과 같은 scheduleId 를 갖고 있어 원본 태그가 그대로 매핑된다.
         Map<Long, List<String>> tagsByScheduleId = tagService.getTagNamesByScheduleIds(
                 schedules.stream().map(Schedule::getScheduleId).toList());
-        return schedules.stream()
+        return distinctByScheduleId(schedules).stream()
                 .map(s -> ScheduleGetResponse.from(
                         s, tagsByScheduleId.getOrDefault(s.getScheduleId(), List.of())))
                 .toList();
@@ -148,9 +152,11 @@ public class ScheduleService {
      */
     @Transactional(readOnly = true)
     public List<Schedule> findSchedulesWithRecurring(Long memberId, LocalDate date) {
-        List<Schedule> schedules = new ArrayList<>(scheduleRepository.findByMemberIdAndDate(memberId, date));
-        schedules.addAll(expandRecurringInstances(memberId, date, date));
-        return schedules;
+        List<Schedule> schedules = new ArrayList<>(scheduleRepository.findVisibleOnDate(memberId, date));
+        schedules.addAll(expandRecurringInstances(memberId, date, date).stream()
+                .filter(s -> isVisibleOn(s, date))
+                .toList());
+        return distinctByScheduleId(schedules);
     }
 
     @Transactional(readOnly = true)
@@ -178,8 +184,9 @@ public class ScheduleService {
         // 부분 수정(PATCH) 결과가 반쪽 핀 카드/역전 구간이 되지 않는지 최종 상태로 검증.
         // 검증 실패 시 예외로 트랜잭션이 롤백되어 변경이 반영되지 않는다.
         validateTimePair(schedule.getStartTime(), schedule.getEndTime());
+        validateDateRange(schedule.getDate(), schedule.getEndDate());
         // 수정 후에도 같은 날짜의 다른 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다(자기 자신 제외).
-        validatePinNotOverlapping(memberId, schedule.getDate(),
+        validatePinNotOverlapping(memberId, schedule.getDate(), schedule.getEndDate(),
                 schedule.getStartTime(), schedule.getEndTime(), scheduleId);
 
         // personalTags가 요청에 포함된 경우에만 태그 전체 교체 (null = 기존 유지, 빈 배열 = 전체 해제)
@@ -213,10 +220,11 @@ public class ScheduleService {
         LocalDate weekEnd = weekStart.plusDays(6);
 
         List<Schedule> schedules = new ArrayList<>(
-                scheduleRepository.findByMemberIdAndDateBetween(memberId, weekStart, weekEnd));
+                scheduleRepository.findOverlappingDateRange(memberId, weekStart, weekEnd));
         schedules.addAll(expandRecurringInstances(memberId, weekStart, weekEnd));
 
-        Map<LocalDate, List<Schedule>> byDate = schedules.stream()
+        Map<LocalDate, List<Schedule>> byDate = distinctByScheduleAndDate(
+                expandAcrossDays(schedules, weekStart, weekEnd)).stream()
                 .collect(Collectors.groupingBy(Schedule::getDate));
 
         List<ScheduleWeeklyResponse.DailySchedules> weeklySchedules = Stream.iterate(weekStart, d -> d.plusDays(1))
@@ -246,10 +254,11 @@ public class ScheduleService {
         LocalDate viewEnd = lastDay.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
         List<Schedule> schedules = new ArrayList<>(
-                scheduleRepository.findByMemberIdAndDateBetween(memberId, viewStart, viewEnd));
+                scheduleRepository.findOverlappingDateRange(memberId, viewStart, viewEnd));
         schedules.addAll(expandRecurringInstances(memberId, viewStart, viewEnd));
 
-        List<ScheduleMonthlyResponse.DailyCount> dailyCounts = schedules.stream()
+        List<ScheduleMonthlyResponse.DailyCount> dailyCounts = distinctByScheduleAndDate(
+                expandAcrossDays(schedules, viewStart, viewEnd)).stream()
                 .collect(Collectors.groupingBy(Schedule::getDate, Collectors.counting()))
                 .entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -280,22 +289,37 @@ public class ScheduleService {
         }
     }
 
+    private void validateDateRange(LocalDate date, LocalDate endDate) {
+        if (date != null && endDate != null && endDate.isBefore(date)) {
+            throw new CustomException(ErrorCode.INVALID_SCHEDULE_DATE_RANGE);
+        }
+    }
+
     /**
      * 핀 카드 시간 겹침 검증 — 같은 날짜에 시간이 1분이라도 겹치는 핀 카드가 있으면 등록/수정을 막는다.
      * 반복 일정의 해당 날짜 인스턴스도 점유 시간으로 간주한다({@code findSchedulesWithRecurring} 가 함께 반환).
      * 큐 카드(시간 미지정)는 겹침 대상이 아니며, 수정 시에는 자기 자신({@code excludeId})을 제외한다.
      * 맞닿는 경계(예: 10:00~11:00 과 11:00~12:00)는 겹침으로 보지 않는다.
      */
-    private void validatePinNotOverlapping(Long memberId, LocalDate date,
+    private void validatePinNotOverlapping(Long memberId, LocalDate date, LocalDate endDate,
                                            LocalTime start, LocalTime end, Long excludeId) {
         if (start == null || end == null || date == null) return; // 핀 카드가 아니면 겹침 없음
-        for (Schedule other : findSchedulesWithRecurring(memberId, date)) {
-            if (excludeId != null && excludeId.equals(other.getScheduleId())) continue; // 자기 자신(반복 인스턴스 포함)
-            if (other.getStartTime() == null || other.getEndTime() == null) continue;   // 큐 카드 제외
-            if (start.isBefore(other.getEndTime()) && other.getStartTime().isBefore(end)) {
-                throw new CustomException(ErrorCode.TIME_RANGE_OVERLAP);
+        LocalDate lastDate = endDate != null ? endDate : date;
+        for (LocalDate target = date; !target.isAfter(lastDate); target = target.plusDays(1)) {
+            for (Schedule other : findSchedulesWithRecurring(memberId, target)) {
+                if (excludeId != null && excludeId.equals(other.getScheduleId())) continue;
+                if (other.getStartTime() == null || other.getEndTime() == null) continue;
+                if (start.isBefore(other.getEndTime()) && other.getStartTime().isBefore(end)) {
+                    throw new CustomException(ErrorCode.TIME_RANGE_OVERLAP);
+                }
             }
         }
+    }
+
+    // 기존 단일 날짜 검증 호출부와 테스트 호환용 오버로드.
+    private void validatePinNotOverlapping(Long memberId, LocalDate date,
+                                           LocalTime start, LocalTime end, Long excludeId) {
+        validatePinNotOverlapping(memberId, date, null, start, end, excludeId);
     }
 
     // 반복 규칙 형식 검증 — 잘못된 값이 저장되어 이후 조회 확장 시 예외를 일으키는 것을 차단
@@ -358,16 +382,19 @@ public class ScheduleService {
         List<Schedule> expanded = new ArrayList<>();
         for (RecurrenceRule rule : rules) {
             Schedule original = rule.getSchedule();
+            long durationDays = periodLengthDays(original);
+            LocalDate occurrenceSearchStart = rangeStart.minusDays(durationDays);
 
             // 규칙 하나가 깨져도(과거에 저장된 비정상 데이터 등) 전체 조회가 실패하지 않도록 방어
             try {
-                for (LocalDate d : calculateInstancesInRange(original.getDate(), rule, rangeStart, rangeEnd)) {
+                for (LocalDate d : calculateInstancesInRange(original.getDate(), rule, occurrenceSearchStart, rangeEnd)) {
                     expanded.add(Schedule.builder()
                             .scheduleId(original.getScheduleId())
                             .memberId(original.getMemberId())
                             .title(original.getTitle())
                             .conditionTag(original.getConditionTag())
                             .date(d)
+                            .endDate(durationDays > 0 ? d.plusDays(durationDays) : original.getEndDate())
                             .startTime(original.getStartTime())
                             .endTime(original.getEndTime())
                             .estimatedTime(original.getEstimatedTime())
@@ -387,6 +414,72 @@ public class ScheduleService {
             }
         }
         return expanded;
+    }
+
+    private long periodLengthDays(Schedule schedule) {
+        if (Boolean.TRUE.equals(schedule.getIsQueue())
+                || schedule.getDate() == null || schedule.getEndDate() == null) return 0;
+        return Math.max(0, ChronoUnit.DAYS.between(schedule.getDate(), schedule.getEndDate()));
+    }
+
+    private boolean isVisibleOn(Schedule schedule, LocalDate target) {
+        if (schedule.getDate() == null) return false;
+        LocalDate lastDate = effectiveEndDate(schedule);
+        return !target.isBefore(schedule.getDate()) && !target.isAfter(lastDate);
+    }
+
+    private List<Schedule> expandAcrossDays(List<Schedule> schedules, LocalDate rangeStart, LocalDate rangeEnd) {
+        List<Schedule> expanded = new ArrayList<>();
+        for (Schedule schedule : schedules) {
+            if (schedule.getDate() == null) continue;
+            LocalDate lastDate = effectiveEndDate(schedule);
+            LocalDate firstVisible = schedule.getDate().isBefore(rangeStart) ? rangeStart : schedule.getDate();
+            LocalDate lastVisible = lastDate.isAfter(rangeEnd) ? rangeEnd : lastDate;
+            for (LocalDate day = firstVisible; !day.isAfter(lastVisible); day = day.plusDays(1)) {
+                expanded.add(copyForDisplayDate(schedule, day));
+            }
+        }
+        return expanded;
+    }
+
+    private LocalDate effectiveEndDate(Schedule schedule) {
+        return !Boolean.TRUE.equals(schedule.getIsQueue()) && schedule.getEndDate() != null
+                ? schedule.getEndDate()
+                : schedule.getDate();
+    }
+
+    private Schedule copyForDisplayDate(Schedule original, LocalDate displayDate) {
+        return Schedule.builder()
+                .scheduleId(original.getScheduleId())
+                .memberId(original.getMemberId())
+                .title(original.getTitle())
+                .conditionTag(original.getConditionTag())
+                .date(displayDate)
+                .endDate(original.getEndDate())
+                .startTime(original.getStartTime())
+                .endTime(original.getEndTime())
+                .estimatedTime(original.getEstimatedTime())
+                .isQueue(original.getIsQueue())
+                .isRecurring(original.getIsRecurring())
+                .isConflict(original.getIsConflict())
+                .status(original.getStatus())
+                .build();
+    }
+
+    private List<Schedule> distinctByScheduleId(List<Schedule> schedules) {
+        return new ArrayList<>(schedules.stream().collect(Collectors.toMap(
+                Schedule::getScheduleId,
+                schedule -> schedule,
+                (first, ignored) -> first,
+                java.util.LinkedHashMap::new)).values());
+    }
+
+    private List<Schedule> distinctByScheduleAndDate(List<Schedule> schedules) {
+        return new ArrayList<>(schedules.stream().collect(Collectors.toMap(
+                schedule -> schedule.getScheduleId() + "@" + schedule.getDate(),
+                schedule -> schedule,
+                (first, ignored) -> first,
+                java.util.LinkedHashMap::new)).values());
     }
 
     private List<LocalDate> calculateInstancesInRange(LocalDate originalDate, RecurrenceRule rule,

@@ -150,7 +150,9 @@ public class ScheduleService {
         Schedule schedule = scheduleRepository.findByScheduleIdAndMemberId(scheduleId, memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo, tagService.getTagNamesBySchedule(schedule));
+        RecurrenceRule recurrenceRule = recurrenceRuleRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo,
+                tagService.getTagNamesBySchedule(schedule), recurrenceRule);
     }
 
     @Transactional(readOnly = true)
@@ -182,7 +184,8 @@ public class ScheduleService {
         }
 
         LocationInfo locationInfo = locationInfoRepository.findBySchedule(schedule).orElse(null);
-        return ScheduleDetailResponse.from(schedule, locationInfo, tagNames);
+        RecurrenceRule recurrenceRule = recurrenceRuleRepository.findBySchedule(schedule).orElse(null);
+        return ScheduleDetailResponse.from(schedule, locationInfo, tagNames, recurrenceRule);
     }
 
     @Transactional

@@ -171,6 +171,34 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("기간 필터는 일정 날짜 기준 양끝 포함이며, 한쪽만 주면 그 방향만 제한한다")
+    void dateRangeFilterInclusiveAndOpenEnded() {
+        pin("5월", LocalDate.of(2026, 5, 31), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("6월시작", LocalDate.of(2026, 6, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("6월중순", LocalDate.of(2026, 6, 15), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("6월끝", LocalDate.of(2026, 6, 30), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("7월", LocalDate.of(2026, 7, 1), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+
+        // 양끝 포함 [6/1, 6/30]
+        assertThat(searchService.search(MEMBER_ID,
+                dateRange(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)), 0).data())
+                .extracting(ScheduleSearchResponse::title)
+                .containsExactly("6월시작", "6월중순", "6월끝");
+
+        // startDate 만 → 그 날짜 이후 전부
+        assertThat(searchService.search(MEMBER_ID,
+                dateRange(LocalDate.of(2026, 6, 30), null), 0).data())
+                .extracting(ScheduleSearchResponse::title)
+                .containsExactly("6월끝", "7월");
+
+        // endDate 만 → 그 날짜 이전 전부
+        assertThat(searchService.search(MEMBER_ID,
+                dateRange(null, LocalDate.of(2026, 6, 1)), 0).data())
+                .extracting(ScheduleSearchResponse::title)
+                .containsExactly("5월", "6월시작");
+    }
+
+    @Test
     @DisplayName("personalTags 는 하나라도 연결된 일정을 매칭하고, 응답에 태그가 담긴다")
     void personalTagsOrAndAppearInResponse() {
         Schedule a = pin("보고서", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);

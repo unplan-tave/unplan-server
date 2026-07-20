@@ -13,6 +13,7 @@ public class ScheduleCreateResponse {
     private Long scheduleId;
     private String title;
     private String date;
+    private String endDate;
     private String startTime;
     private String endTime;
     private Integer estimatedTime;

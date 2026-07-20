@@ -28,6 +28,19 @@ public class ScheduleUpdateRequest {
     @Schema(example = "2026-06-20")
     private LocalDate date;
 
+    @Schema(description = "기간 일정 종료 날짜(포함). 명시적 null이면 단일 날짜로 변경하고, 필드 미전송이면 기존 값 유지", example = "2026-06-22")
+    private LocalDate endDate;
+    private boolean endDatePresent;
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+        this.endDatePresent = true;
+    }
+
+    public boolean isEndDatePresent() {
+        return endDatePresent;
+    }
+
     @Schema(example = "09:00")
     private LocalTime startTime;
 

@@ -131,6 +131,27 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("datetime 검색 범위와 날짜 범위가 겹치는 기간 핀 카드를 포함한다")
+    void dateTimeRangeIncludesOverlappingPeriodPin() {
+        LocalDate start = LocalDate.of(2026, 7, 20);
+        Schedule period = Schedule.builder()
+                .memberId(MEMBER_ID).title("3일 일정").conditionTag(ConditionTag.CORE_TASK)
+                .date(start).endDate(start.plusDays(2))
+                .startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(10, 0))
+                .isQueue(false).isRecurring(false).isConflict(false)
+                .status(ScheduleStatus.TODO).build();
+        scheduleRepository.save(period);
+
+        var middleDay = searchService.search(MEMBER_ID,
+                dateTimeRange(start.plusDays(1).atStartOfDay(), start.plusDays(1).atTime(23, 59)), 0);
+        var afterPeriod = searchService.search(MEMBER_ID,
+                dateTimeRange(start.plusDays(3).atStartOfDay(), start.plusDays(3).atTime(23, 59)), 0);
+
+        assertThat(middleDay.data()).extracting(ScheduleSearchResponse::title).containsExactly("3일 일정");
+        assertThat(afterPeriod.data()).extracting(ScheduleSearchResponse::title).doesNotContain("3일 일정");
+    }
+
+    @Test
     @DisplayName("기간필터 미전송 시 오늘 기준 앞뒤 3개월만 반환하고 범위 밖은 제외한다")
     void noDateFilterDefaultsToPlusMinusThreeMonths() {
         pin("범위전", TODAY.minusMonths(4), ScheduleStatus.TODO, ConditionTag.CORE_TASK);

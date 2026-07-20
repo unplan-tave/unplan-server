@@ -76,6 +76,7 @@ public class ScheduleService {
                 .endTime(request.getEndTime())
                 .estimatedTime(request.getEstimatedTime())
                 .location(request.getLocation())
+                .locationDetail(request.getLocationDetail())
                 .memo(request.getMemo())
                 .isRemindOn(request.getIsRemindOn())
                 .remindMinutes(request.getRemindMinutes())

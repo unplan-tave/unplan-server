@@ -29,7 +29,8 @@ public class ScheduleDetailResponse {
     private ScheduleStatus status;
     private ConditionTag conditionTag;
     private String memo;
-    private String location;
+    private String location;         // 대표 위치 (예: 인하대학교)
+    private String locationDetail;   // 상세 위치 (예: 6호관)
     private Boolean isRemindOn;
     private Integer remindMinutes;
     private RemindType remindType;
@@ -79,6 +80,7 @@ public class ScheduleDetailResponse {
                 .conditionTag(schedule.getConditionTag())
                 .memo(schedule.getMemo())
                 .location(schedule.getLocation())
+                .locationDetail(schedule.getLocationDetail())
                 .isRemindOn(schedule.getIsRemindOn())
                 .remindMinutes(schedule.getRemindMinutes())
                 .remindType(schedule.getRemindType())

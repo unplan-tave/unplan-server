@@ -18,6 +18,8 @@ import com.unplan.unplanserver.domain.schedule.enums.ScheduleStatus;
 import com.unplan.unplanserver.domain.schedule.repository.PersonalTagRepository;
 import com.unplan.unplanserver.domain.schedule.repository.ScheduleRepository;
 import com.unplan.unplanserver.domain.schedule.repository.SchedulePersonalTagRepository;
+import com.unplan.unplanserver.global.exception.CustomException;
+import com.unplan.unplanserver.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +35,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 추천 도메인 풀스택 통합 테스트 — 실제 Spring 컨텍스트 + JPA + H2(인메모리)로,
@@ -170,6 +173,54 @@ class RecommendationIntegrationTest {
         assertThat(persisted).isNotEmpty();
         assertThat(persisted).allSatisfy(r ->
                 assertThat(r.getSourceType()).isEqualTo(RecommendationSourceType.QUEUE_CARD));
+    }
+
+    @Test
+    @DisplayName("패스: 패스한 큐 카드는 그날 추천에서 빠지고, 다음 날은 다시 후보로 뜬다")
+    void passExcludesQueueCardForThatDayOnly() {
+        Member member = memberRepository.save(
+                Member.fromGoogle(new GoogleUserInfoDto("oauth-int-pass", "tester", "pass@example.com")));
+        Long memberId = member.getMemberId();
+
+        LocalDate targetDate = TODAY.plusDays(1); // 미래 날짜 → 하루 종일 빈 시간(시각 의존 제거)
+        Schedule queue = scheduleRepository.save(queueCard(memberId, "휴식 준비", ConditionTag.RECOVERY, 30));
+        LocalDateTime now = LocalDateTime.of(TODAY, LocalTime.of(9, 0));
+
+        // 1. 최초 생성 → 그 큐 카드가 추천됨
+        RecommendationListResponse first = recommendationService.generate(memberId, targetDate, now);
+        assertThat(first.recommendations()).isNotEmpty();
+        Long recommendId = first.recommendations().get(0).recommendId();
+
+        // 2. 패스
+        recommendationService.pass(memberId, recommendId);
+        em.flush();
+        em.clear();
+
+        // 3. 같은 날 재생성 → 패스된 큐 카드가 유일 후보였으므로 추천 없음
+        RecommendationListResponse afterPass = recommendationService.generate(memberId, targetDate, now);
+        assertThat(afterPass.recommendations()).isEmpty();
+
+        // 4. 다음 날 → 패스는 날짜 기준이라 같은 큐 카드가 다시 뜬다
+        RecommendationListResponse nextDay = recommendationService.generate(memberId, targetDate.plusDays(1), now);
+        assertThat(nextDay.recommendations())
+                .extracting(r -> r.title()).contains("휴식 준비");
+    }
+
+    @Test
+    @DisplayName("패스: 회복 수단 추천(원본 큐 카드 없음)은 패스할 수 없어 예외가 발생한다")
+    void passRecoveryMeanRecommendationThrows() {
+        Recommendation recoveryRec = recommendationRepository.save(Recommendation.builder()
+                .memberId(MEMBER_ID).date(TODAY).title("스트레칭")
+                .startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(14, 20))
+                .conditionTag(ConditionTag.RECOVERY)
+                .sourceType(RecommendationSourceType.RECOVERY_MEAN)
+                .sourceScheduleId(null)
+                .displayOrder(0)
+                .build());
+
+        assertThatThrownBy(() -> recommendationService.pass(MEMBER_ID, recoveryRec.getRecommendId()))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RECOMMENDATION_NOT_PASSABLE);
     }
 
     // ─────────────────────────── 헬퍼 ───────────────────────────

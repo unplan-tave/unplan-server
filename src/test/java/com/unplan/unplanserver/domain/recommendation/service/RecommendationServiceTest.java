@@ -6,6 +6,7 @@ import com.unplan.unplanserver.domain.onboarding.entity.Biorhythm;
 import com.unplan.unplanserver.domain.onboarding.repository.BiorhythmRepository;
 import com.unplan.unplanserver.domain.onboarding.service.RecoverService;
 import com.unplan.unplanserver.domain.recommendation.dto.response.ConditionRecommendationResponse;
+import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.QueueCardRecommendationResult;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationAcceptResponse;
 import com.unplan.unplanserver.domain.recommendation.dto.response.RecommendationListResponse;
@@ -594,6 +595,42 @@ class RecommendationServiceTest {
         // 재생성: 이 큐카드의 이전 노출분 정리
         verify(recommendationRepository)
                 .deleteByMemberIdAndSourceScheduleIdAndAcceptedScheduleIdIsNull(MEMBER_ID, 77L);
+    }
+
+    @Test
+    @DisplayName("7일 추천: 마감일(card.date)을 넘긴 날짜는 추천하지 않는다")
+    void queueCardStopsAtDeadline() {
+        givenSaveReturnsArgument();
+        // 마감일 = 모레(TODAY+2). 7일 범위여도 마감일 이후(+3~+6)는 탐색하지 않아야 한다
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "이력서 작성", ConditionTag.CORE_TASK, 30, TODAY.plusDays(2))));
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        assertThat(result.hasSlots()).isTrue();
+        // 오늘, +1, +2 (마감일 당일 포함) 총 3개만
+        assertThat(result.success().slots()).hasSize(3);
+        assertThat(result.success().slots())
+                .extracting(QueueCardRecommendationResponse.Slot::date)
+                .containsExactly(TODAY, TODAY.plusDays(1), TODAY.plusDays(2));
+    }
+
+    @Test
+    @DisplayName("7일 내 후보 없음 + 마감일이 7일 이내: 확장해도 볼 날짜가 없어 mustChangeDuration=true")
+    void queueCardNoSlotWithDeadlineWithinRangeCannotExtend() {
+        // 하루보다 긴 소요시간이라 어떤 날에도 슬롯이 안 들어감 + 마감일 3일 뒤
+        when(scheduleRepository.findByScheduleIdAndMemberId(77L, MEMBER_ID))
+                .thenReturn(Optional.of(queue(77L, "긴 일정", ConditionTag.CORE_TASK, 2000, TODAY.plusDays(3))));
+        when(scheduleService.findSchedulesWithRecurring(eq(MEMBER_ID), any())).thenReturn(List.of());
+        when(biorhythmRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+
+        QueueCardRecommendationResult result = service.generateQueueCardRecommendations(MEMBER_ID, 77L, 7, NOW);
+
+        assertThat(result.hasSlots()).isFalse();
+        assertThat(result.noSlot().canExtendTo14Days()).isFalse(); // 마감일이 7일 안이라 확장 무의미
+        assertThat(result.noSlot().mustChangeDuration()).isTrue();
     }
 
     @Test

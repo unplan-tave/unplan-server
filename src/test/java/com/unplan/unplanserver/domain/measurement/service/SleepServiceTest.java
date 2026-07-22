@@ -134,7 +134,7 @@ class SleepServiceTest {
         );
 
         when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -154,6 +154,41 @@ class SleepServiceTest {
         assertThat(response.getIsContinuousSleep()).isFalse();
         assertThat(response.getContinuousSleepGroupId()).isNull();
         assertThat(response.getSleepRecordComment()).isEqualTo("충분히 잘 잤어요");
+    }
+
+    @Test
+    void createSleepSucceedsWhenConditionOnWakeUpDateIsOutsideRequestedSleepRange() {
+        Long memberId = 1L;
+        Member member = new Member();
+        LocalDateTime bedTime = LocalDateTime.of(2026, 7, 20, 23, 5);
+        LocalDateTime wakeUpTime = LocalDateTime.of(2026, 7, 21, 8, 2);
+        LocalDateTime conditionMeasuredAt = LocalDateTime.of(2026, 7, 21, 21, 21);
+        SleepRequest.SleepCreate request = new SleepRequest.SleepCreate(
+                bedTime,
+                wakeUpTime,
+                false,
+                false
+        );
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
+                member,
+                bedTime,
+                wakeUpTime
+        )).thenReturn(conditionMeasuredAt.compareTo(bedTime) >= 0
+                && conditionMeasuredAt.compareTo(wakeUpTime) < 0);
+        when(sleepRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SleepResponse response = sleepService.createSleep(memberId, request);
+
+        assertThat(response.getBedTime()).isEqualTo(bedTime);
+        assertThat(response.getWakeUpTime()).isEqualTo(wakeUpTime);
+        verify(conditionRepository).existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
+                member,
+                bedTime,
+                wakeUpTime
+        );
+        verify(sleepRepository).saveAll(anyList());
     }
 
     @Test
@@ -192,7 +227,7 @@ class SleepServiceTest {
         );
 
         when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -218,7 +253,7 @@ class SleepServiceTest {
         );
 
         when(memberRepository.findById(memberId)).thenReturn(Optional.of(member));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -288,7 +323,7 @@ class SleepServiceTest {
 
         when(sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId))
                 .thenReturn(Optional.of(sleep));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -345,7 +380,7 @@ class SleepServiceTest {
                 .thenReturn(Optional.of(firstSegment));
         when(sleepRepository.findAllByMemberMemberIdAndContinuousSleepGroupId(memberId, "group-1"))
                 .thenReturn(List.of(firstSegment, secondSegment));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -405,7 +440,7 @@ class SleepServiceTest {
                 .thenReturn(Optional.of(firstSegment));
         when(sleepRepository.findAllByMemberMemberIdAndContinuousSleepGroupId(memberId, "group-1"))
                 .thenReturn(List.of(firstSegment, secondSegment));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -442,7 +477,7 @@ class SleepServiceTest {
 
         when(sleepRepository.findBySleepIdAndMemberMemberId(sleepId, memberId))
                 .thenReturn(Optional.of(sleep));
-        when(conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        when(conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()

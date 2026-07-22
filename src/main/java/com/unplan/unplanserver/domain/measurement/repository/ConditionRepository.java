@@ -16,7 +16,7 @@ public interface ConditionRepository extends JpaRepository<Condition, Long> {
             LocalDateTime end
     );
 
-    boolean existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+    boolean existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
             Member member,
             LocalDateTime start,
             LocalDateTime end

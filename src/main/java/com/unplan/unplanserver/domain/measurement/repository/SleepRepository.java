@@ -28,7 +28,7 @@ public interface SleepRepository extends JpaRepository<Sleep, Long> {
 
     @Query("SELECT COUNT(s) > 0 FROM Sleep s " +
             "WHERE s.member.memberId = :memberId " +
-            "AND :targetTime > s.bedTime AND :targetTime < s.wakeUpTime")
+            "AND :targetTime >= s.bedTime AND :targetTime < s.wakeUpTime")
     boolean existsByMemberIdAndSleepTimeOverlap(
             @Param("memberId") Long memberId,
             @Param("targetTime") LocalDateTime targetTime

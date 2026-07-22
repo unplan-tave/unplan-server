@@ -57,7 +57,7 @@ public class SleepService {
                 request.isAllNight()
         );
 
-        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 member,
                 request.bedTime(),
                 request.wakeUpTime()
@@ -96,7 +96,7 @@ public class SleepService {
                 request.isAllNight()
         );
 
-        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtAfterAndMeasuredAtBefore(
+        boolean hasExistingCondition = !request.isAllNight() && conditionRepository.existsByMemberAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThan(
                 sleep.getMember(),
                 request.bedTime(),
                 request.wakeUpTime()

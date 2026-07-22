@@ -25,7 +25,6 @@ import java.util.List;
 public class SwaggerConfig {
 
     private static final String SECURITY_SCHEME_NAME = "bearerAuth";
-    private final ObjectMapper objectMapper;
     @Bean
     public OpenAPI openAPI(
             @Value("${swagger.server-url}") String serverUrl,

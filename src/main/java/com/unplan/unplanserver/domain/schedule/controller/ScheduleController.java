@@ -149,6 +149,7 @@ public class ScheduleController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "홈화면 컨디션 문구 조회", description = "사용자의 컨디션을 기반으로 홈화면에 나타날 컨디션 문구를 조회합니다.")
     @GetMapping("/message")
     public ResponseEntity<ApiResponse<DailyMessageResponseDto>> getDailyMessage(@AuthenticationPrincipal Long memberId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(ApiResponse.success(scheduleService.getDailyMessage(memberId, date)));

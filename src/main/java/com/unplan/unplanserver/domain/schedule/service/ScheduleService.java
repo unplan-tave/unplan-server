@@ -62,6 +62,7 @@ public class ScheduleService {
         // 시작/종료 시간 검증 — 한쪽만 있는 '반쪽 핀 카드'나 역전된 구간이 저장되면
         // 추천 빈 시간 계산(busy 매핑)이 깨지므로 저장 전에 차단한다.
         validateTimePair(request.getStartTime(), request.getEndTime());
+        validatePinHasDate(request.getDate(), request.getStartTime(), request.getEndTime());
         validateDateRange(request.getDate(), request.getEndDate());
         // 핀 카드는 같은 날짜의 기존 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다.
         validatePinNotOverlapping(memberId, request.getDate(), request.getEndDate(),
@@ -184,6 +185,7 @@ public class ScheduleService {
         // 부분 수정(PATCH) 결과가 반쪽 핀 카드/역전 구간이 되지 않는지 최종 상태로 검증.
         // 검증 실패 시 예외로 트랜잭션이 롤백되어 변경이 반영되지 않는다.
         validateTimePair(schedule.getStartTime(), schedule.getEndTime());
+        validatePinHasDate(schedule.getDate(), schedule.getStartTime(), schedule.getEndTime());
         validateDateRange(schedule.getDate(), schedule.getEndDate());
         // 수정 후에도 같은 날짜의 다른 핀 카드(반복 인스턴스 포함)와 시간이 겹치면 안 된다(자기 자신 제외).
         validatePinNotOverlapping(memberId, schedule.getDate(), schedule.getEndDate(),
@@ -292,6 +294,15 @@ public class ScheduleService {
     private void validateDateRange(LocalDate date, LocalDate endDate) {
         if (date != null && endDate != null && endDate.isBefore(date)) {
             throw new CustomException(ErrorCode.INVALID_SCHEDULE_DATE_RANGE);
+        }
+    }
+
+    // 시간이 지정된 카드(핀 카드)는 반드시 날짜가 있어야 한다.
+    // (날짜 없는 큐 카드는 마감일 미정 태스크로 허용되지만, 시간이 있으면 어느 날짜에 귀속되는지 없이는
+    //  캘린더 조회·겹침 판정이 불가능해 유령 데이터가 된다.)
+    private void validatePinHasDate(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        if ((startTime != null || endTime != null) && date == null) {
+            throw new CustomException(ErrorCode.SCHEDULE_DATE_REQUIRED);
         }
     }
 

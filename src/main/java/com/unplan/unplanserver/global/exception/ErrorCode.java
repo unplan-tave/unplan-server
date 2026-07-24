@@ -48,6 +48,7 @@ public enum ErrorCode {
 
     INVALID_SCHEDULE_TIME(HttpStatus.BAD_REQUEST, "INVALID_SCHEDULE_TIME", "일정 시간이 올바르지 않습니다. 시작/종료 시간은 함께 입력해야 하며, 시작 시간은 종료 시간보다 이전이어야 합니다."),
     INVALID_SCHEDULE_DATE_RANGE(HttpStatus.BAD_REQUEST, "INVALID_SCHEDULE_DATE_RANGE", "일정 종료 날짜는 시작 날짜보다 이전일 수 없습니다."),
+    SCHEDULE_DATE_REQUIRED(HttpStatus.BAD_REQUEST, "SCHEDULE_DATE_REQUIRED", "시간이 지정된 일정(핀 카드)에는 날짜가 필요합니다."),
     NOT_A_QUEUE_CARD(HttpStatus.BAD_REQUEST, "NOT_A_QUEUE_CARD", "큐 카드가 아닌 일정에는 추천 시간대를 제공할 수 없습니다."),
     PERSONAL_TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PERSONAL_TAG_LIMIT_EXCEEDED", "개인 태그는 계정당 최대 100개까지 생성할 수 있습니다."),
 

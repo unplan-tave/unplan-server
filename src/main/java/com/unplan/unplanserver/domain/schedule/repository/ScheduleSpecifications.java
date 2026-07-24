@@ -75,12 +75,16 @@ public final class ScheduleSpecifications {
                             cb.and(cb.equal(root.get("date"), ed), cb.lessThan(root.get("startTime"), et))));
                 }
             } else {
-                // 기간필터 미전송 → 오늘(KST) 기준 앞뒤 3개월 기본 범위(날짜 기준, 큐 카드 포함)
+                // 기간필터 미전송 → 오늘(KST) 기준 앞뒤 3개월 기본 범위(날짜 기준, 큐 카드 포함).
+                // 단, 마감일(date) 없는 큐 카드는 기간 범위로 걸러낼 수 없으므로 항상 노출한다.
                 LocalDate today = LocalDate.now(KST_ZONE_ID);
-                predicates.add(cb.greaterThanOrEqualTo(
-                        cb.<LocalDate>coalesce().value(root.get("endDate")).value(root.get("date")),
-                        today.minusMonths(DEFAULT_RANGE_MONTHS)));
-                predicates.add(cb.lessThanOrEqualTo(root.get("date"), today.plusMonths(DEFAULT_RANGE_MONTHS)));
+                predicates.add(cb.or(
+                        cb.isNull(root.get("date")),
+                        cb.and(
+                                cb.greaterThanOrEqualTo(
+                                        cb.<LocalDate>coalesce().value(root.get("endDate")).value(root.get("date")),
+                                        today.minusMonths(DEFAULT_RANGE_MONTHS)),
+                                cb.lessThanOrEqualTo(root.get("date"), today.plusMonths(DEFAULT_RANGE_MONTHS)))));
             }
             if (!CollectionUtils.isEmpty(c.personalTags())) {
                 Subquery<Long> sub = query.subquery(Long.class);

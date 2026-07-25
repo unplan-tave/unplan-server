@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,6 +24,10 @@ class ScheduleValidationTest {
 
     private void validateTimePair(LocalTime start, LocalTime end) {
         invoke("validateTimePair", new Class<?>[]{LocalTime.class, LocalTime.class}, start, end);
+    }
+
+    private void validatePinHasDate(LocalDate date, LocalTime start, LocalTime end) {
+        invoke("validatePinHasDate", new Class<?>[]{LocalDate.class, LocalTime.class, LocalTime.class}, date, start, end);
     }
 
     private void validateRecurrence(RecurrenceFreq freq, String byDay) {
@@ -81,6 +86,25 @@ class ScheduleValidationTest {
     void reversedOrZeroLengthRejected() {
         assertThrows(CustomException.class, () -> validateTimePair(t("10:00"), t("09:00")));
         assertThrows(CustomException.class, () -> validateTimePair(t("10:00"), t("10:00")));
+    }
+
+    // ─────────────────────────── 핀 카드 날짜 필수 ───────────────────────────
+
+    @Test
+    @DisplayName("날짜 있는 핀 카드 / 날짜 없는 큐 카드(시간 없음)는 통과")
+    void pinWithDateAndDatelessQueuePass() {
+        assertDoesNotThrow(() -> validatePinHasDate(LocalDate.of(2026, 6, 20), t("09:00"), t("10:00")));
+        assertDoesNotThrow(() -> validatePinHasDate(null, null, null));           // 마감일 미정 큐 카드
+        assertDoesNotThrow(() -> validatePinHasDate(LocalDate.of(2026, 6, 20), null, null)); // 마감일 있는 큐 카드
+    }
+
+    @Test
+    @DisplayName("시간이 있는데 날짜가 없는 카드는 거부 (유령 데이터 방지)")
+    void timedCardWithoutDateRejected() {
+        assertThrows(CustomException.class, () -> validatePinHasDate(null, t("09:00"), t("10:00")));
+        // 반쪽 시간이라도 시간이 하나라도 있으면 날짜가 없으면 거부
+        assertThrows(CustomException.class, () -> validatePinHasDate(null, t("09:00"), null));
+        assertThrows(CustomException.class, () -> validatePinHasDate(null, null, t("10:00")));
     }
 
     // ─────────────────────────── MONTHLY N번째 요일 범위 ───────────────────────────

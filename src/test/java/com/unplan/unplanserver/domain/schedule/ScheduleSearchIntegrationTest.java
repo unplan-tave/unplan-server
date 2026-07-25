@@ -192,6 +192,24 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("마감일(date) 없는 큐 카드는 기본 범위·큐 필터에서 항상 노출된다")
+    void queueWithoutDeadlineAlwaysVisible() {
+        queueNoDeadline("큐-마감없음");
+        pin("핀-이번달", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+
+        // 무필터 기본 범위(오늘 ±3개월)에도 마감일 없는 큐 카드가 빠지지 않는다
+        PageResponse<ScheduleSearchResponse> all = searchService.search(MEMBER_ID, empty(), 0);
+        assertThat(all.data()).extracting(ScheduleSearchResponse::title)
+                .contains("큐-마감없음", "핀-이번달");
+
+        // 큐 카드 필터(isQueue=true)에서도 노출된다
+        PageResponse<ScheduleSearchResponse> onlyQueue = searchService.search(MEMBER_ID,
+                cond(null, true, null, null, null), 0);
+        assertThat(onlyQueue.data()).extracting(ScheduleSearchResponse::title)
+                .containsExactly("큐-마감없음");
+    }
+
+    @Test
     @DisplayName("datetime 기간 필터는 양끝 포함에 가깝게 겹치는 핀 카드를 조회하고, 한쪽만 주면 그 방향만 제한한다")
     void dateRangeFilterInclusiveAndOpenEnded() {
         pin("5월", LocalDate.of(2026, 5, 31), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
@@ -331,5 +349,13 @@ class ScheduleSearchIntegrationTest {
                 .date(date).estimatedTime(30)
                 .isQueue(true).isRecurring(false).isConflict(false)
                 .status(status).build());
+    }
+
+    private Schedule queueNoDeadline(String title) {
+        return scheduleRepository.save(Schedule.builder()
+                .memberId(MEMBER_ID).title(title).conditionTag(ConditionTag.CORE_TASK)
+                .date(null).estimatedTime(30)
+                .isQueue(true).isRecurring(false).isConflict(false)
+                .status(ScheduleStatus.TODO).build());
     }
 }

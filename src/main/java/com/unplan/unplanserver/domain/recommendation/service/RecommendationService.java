@@ -297,12 +297,16 @@ public class RecommendationService {
         // 회원 설정(#83) — 제외 시간대는 매일 반복(LocalTime)이라 모든 탐색 날짜에 동일 적용
         EmptyTimeSettings settings = emptyTimeSettings(memberId);
 
-        // 3. 날짜별 탐색: 오늘 ~ 오늘+rangeDays-1, 각 날짜의 가장 이른 '들어맞는' 빈 시간 1개
+        // 3. 날짜별 탐색: 오늘 ~ 오늘+rangeDays-1, 각 날짜의 가장 이른 '들어맞는' 빈 시간 1개.
+        //    단, 마감일(card.date)이 있으면 그날까지만 탐색한다 — 마감일을 넘긴 시간대는 추천하지 않는다.
+        //    (마감일 당일은 처리 가능하므로 포함, 마감일이 없으면 전체 범위)
         LocalDate today = now.toLocalDate();
+        LocalDate deadline = card.getDate();
         List<Recommendation> saved = new ArrayList<>();
         int order = 0;
         for (int d = 0; d < rangeDays; d++) {
             LocalDate date = today.plusDays(d);
+            if (deadline != null && date.isAfter(deadline)) break; // 마감일 이후 날짜 제외
             LocalTime windowStart = date.equals(today) ? now.toLocalTime() : LocalTime.MIDNIGHT;
 
             List<TimeRange> busy = new ArrayList<>(sleepBusy);
@@ -335,9 +339,11 @@ public class RecommendationService {
                     .build()));
         }
 
-        // 4. 무슬롯 분기 — 7일이면 14일 확장 유도, 14일까지 없으면 소요시간 변경만 가능
+        // 4. 무슬롯 분기 — 7일이면 14일 확장 유도, 14일까지 없으면 소요시간 변경만 가능.
+        //    단, 마감일이 확장 범위 안(오늘+rangeDays-1 이내)이면 확장해도 볼 날짜가 없으므로 소요시간 변경만 유도한다.
         if (saved.isEmpty()) {
-            boolean canExtend = rangeDays < QUEUE_CARD_EXTENDED_RANGE_DAYS;
+            boolean deadlineWithinRange = deadline != null && !deadline.isAfter(today.plusDays(rangeDays - 1));
+            boolean canExtend = rangeDays < QUEUE_CARD_EXTENDED_RANGE_DAYS && !deadlineWithinRange;
             return QueueCardRecommendationResult.ofNoSlot(canExtend, !canExtend);
         }
 

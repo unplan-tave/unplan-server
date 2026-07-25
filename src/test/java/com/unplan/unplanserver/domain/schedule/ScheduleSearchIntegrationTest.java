@@ -111,7 +111,7 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("datetime 구간 필터는 카드 시간구간이 겹치는 핀 카드만 매칭하고 큐 카드는 제외한다")
+    @DisplayName("datetime 구간 필터는 핀 카드는 시간구간 overlap, 큐 카드는 마감일(date) 기준으로 매칭한다")
     void dateTimeRangeFilterOverlapExcludesQueue() {
         LocalDate a = LocalDate.of(2026, 6, 28);
         LocalDate b = LocalDate.of(2026, 6, 29);
@@ -120,14 +120,15 @@ class ScheduleSearchIntegrationTest {
         pinOn("A-저녁", a, LocalTime.of(20, 0), LocalTime.of(21, 0));   // 시작일 이후 시간대 → 매칭
         pinOn("B-아침", b, LocalTime.of(8, 0), LocalTime.of(9, 0));     // 종료일, 필터끝(12:00) 전에 시작 → 매칭
         pinOn("B-오후", b, LocalTime.of(13, 0), LocalTime.of(14, 0));   // 종료일, 12:00 이후 시작 → 제외
-        queue("큐-시간없음", a, ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 시간 없음 → 제외
+        queue("큐-6/28", a, ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 마감일 6/28, 필터 범위 안 → 매칭
+        queue("큐-6/30", LocalDate.of(2026, 6, 30), ScheduleStatus.TODO, ConditionTag.CORE_TASK); // 마감일 6/30, 필터 범위 밖 → 제외
 
         // 필터 구간 [6/28 14:30, 6/29 12:00]
         var res = searchService.search(MEMBER_ID,
                 dateTimeRange(a.atTime(14, 30), b.atTime(12, 0)), 0);
 
         assertThat(res.data()).extracting(ScheduleSearchResponse::title)
-                .containsExactlyInAnyOrder("A-겹침", "A-저녁", "B-아침");
+                .containsExactlyInAnyOrder("A-겹침", "A-저녁", "B-아침", "큐-6/28");
     }
 
     @Test

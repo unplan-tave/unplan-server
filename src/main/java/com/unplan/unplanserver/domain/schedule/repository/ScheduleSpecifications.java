@@ -51,7 +51,8 @@ public final class ScheduleSpecifications {
             // - startDate/endDate(일시)가 지정되면: 카드 시간구간[날짜+시작시간 ~ 날짜+종료시간]이 [startDate, endDate]와
             //   겹치는 '핀 카드'만 매칭한다(시간 없는 큐 카드 제외). date/time 컬럼을 분해해 overlap 을 판정.
             // - 둘 다 없으면: 오늘 기준 앞뒤 3개월을 Schedule.date 기준으로 적용한다(기본 카드리스트 — 큐 카드 포함).
-            if (c.startDate() != null || c.endDate() != null) {
+            boolean applyDateFilter = (c.startDate() != null || c.endDate() != null) && !Boolean.TRUE.equals(c.isQueue());
+            if (applyDateFilter) {
                 predicates.add(cb.isNotNull(root.get("startTime"))); // 시간 없는 큐 카드 제외
                 if (c.startDate() != null) {
                     LocalDate sd = c.startDate().toLocalDate();

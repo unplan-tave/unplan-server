@@ -3,9 +3,11 @@ package com.unplan.unplanserver.domain.schedule.repository;
 import com.unplan.unplanserver.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.unplan.unplanserver.domain.schedule.entity.Schedule;
 import com.unplan.unplanserver.domain.schedule.entity.SchedulePersonalTag;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -95,6 +97,20 @@ public final class ScheduleSpecifications {
                         spt.get("personalTag").get("name").in(c.personalTags())
                 );
                 predicates.add(cb.exists(sub));
+            }
+
+            // 카드 리스트 정렬: '마감일' 기준 최신순.
+            // 여러 날 걸친 핀 카드는 시작일(date)이 아니라 마감일(endDate)에 놓여야 하므로 coalesce(endDate, date)로 정렬한다.
+            // (단일 핀·큐 카드는 endDate 가 없어 date 로 폴백 — 큐 카드의 date 는 마감일). 동일 마감일은 id 내림차순으로 안정 정렬.
+            // 마감일 없는 카드(coalesce=null)는 맨 뒤(NULLS LAST). coalesce 정렬은 Sort 로 표현 불가라 여기서 지정한다.
+            // count 쿼리(resultType=Long)에는 order by 를 넣지 않는다.
+            Class<?> resultType = query.getResultType();
+            if (resultType != Long.class && resultType != long.class) {
+                Expression<LocalDate> deadline = cb.<LocalDate>coalesce()
+                        .value(root.get("endDate")).value(root.get("date"));
+                query.orderBy(
+                        ((HibernateCriteriaBuilder) cb).desc(deadline, false), // nullsFirst=false → NULLS LAST
+                        cb.desc(root.get("scheduleId")));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

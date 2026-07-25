@@ -74,6 +74,26 @@ class ScheduleSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("여러 날 걸친 핀 카드는 시작일이 아니라 마감일(endDate) 기준으로 정렬된다")
+    void periodPinSortedByEndDate() {
+        // 시작일은 가장 이르지만(오늘) 마감일은 가장 늦은(+10) 기간 핀.
+        // 시작일 정렬이면 맨 뒤여야 하지만, 마감일 정렬이라 맨 앞에 온다.
+        periodPin("기간일정", TODAY, TODAY.plusDays(10));
+        pin("중간", TODAY.plusDays(5), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+        pin("미래", TODAY.plusDays(7), ScheduleStatus.TODO, ConditionTag.CORE_TASK);
+
+        PageResponse<ScheduleSearchResponse> res = searchService.search(MEMBER_ID, empty(), 0);
+
+        // 마감일 DESC: 기간일정(+10) > 미래(+7) > 중간(+5)
+        assertThat(res.data()).extracting(ScheduleSearchResponse::title)
+                .containsExactly("기간일정", "미래", "중간");
+        // 응답엔 시작일(date)·마감일(endDate)이 모두 담긴다
+        ScheduleSearchResponse period = res.data().get(0);
+        assertThat(period.date()).isEqualTo(TODAY.toString());
+        assertThat(period.endDate()).isEqualTo(TODAY.plusDays(10).toString());
+    }
+
+    @Test
     @DisplayName("keyword 는 제목 부분일치(대소문자 무시)")
     void keywordFiltersByTitle() {
         pin("Team Meeting", TODAY, ScheduleStatus.TODO, ConditionTag.CORE_TASK);
@@ -333,6 +353,15 @@ class ScheduleSearchIntegrationTest {
                 .date(date).startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
                 .isQueue(false).isRecurring(false).isConflict(false)
                 .status(status).build());
+    }
+
+    private Schedule periodPin(String title, LocalDate date, LocalDate endDate) {
+        return scheduleRepository.save(Schedule.builder()
+                .memberId(MEMBER_ID).title(title).conditionTag(ConditionTag.CORE_TASK)
+                .date(date).endDate(endDate)
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
+                .isQueue(false).isRecurring(false).isConflict(false)
+                .status(ScheduleStatus.TODO).build());
     }
 
     private Schedule pinOn(String title, LocalDate date, LocalTime start, LocalTime end) {

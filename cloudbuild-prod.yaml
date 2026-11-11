@@ -25,13 +25,13 @@ options:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_db_username/versions/latest
+    - versionName: projects/unplan-513315/secrets/prod_db_username/versions/latest
       env: 'DB_USERNAME'
-    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_db_password/versions/latest
+    - versionName: projects/unplan-513315/secrets/prod_db_password/versions/latest
       env: 'DB_PASSWORD'
-    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_jwt_secret/versions/latest
+    - versionName: projects/unplan-513315/secrets/prod_jwt_secret/versions/latest
       env: 'JWT_SECRET'
-    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_google_client_id/versions/latest
+    - versionName: projects/unplan-513315/secrets/prod_google_client_id/versions/latest
       env: 'GOOGLE_CLIENT_ID'
-    - versionName: projects/project-444d4167-0f20-42df-85d/secrets/prod_gemini_api_key/versions/latest
+    - versionName: projects/unplan-513315/secrets/prod_gemini_api_key/versions/latest
       env: 'GEMINI_API_KEY'

@@ -12,7 +12,6 @@ import com.unplan.unplanserver.global.response.PagingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,12 +29,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ScheduleSearchService {
 
-    // 카드 리스트 기본 정렬: 최신순 = 날짜 내림차순(핀=시작일, 큐=마감일 — 둘 다 date). 동일 날짜는 id 내림차순으로 안정 정렬.
-    // (Figma 기획: 카드리스트 정렬은 '최신순'만 존재)
-    private static final Sort SORT = Sort.by(
-            Sort.Order.desc("date").nullsLast(),
-            Sort.Order.desc("scheduleId"));
-
+    // 카드 리스트 정렬(최신순 = 마감일 내림차순)은 coalesce(endDate, date) 기반이라 Sort 로 표현 불가 →
+    // ScheduleSpecifications.search 안에서 orderBy 로 지정한다. (Figma 기획: 카드리스트 정렬은 '최신순'만 존재)
     private final ScheduleRepository scheduleRepository;
     private final SchedulePersonalTagRepository schedulePersonalTagRepository;
     private final RecommendationRepository recommendationRepository;
@@ -44,7 +39,7 @@ public class ScheduleSearchService {
     public PageResponse<ScheduleSearchResponse> search(Long memberId, ScheduleSearchCondition condition, Integer page) {
         // 기간필터 기본값(오늘 ±3개월)·datetime 구간 매칭은 ScheduleSpecifications 가 처리한다.
         Specification<Schedule> spec = ScheduleSpecifications.search(memberId, condition);
-        PageRequest pageRequest = PagingUtils.pageRequest(page, SORT);
+        PageRequest pageRequest = PagingUtils.pageRequest(page);
 
         Page<Schedule> found = scheduleRepository.findAll(spec, pageRequest);
         if (found.isEmpty()) {

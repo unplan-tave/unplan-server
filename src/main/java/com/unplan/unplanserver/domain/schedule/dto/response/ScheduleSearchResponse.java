@@ -8,7 +8,8 @@ import java.util.List;
  * 일정 필터 검색 결과 항목 (카드 리스트 카드 1개).
  * 날짜·시간은 스케줄 도메인 응답 컨벤션에 맞춰 String(ISO) 으로 직렬화한다.
  *
- * @param date          핀=시작일, 큐=마감일 (Schedule.date). 카드 리스트 월별 그룹핑·정렬 기준
+ * @param date          핀=시작일, 큐=마감일 (Schedule.date). 여러 날 걸친 핀은 endDate 가 마감일.
+ *                      카드 리스트 정렬 기준은 마감일 = coalesce(endDate, date) (ScheduleSpecifications 참고)
  * @param isRecommended 추천으로 수락되어 생성된 일정인지 (Recommendation.acceptedScheduleId 매핑)
  */
 public record ScheduleSearchResponse(

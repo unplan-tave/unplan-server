@@ -8,8 +8,9 @@ steps:
           --source . \
           --region asia-northeast3 \
           --allow-unauthenticated \
+          --set-cloudsql-instances unplan-513315:asia-northeast3:unplan-prod-db \
           --set-env-vars "SPRING_PROFILES_ACTIVE=dev" \
-          --set-env-vars "DEVELOP_DB_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=project-444d4167-0f20-42df-85d:asia-northeast3:unplan-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
+          --set-env-vars "DEVELOP_DB_URL=jdbc:postgresql:///unplan_dev?cloudSqlInstance=unplan-513315:asia-northeast3:unplan-prod-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory" \
           --set-env-vars "DEVELOP_DB_USERNAME=$$DB_USERNAME" \
           --set-env-vars "DEVELOP_DB_PASSWORD=$$DB_PASSWORD" \
           --set-env-vars "JWT_SECRET=$$JWT_SECRET" \
@@ -25,9 +26,9 @@ options:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/unplan-513315/secrets/prod_db_username/versions/latest
+    - versionName: projects/unplan-513315/secrets/dev_db_username/versions/latest
       env: 'DB_USERNAME'
-    - versionName: projects/unplan-513315/secrets/prod_db_password/versions/latest
+    - versionName: projects/unplan-513315/secrets/dev_db_password/versions/latest
       env: 'DB_PASSWORD'
     - versionName: projects/unplan-513315/secrets/prod_jwt_secret/versions/latest
       env: 'JWT_SECRET'
